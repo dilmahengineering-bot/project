@@ -1,0 +1,8 @@
+services:
+  - type: static
+    name: taskflow-frontend
+    staticPublishPath: ./frontend/build
+    buildCommand: cd frontend && npm install && npm run build
+    routes:
+      - path: /*
+        destination: /index.html
