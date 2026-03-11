@@ -18,10 +18,7 @@ router.get('/', authenticate, async (req, res) => {
     let params = [];
     let idx = 1;
 
-    if (req.user.role !== 'admin') {
-      where.push(`(t.assigned_to = $${idx} OR t.created_by = $${idx})`);
-      params.push(req.user.id); idx++;
-    }
+    // All users can see all tasks (removed admin-only restriction)
     if (status) { where.push(`t.status = $${idx}`); params.push(status); idx++; }
     if (assigned_to) { where.push(`t.assigned_to = $${idx}`); params.push(assigned_to); idx++; }
     if (search) { where.push(`(t.title ILIKE $${idx} OR t.description ILIKE $${idx})`); params.push(`%${search}%`); idx++; }
