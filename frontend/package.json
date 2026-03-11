@@ -11,11 +11,13 @@
     "@hello-pangea/dnd": "^16.3.0",
     "date-fns": "^2.30.0",
     "react-hot-toast": "^2.4.1",
-    "recharts": "^2.9.3"
+    "recharts": "^2.9.3",
+    "express": "^4.18.2"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "serve": "node server.js"
   },
   "browserslist": {
     "production": [">0.2%", "not dead"],
