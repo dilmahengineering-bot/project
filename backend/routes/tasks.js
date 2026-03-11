@@ -115,9 +115,15 @@ router.put('/:id', authenticate, async (req, res) => {
     if (!existing.rows[0]) return res.status(404).json({ error: 'Task not found' });
     const old = existing.rows[0];
 
+    // LOCKED DEADLINE: Users cannot modify deadline directly
+    // They must request an extension instead
+    if (deadline && deadline !== old.deadline) {
+      return res.status(403).json({ error: 'Deadline is locked. Please request an extension if you need to change it.' });
+    }
+
     const result = await db.query(
-      'UPDATE tasks SET title=$1, description=$2, assigned_to=$3, status=$4, deadline=$5, priority=$6 WHERE id=$7 RETURNING *',
-      [title || old.title, description ?? old.description, assigned_to || old.assigned_to, status || old.status, deadline || old.deadline, priority || old.priority, req.params.id]
+      'UPDATE tasks SET title=$1, description=$2, assigned_to=$3, status=$4, priority=$5 WHERE id=$6 RETURNING *',
+      [title || old.title, description ?? old.description, assigned_to || old.assigned_to, status || old.status, priority || old.priority, req.params.id]
     );
 
     if (assigned_to && assigned_to !== old.assigned_to) {
@@ -129,6 +135,7 @@ router.put('/:id', authenticate, async (req, res) => {
 
     res.json({ task: result.rows[0] });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 });
