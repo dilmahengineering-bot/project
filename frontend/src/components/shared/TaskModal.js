@@ -66,6 +66,11 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
 
   const deadline = detail?.task ? getDeadlineStatus(detail.task) : null;
 
+  // PERMISSION LOGIC:
+  // - Users can change: title, description, status, priority, assigned_to (UNLIMITED TIMES)
+  // - Users can change: deadline (ONCE ONLY - tracked in task history)
+  // - Admins can change: ALL fields (UNLIMITED TIMES)
+  
   // Check if current user has already changed deadline (non-admin only)
   const userDeadlineChangeCount = detail?.history?.filter(h => 
     h.action_type === 'deadline_changed' && h.user_id === user?.id

@@ -133,12 +133,17 @@ router.put('/:id', authenticate, async (req, res) => {
     if (!existing.rows[0]) return res.status(404).json({ error: 'Task not found' });
     const old = existing.rows[0];
 
+    // PERMISSION LOGIC:
+    // - Users can change: title, description, status, priority, assigned_to (UNLIMITED TIMES)
+    // - Users can change: deadline (ONCE ONLY per task)
+    // - Admins can change: ALL fields (UNLIMITED TIMES)
+    
     // Check if user is trying to change deadline
     const deadlineChanged = deadline && deadline !== old.deadline;
     
     if (deadlineChanged && req.user.role !== 'admin') {
       // Non-admins can only change deadline ONCE
-      // Check if deadline has already been changed
+      // Check if deadline has already been changed by this user
       const deadlineChanges = await db.query(
         `SELECT COUNT(*) FROM task_history 
          WHERE task_id = $1 AND action_type = 'deadline_changed' AND user_id = $2`,
