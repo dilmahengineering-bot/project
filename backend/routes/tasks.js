@@ -141,16 +141,27 @@ router.put('/:id', authenticate, async (req, res) => {
     // - Users can change: deadline (ONCE ONLY per task)
     // - Admins can change: ALL fields (UNLIMITED TIMES)
     
+    // Helper to normalize dates for comparison (convert to YYYY-MM-DD format)
+    const normalizeDate = (dateStr) => {
+      if (!dateStr) return null;
+      const date = new Date(dateStr);
+      return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+    };
+    
     // Check if user is trying to change deadline
     // Only treat as a deadline change if:
     // 1. A new deadline value is provided
-    // 2. It's different from the current deadline
+    // 2. It's different from the current deadline (after normalizing dates)
     // 3. The user is NOT an admin
-    const deadlineChanged = deadline && String(deadline).trim() !== String(old.deadline).trim();
+    const normalizedOldDeadline = normalizeDate(old.deadline);
+    const normalizedNewDeadline = normalizeDate(deadline);
+    const deadlineChanged = normalizedNewDeadline && normalizedNewDeadline !== normalizedOldDeadline;
+    
     console.log('DEBUG: Deadline change check:', { 
-      isProvidingDeadline: !!deadline, 
-      currentDeadline: old.deadline, 
+      currentDeadline: old.deadline,
+      normalizedCurrent: normalizedOldDeadline,
       newDeadline: deadline,
+      normalizedNew: normalizedNewDeadline,
       deadlineChanged, 
       isAdmin: req.user.role === 'admin'
     });

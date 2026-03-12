@@ -1,4 +1,4 @@
-import io from 'socket.io-client';
+Pushed to GitHubimport io from 'socket.io-client';
 
 class SocketService {
   constructor() {
@@ -9,7 +9,11 @@ class SocketService {
   connect(token) {
     if (this.socket?.connected) return;
 
-    const serverURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    // Extract base URL - remove /api suffix if present
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    const serverURL = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
+    
+    console.log('Connecting to WebSocket at:', serverURL);
     
     this.socket = io(serverURL, {
       auth: {
