@@ -88,12 +88,25 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
   const handleSave = async () => {
     if (!form.title || !form.deadline) return toast.error('Title and deadline required');
     setLoading(true);
+    
+    // Prepare payload - ensure all fields are sent
+    const payload = {
+      title: form.title,
+      description: form.description,
+      assigned_to: form.assigned_to || null,
+      status: form.status,
+      priority: form.priority,
+      deadline: form.deadline
+    };
+    
+    console.log('DEBUG: Sending form update:', payload);
+    
     try {
       if (isNew) {
-        await api.post('/tasks', form);
+        await api.post('/tasks', payload);
         toast.success('Task created!');
       } else {
-        await api.put('/tasks/' + task.id, form);
+        await api.put('/tasks/' + task.id, payload);
         toast.success('Task updated!');
       }
       onSave();
