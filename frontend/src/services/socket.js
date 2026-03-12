@@ -1,4 +1,4 @@
-Pushed to GitHubimport io from 'socket.io-client';
+import io from 'socket.io-client';
 
 class SocketService {
   constructor() {
