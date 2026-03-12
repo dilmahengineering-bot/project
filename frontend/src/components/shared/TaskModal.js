@@ -72,9 +72,16 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
   // - Admins can change: ALL fields (UNLIMITED TIMES)
   
   // Check if current user has already changed deadline (non-admin only)
-  const userDeadlineChangeCount = detail?.history?.filter(h => 
-    h.action_type === 'deadline_changed' && h.user_id === user?.id
-  ).length || 0;
+  // Ensure user ID is loaded before checking history
+  const currentUserId = user?.id ? String(user.id) : null;
+  
+  let userDeadlineChangeCount = 0;
+  if (currentUserId && detail?.history?.length > 0) {
+    userDeadlineChangeCount = detail.history.filter(h => 
+      h.action_type === 'deadline_changed' && String(h.user_id || '') === currentUserId
+    ).length;
+  }
+  
   const canChangeDeadline = isAdmin || userDeadlineChangeCount === 0;
   const deadlineDisabled = !isNew && !canChangeDeadline;
 

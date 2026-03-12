@@ -145,12 +145,15 @@ router.put('/:id', authenticate, async (req, res) => {
       // Non-admins can only change deadline ONCE
       // Check if deadline has already been changed by this user
       const deadlineChanges = await db.query(
-        `SELECT COUNT(*) FROM task_history 
+        `SELECT COUNT(*) as count FROM task_history 
          WHERE task_id = $1 AND action_type = 'deadline_changed' AND user_id = $2`,
         [req.params.id, req.user.id]
       );
       
-      if (parseInt(deadlineChanges.rows[0].count) > 0) {
+      const changeCount = parseInt(deadlineChanges.rows[0].count);
+      console.log(`DEBUG: User ${req.user.id} deadline changes for task ${req.params.id}: ${changeCount}`);
+      
+      if (changeCount > 0) {
         return res.status(403).json({ error: 'You have already changed the deadline once. Contact admin to change it again.' });
       }
     }
