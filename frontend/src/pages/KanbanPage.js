@@ -89,8 +89,12 @@ export default function KanbanPage() {
     setTasks(prev => prev.map(t => t.id === draggableId ? { ...t, ...updates } : t));
 
     try {
-      await api.put('/tasks/' + draggableId, { ...task, ...updates });
-    } catch {
+      // Only send the fields being updated to avoid permission issues
+      console.log('DEBUG: Dragging task, sending updates:', updates);
+      await api.put('/tasks/' + draggableId, updates);
+      console.log('DEBUG: Drag update successful');
+    } catch (err) {
+      console.error('DEBUG: Drag update failed:', err.response?.status, err.response?.data?.error);
       load(); // Revert on error
     }
   };
