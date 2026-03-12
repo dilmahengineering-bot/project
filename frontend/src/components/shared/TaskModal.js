@@ -23,7 +23,18 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
 
   useEffect(() => {
     if (task?.id) {
-      api.get('/tasks/' + task.id).then(res => setDetail(res.data)).catch(() => {});
+      api.get('/tasks/' + task.id).then(res => {
+        setDetail(res.data);
+        // Sync form with latest task data
+        setForm({
+          title: res.data.task.title || '',
+          description: res.data.task.description || '',
+          assigned_to: res.data.task.assigned_to || '',
+          deadline: res.data.task.deadline ? res.data.task.deadline.split('T')[0] : '',
+          priority: res.data.task.priority || 'medium',
+          status: res.data.task.status || 'pending',
+        });
+      }).catch(() => {});
     }
   }, [task?.id]);
 
@@ -86,7 +97,9 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
   const deadlineDisabled = !isNew && !canChangeDeadline;
 
   const handleSave = async () => {
-    if (!form.title || !form.deadline) return toast.error('Title and deadline required');
+    if (!form.title) return toast.error('Title is required');
+    if (isNew && !form.deadline) return toast.error('Deadline is required for new tasks');
+    
     setLoading(true);
     
     // Prepare payload - ensure all fields are sent

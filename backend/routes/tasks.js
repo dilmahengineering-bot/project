@@ -142,8 +142,18 @@ router.put('/:id', authenticate, async (req, res) => {
     // - Admins can change: ALL fields (UNLIMITED TIMES)
     
     // Check if user is trying to change deadline
-    const deadlineChanged = deadline && deadline !== old.deadline;
-    console.log('DEBUG: Deadline changed?', deadlineChanged, { old: old.deadline, new: deadline });
+    // Only treat as a deadline change if:
+    // 1. A new deadline value is provided
+    // 2. It's different from the current deadline
+    // 3. The user is NOT an admin
+    const deadlineChanged = deadline && String(deadline).trim() !== String(old.deadline).trim();
+    console.log('DEBUG: Deadline change check:', { 
+      isProvidingDeadline: !!deadline, 
+      currentDeadline: old.deadline, 
+      newDeadline: deadline,
+      deadlineChanged, 
+      isAdmin: req.user.role === 'admin'
+    });
     
     if (deadlineChanged && req.user.role !== 'admin') {
       // Non-admins can only change deadline ONCE
