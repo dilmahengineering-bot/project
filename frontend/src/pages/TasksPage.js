@@ -7,7 +7,7 @@ import TaskModal from '../components/shared/TaskModal';
 import { useAuth } from '../context/AuthContext';
 
 export default function TasksPage({ adminView = false }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,9 @@ export default function TasksPage({ adminView = false }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 20, ...Object.fromEntries(Object.entries(filters).filter(([,v]) => v)) });
+      // If not admin view, automatically filter for current user's tasks only
+      const queryFilters = adminView ? filters : { ...filters, assigned_to: user?.id || '' };
+      const params = new URLSearchParams({ page, limit: 20, ...Object.fromEntries(Object.entries(queryFilters).filter(([,v]) => v)) });
       const [tasksRes, usersRes] = await Promise.all([
         api.get('/tasks?' + params),
         api.get('/users')
@@ -30,21 +32,40 @@ export default function TasksPage({ adminView = false }) {
       setUsers(usersRes.data.users);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [page, filters]);
+  }, [page, filters, adminView, user?.id]);
 
   useEffect(() => { load(); }, [load]);
 
   // Real-time updates from Socket.io
   useEffect(() => {
     const handleTaskUpdated = (data) => {
-      setTasks(prevTasks => 
-        prevTasks.map(t => t.id === data.taskId ? { ...t, ...data.task } : t)
-      );
+      // For non-admin users, only show if assigned to them
+      const shouldShow = adminView || data.task.assigned_to === user?.id;
+      
+      setTasks(prevTasks => {
+        const taskExists = prevTasks.some(t => t.id === data.taskId);
+        if (taskExists && shouldShow) {
+          // Update existing task
+          return prevTasks.map(t => t.id === data.taskId ? { ...t, ...data.task } : t);
+        } else if (taskExists && !shouldShow) {
+          // Remove task if no longer assigned to current user
+          return prevTasks.filter(t => t.id !== data.taskId);
+        } else if (!taskExists && shouldShow) {
+          // Add task if now assigned to current user
+          return [{ ...data.task }, ...prevTasks];
+        }
+        return prevTasks;
+      });
     };
 
     const handleTaskCreated = (data) => {
-      setTasks(prevTasks => [data.task, ...prevTasks]);
-      setTotal(prev => prev + 1);
+      // For non-admin users, only show if assigned to them
+      const shouldShow = adminView || data.task.assigned_to === user?.id;
+      
+      if (shouldShow) {
+        setTasks(prevTasks => [data.task, ...prevTasks]);
+        setTotal(prev => prev + 1);
+      }
     };
 
     const handleTaskDeleted = (data) => {
@@ -53,9 +74,20 @@ export default function TasksPage({ adminView = false }) {
     };
 
     const handleTaskCompleted = (data) => {
-      setTasks(prevTasks =>
-        prevTasks.map(t => t.id === data.taskId ? { ...t, ...data.task } : t)
-      );
+      // For non-admin users, only show if assigned to them
+      const shouldShow = adminView || data.task.assigned_to === user?.id;
+      
+      setTasks(prevTasks => {
+        const taskExists = prevTasks.some(t => t.id === data.taskId);
+        if (taskExists && shouldShow) {
+          return prevTasks.map(t => t.id === data.taskId ? { ...t, ...data.task } : t);
+        } else if (taskExists && !shouldShow) {
+          return prevTasks.filter(t => t.id !== data.taskId);
+        } else if (!taskExists && shouldShow) {
+          return [{ ...data.task }, ...prevTasks];
+        }
+        return prevTasks;
+      });
     };
 
     socketService.onTaskUpdated(handleTaskUpdated);
@@ -69,7 +101,7 @@ export default function TasksPage({ adminView = false }) {
       socketService.off('task:deleted', handleTaskDeleted);
       socketService.off('task:completed', handleTaskCompleted);
     };
-  }, []);
+  }, [adminView, user?.id]);
 
   const openNew = () => { setSelected(null); setShowModal(true); };
   const openTask = (t) => { setSelected(t); setShowModal(true); };
