@@ -133,15 +133,26 @@ router.put('/:id', authenticate, async (req, res) => {
     if (!existing.rows[0]) return res.status(404).json({ error: 'Task not found' });
     const old = existing.rows[0];
 
-    // LOCKED DEADLINE: Users cannot modify deadline directly
-    // They must request an extension instead
-    if (deadline && deadline !== old.deadline) {
-      return res.status(403).json({ error: 'Deadline is locked. Please request an extension if you need to change it.' });
+    // Check if user is trying to change deadline
+    const deadlineChanged = deadline && deadline !== old.deadline;
+    
+    if (deadlineChanged && req.user.role !== 'admin') {
+      // Non-admins can only change deadline ONCE
+      // Check if deadline has already been changed
+      const deadlineChanges = await db.query(
+        `SELECT COUNT(*) FROM task_history 
+         WHERE task_id = $1 AND action_type = 'deadline_changed' AND user_id = $2`,
+        [req.params.id, req.user.id]
+      );
+      
+      if (parseInt(deadlineChanges.rows[0].count) > 0) {
+        return res.status(403).json({ error: 'You have already changed the deadline once. Contact admin to change it again.' });
+      }
     }
 
     const result = await db.query(
-      'UPDATE tasks SET title=$1, description=$2, assigned_to=$3, status=$4, priority=$5 WHERE id=$6 RETURNING *',
-      [title || old.title, description ?? old.description, assigned_to || old.assigned_to, status || old.status, priority || old.priority, req.params.id]
+      'UPDATE tasks SET title=$1, description=$2, assigned_to=$3, status=$4, priority=$5, deadline=$6 WHERE id=$7 RETURNING *',
+      [title || old.title, description ?? old.description, assigned_to || old.assigned_to, status || old.status, priority || old.priority, deadline || old.deadline, req.params.id]
     );
 
     if (assigned_to && assigned_to !== old.assigned_to) {
@@ -149,6 +160,9 @@ router.put('/:id', authenticate, async (req, res) => {
     }
     if (status && status !== old.status) {
       await logHistory(req.params.id, 'status_changed', req.user.id, `Status: ${old.status} → ${status}`, old.status, status);
+    }
+    if (deadlineChanged) {
+      await logHistory(req.params.id, 'deadline_changed', req.user.id, `Deadline changed`, old.deadline, deadline);
     }
 
     // Broadcast task update

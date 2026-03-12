@@ -66,6 +66,13 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
 
   const deadline = detail?.task ? getDeadlineStatus(detail.task) : null;
 
+  // Check if current user has already changed deadline (non-admin only)
+  const userDeadlineChangeCount = detail?.history?.filter(h => 
+    h.action_type === 'deadline_changed' && h.user_id === user?.id
+  ).length || 0;
+  const canChangeDeadline = isAdmin || userDeadlineChangeCount === 0;
+  const deadlineDisabled = !isNew && !canChangeDeadline;
+
   const handleSave = async () => {
     if (!form.title || !form.deadline) return toast.error('Title and deadline required');
     setLoading(true);
@@ -178,8 +185,11 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
                 <div className="form-group">
-                  <label className="form-label">Deadline *</label>
-                  <input type="date" className="form-control" value={form.deadline} onChange={e => setForm(p=>({...p,deadline:e.target.value}))} />
+                  <label className="form-label">Deadline * {deadlineDisabled && <span style={{color:'var(--danger)',fontSize:'12px'}}>(Changed once)</span>}</label>
+                  <input type="date" className="form-control" value={form.deadline} onChange={e => setForm(p=>({...p,deadline:e.target.value}))} disabled={deadlineDisabled} style={{cursor: deadlineDisabled ? 'not-allowed' : 'pointer', opacity: deadlineDisabled ? 0.6 : 1}} />
+                  {deadlineDisabled && (
+                    <p style={{fontSize:'12px',color:'var(--warning)',marginTop:'4px'}}>ℹ️ You've already changed this deadline once. Contact admin to change it again.</p>
+                  )}
                 </div>
                 {!isNew && (
                   <div className="form-group">
