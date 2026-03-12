@@ -129,12 +129,10 @@ router.post('/', authenticate, async (req, res) => {
 router.put('/:id', authenticate, async (req, res) => {
   try {
     const { title, description, assigned_to, status, deadline, priority } = req.body;
-    console.log('DEBUG: Update request for task', req.params.id, { title, description, assigned_to, status, deadline, priority, userRole: req.user.role, userId: req.user.id });
     
     const existing = await db.query('SELECT * FROM tasks WHERE id = $1', [req.params.id]);
     if (!existing.rows[0]) return res.status(404).json({ error: 'Task not found' });
     const old = existing.rows[0];
-    console.log('DEBUG: Current task state:', { title: old.title, status: old.status, deadline: old.deadline });
 
     // PERMISSION LOGIC:
     // - Users can change: title, description, status, priority, assigned_to (UNLIMITED TIMES)
@@ -157,15 +155,6 @@ router.put('/:id', authenticate, async (req, res) => {
     const normalizedNewDeadline = normalizeDate(deadline);
     const deadlineChanged = normalizedNewDeadline && normalizedNewDeadline !== normalizedOldDeadline;
     
-    console.log('DEBUG: Deadline change check:', { 
-      currentDeadline: old.deadline,
-      normalizedCurrent: normalizedOldDeadline,
-      newDeadline: deadline,
-      normalizedNew: normalizedNewDeadline,
-      deadlineChanged, 
-      isAdmin: req.user.role === 'admin'
-    });
-    
     if (deadlineChanged && req.user.role !== 'admin') {
       // Non-admins can only change deadline ONCE
       // Check if deadline has already been changed by this user
@@ -176,10 +165,8 @@ router.put('/:id', authenticate, async (req, res) => {
       );
       
       const changeCount = parseInt(deadlineChanges.rows[0].count);
-      console.log(`DEBUG: User ${req.user.id} deadline changes for task ${req.params.id}: ${changeCount}`);
       
       if (changeCount > 0) {
-        console.log('DEBUG: Blocking deadline change - user already changed it once');
         return res.status(403).json({ error: 'You have already changed the deadline once. Contact admin to change it again.' });
       }
     }
@@ -188,17 +175,14 @@ router.put('/:id', authenticate, async (req, res) => {
       'UPDATE tasks SET title=$1, description=$2, assigned_to=$3, status=$4, priority=$5, deadline=$6 WHERE id=$7 RETURNING *',
       [title || old.title, description ?? old.description, assigned_to || old.assigned_to, status || old.status, priority || old.priority, deadline || old.deadline, req.params.id]
     );
-    console.log('DEBUG: Task updated successfully. New state:', { title: result.rows[0].title, status: result.rows[0].status, deadline: result.rows[0].deadline });
 
     if (assigned_to && assigned_to !== old.assigned_to) {
       await logHistory(req.params.id, 'reassigned', req.user.id, `Reassigned task`, old.assigned_to, assigned_to);
     }
     if (status && status !== old.status) {
-      console.log('DEBUG: Logging status change:', { from: old.status, to: status });
       await logHistory(req.params.id, 'status_changed', req.user.id, `Status: ${old.status} → ${status}`, old.status, status);
     }
     if (deadlineChanged) {
-      console.log('DEBUG: Logging deadline change:', { from: old.deadline, to: deadline });
       await logHistory(req.params.id, 'deadline_changed', req.user.id, `Deadline changed`, old.deadline, deadline);
     }
 
