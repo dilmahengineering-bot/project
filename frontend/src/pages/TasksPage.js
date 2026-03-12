@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
+import socketService from '../services/socket';
 import { getDeadlineStatus, getStatusBadge, getPriorityBadge, formatDate } from '../utils/helpers';
 import Layout from '../components/shared/Layout';
 import TaskModal from '../components/shared/TaskModal';
@@ -32,6 +33,43 @@ export default function TasksPage({ adminView = false }) {
   }, [page, filters]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Real-time updates from Socket.io
+  useEffect(() => {
+    const handleTaskUpdated = (data) => {
+      setTasks(prevTasks => 
+        prevTasks.map(t => t.id === data.taskId ? { ...t, ...data.task } : t)
+      );
+    };
+
+    const handleTaskCreated = (data) => {
+      setTasks(prevTasks => [data.task, ...prevTasks]);
+      setTotal(prev => prev + 1);
+    };
+
+    const handleTaskDeleted = (data) => {
+      setTasks(prevTasks => prevTasks.filter(t => t.id !== data.taskId));
+      setTotal(prev => Math.max(0, prev - 1));
+    };
+
+    const handleTaskCompleted = (data) => {
+      setTasks(prevTasks =>
+        prevTasks.map(t => t.id === data.taskId ? { ...t, ...data.task } : t)
+      );
+    };
+
+    socketService.onTaskUpdated(handleTaskUpdated);
+    socketService.onTaskCreated(handleTaskCreated);
+    socketService.onTaskDeleted(handleTaskDeleted);
+    socketService.onTaskCompleted(handleTaskCompleted);
+
+    return () => {
+      socketService.off('task:updated', handleTaskUpdated);
+      socketService.off('task:created', handleTaskCreated);
+      socketService.off('task:deleted', handleTaskDeleted);
+      socketService.off('task:completed', handleTaskCompleted);
+    };
+  }, []);
 
   const openNew = () => { setSelected(null); setShowModal(true); };
   const openTask = (t) => { setSelected(t); setShowModal(true); };

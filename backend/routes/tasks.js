@@ -10,6 +10,20 @@ const logHistory = async (taskId, actionType, userId, notes, oldVal = null, newV
   );
 };
 
+// Helper to broadcast task updates to all connected users
+const broadcastTaskUpdate = (req, eventType, taskId, taskData) => {
+  const io = req.app.locals.io;
+  if (!io) return;
+  
+  io.emit(`task:${eventType}`, {
+    taskId,
+    task: taskData,
+    updatedBy: req.user.id,
+    updatedByName: req.user.name,
+    timestamp: new Date()
+  });
+};
+
 // Get all tasks
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -100,6 +114,10 @@ router.post('/', authenticate, async (req, res) => {
     );
     const task = result.rows[0];
     await logHistory(task.id, 'created', req.user.id, `Task created: ${title}`);
+    
+    // Broadcast task creation
+    broadcastTaskUpdate(req, 'created', task.id, task);
+    
     res.status(201).json({ task });
   } catch (err) {
     console.error(err);
@@ -133,6 +151,9 @@ router.put('/:id', authenticate, async (req, res) => {
       await logHistory(req.params.id, 'status_changed', req.user.id, `Status: ${old.status} → ${status}`, old.status, status);
     }
 
+    // Broadcast task update
+    broadcastTaskUpdate(req, 'updated', req.params.id, result.rows[0]);
+    
     res.json({ task: result.rows[0] });
   } catch (err) {
     console.error(err);
@@ -143,9 +164,13 @@ router.put('/:id', authenticate, async (req, res) => {
 // Mark complete
 router.put('/:id/complete', authenticate, async (req, res) => {
   try {
-    await db.query('UPDATE tasks SET status = $1 WHERE id = $2', ['completed', req.params.id]);
+    const result = await db.query('UPDATE tasks SET status = $1 WHERE id = $2 RETURNING *', ['completed', req.params.id]);
     await logHistory(req.params.id, 'completed', req.user.id, 'Task marked as completed');
-    res.json({ message: 'Task marked complete' });
+    
+    // Broadcast task completion
+    broadcastTaskUpdate(req, 'completed', req.params.id, result.rows[0]);
+    
+    res.json({ message: 'Task marked complete', task: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -154,12 +179,16 @@ router.put('/:id/complete', authenticate, async (req, res) => {
 // Admin confirm completion
 router.put('/:id/confirm', authenticate, requireAdmin, async (req, res) => {
   try {
-    await db.query(
-      'UPDATE tasks SET completion_confirmed=true, completion_confirmed_by=$1, completion_confirmed_at=NOW(), status=$2 WHERE id=$3',
+    const result = await db.query(
+      'UPDATE tasks SET completion_confirmed=true, completion_confirmed_by=$1, completion_confirmed_at=NOW(), status=$2 WHERE id=$3 RETURNING *',
       [req.user.id, 'archived', req.params.id]
     );
     await logHistory(req.params.id, 'confirmed', req.user.id, 'Completion confirmed by admin');
-    res.json({ message: 'Task confirmed and archived' });
+    
+    // Broadcast task confirmation
+    broadcastTaskUpdate(req, 'confirmed', req.params.id, result.rows[0]);
+    
+    res.json({ message: 'Task confirmed and archived', task: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -177,6 +206,18 @@ router.post('/:id/extension', authenticate, async (req, res) => {
       [req.params.id, req.user.id, task.rows[0].extended_deadline || task.rows[0].deadline, new_deadline, reason]
     );
     await logHistory(req.params.id, 'extension_requested', req.user.id, `Extension requested to ${new_deadline}`);
+    
+    // Broadcast extension request
+    const io = req.app.locals.io;
+    if (io) {
+      io.emit('extension:requested', {
+        taskId: req.params.id,
+        extension: result.rows[0],
+        requestedBy: req.user.name,
+        timestamp: new Date()
+      });
+    }
+    
     res.status(201).json({ extension: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -196,10 +237,32 @@ router.put('/extensions/:extId', authenticate, requireAdmin, async (req, res) =>
     );
 
     if (approval_status === 'approved') {
-      await db.query('UPDATE tasks SET extended_deadline=$1 WHERE id=$2', [ext.rows[0].new_deadline, ext.rows[0].task_id]);
+      const taskResult = await db.query('UPDATE tasks SET extended_deadline=$1 WHERE id=$2 RETURNING *', [ext.rows[0].new_deadline, ext.rows[0].task_id]);
       await logHistory(ext.rows[0].task_id, 'extension_approved', req.user.id, `Extension approved to ${ext.rows[0].new_deadline}`);
+      
+      // Broadcast extension approval
+      const io = req.app.locals.io;
+      if (io) {
+        io.emit('extension:approved', {
+          taskId: ext.rows[0].task_id,
+          newDeadline: ext.rows[0].new_deadline,
+          approvedBy: req.user.name,
+          task: taskResult.rows[0],
+          timestamp: new Date()
+        });
+      }
     } else {
       await logHistory(ext.rows[0].task_id, 'extension_rejected', req.user.id, 'Extension rejected');
+      
+      // Broadcast extension rejection
+      const io = req.app.locals.io;
+      if (io) {
+        io.emit('extension:rejected', {
+          taskId: ext.rows[0].task_id,
+          rejectedBy: req.user.name,
+          timestamp: new Date()
+        });
+      }
     }
 
     res.json({ message: `Extension ${approval_status}` });
@@ -212,6 +275,17 @@ router.put('/extensions/:extId', authenticate, requireAdmin, async (req, res) =>
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     await db.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
+    
+    // Broadcast task deletion
+    const io = req.app.locals.io;
+    if (io) {
+      io.emit('task:deleted', {
+        taskId: req.params.id,
+        deletedBy: req.user.name,
+        timestamp: new Date()
+      });
+    }
+    
     res.json({ message: 'Task deleted' });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

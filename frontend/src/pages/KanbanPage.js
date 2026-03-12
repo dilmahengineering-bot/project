@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import api from '../utils/api';
+import socketService from '../services/socket';
 import { getDeadlineStatus, getPriorityBadge, getInitials } from '../utils/helpers';
 import Layout from '../components/shared/Layout';
 import TaskModal from '../components/shared/TaskModal';
@@ -31,6 +32,44 @@ export default function KanbanPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Real-time updates from Socket.io
+  useEffect(() => {
+    const handleTaskUpdated = (data) => {
+      setTasks(prevTasks =>
+        prevTasks.map(t => t.id === data.taskId ? { ...t, ...data.task } : t)
+      );
+    };
+
+    const handleTaskCreated = (data) => {
+      // Only add if not archived
+      if (data.task.status !== 'archived') {
+        setTasks(prevTasks => [data.task, ...prevTasks]);
+      }
+    };
+
+    const handleTaskDeleted = (data) => {
+      setTasks(prevTasks => prevTasks.filter(t => t.id !== data.taskId));
+    };
+
+    const handleTaskCompleted = (data) => {
+      setTasks(prevTasks =>
+        prevTasks.map(t => t.id === data.taskId ? { ...t, ...data.task } : t)
+      );
+    };
+
+    socketService.onTaskUpdated(handleTaskUpdated);
+    socketService.onTaskCreated(handleTaskCreated);
+    socketService.onTaskDeleted(handleTaskDeleted);
+    socketService.onTaskCompleted(handleTaskCompleted);
+
+    return () => {
+      socketService.off('task:updated', handleTaskUpdated);
+      socketService.off('task:created', handleTaskCreated);
+      socketService.off('task:deleted', handleTaskDeleted);
+      socketService.off('task:completed', handleTaskCompleted);
+    };
+  }, []);
 
   const onDragEnd = async (result) => {
     const { destination, source, draggableId } = result;

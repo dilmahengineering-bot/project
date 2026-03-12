@@ -5,8 +5,56 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const db = require('./db');
 const bcrypt = require('bcryptjs');
+const http = require('http');
+const socketIO = require('socket.io');
+const jwt = require('jsonwebtoken');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIO(server, {
+  cors: { origin: process.env.FRONTEND_URL || '*', credentials: true },
+  transports: ['websocket', 'polling']
+});
+
+// Socket.io JWT authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) return next(new Error('Authentication error'));
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    socket.user = decoded;
+    next();
+  } catch (err) {
+    next(new Error('Authentication error'));
+  }
+});
+
+// Store active socket connections per user
+const userSockets = new Map();
+
+io.on('connection', (socket) => {
+  const userId = socket.user.id;
+  if (!userSockets.has(userId)) {
+    userSockets.set(userId, []);
+  }
+  userSockets.get(userId).push(socket.id);
+  
+  console.log(`✅ User ${socket.user.name} connected (${socket.id})`);
+
+  socket.on('disconnect', () => {
+    const sockets = userSockets.get(userId) || [];
+    userSockets.set(userId, sockets.filter(id => id !== socket.id));
+    if (userSockets.get(userId).length === 0) {
+      userSockets.delete(userId);
+    }
+    console.log(`👋 User ${socket.user.name} disconnected`);
+  });
+});
+
+// Make io accessible to routes
+app.locals.io = io;
+app.locals.userSockets = userSockets;
 
 app.use(helmet({ crossOriginEmbedderPolicy: false }));
 app.use(cors({ origin: process.env.FRONTEND_URL || '*', credentials: true }));
@@ -102,7 +150,7 @@ const initDB = async () => {
 };
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   await initDB();
 });

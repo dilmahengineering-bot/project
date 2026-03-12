@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
+import socketService from '../../services/socket';
 import { formatDate, getDeadlineStatus, timeAgo } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -24,6 +25,43 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
     if (task?.id) {
       api.get('/tasks/' + task.id).then(res => setDetail(res.data)).catch(() => {});
     }
+  }, [task?.id]);
+
+  // Real-time updates for task details
+  useEffect(() => {
+    if (!task?.id) return;
+
+    const refreshTaskDetail = () => {
+      api.get('/tasks/' + task.id).then(res => setDetail(res.data)).catch(() => {});
+    };
+
+    const handleTaskUpdated = (data) => {
+      if (data.taskId === task.id) {
+        refreshTaskDetail();
+      }
+    };
+
+    const handleExtensionApproved = (data) => {
+      if (data.taskId === task.id) {
+        refreshTaskDetail();
+      }
+    };
+
+    const handleExtensionRequested = (data) => {
+      if (data.taskId === task.id) {
+        refreshTaskDetail();
+      }
+    };
+
+    socketService.onTaskUpdated(handleTaskUpdated);
+    socketService.onExtensionApproved(handleExtensionApproved);
+    socketService.onExtensionRequested(handleExtensionRequested);
+
+    return () => {
+      socketService.off('task:updated', handleTaskUpdated);
+      socketService.off('extension:approved', handleExtensionApproved);
+      socketService.off('extension:requested', handleExtensionRequested);
+    };
   }, [task?.id]);
 
   const deadline = detail?.task ? getDeadlineStatus(detail.task) : null;
