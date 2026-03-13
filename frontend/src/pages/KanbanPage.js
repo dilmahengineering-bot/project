@@ -40,7 +40,8 @@ export default function KanbanPage() {
   const saveUserOrder = async () => {
     try {
       await api.post('/users/kanban-order/update', { users: userOrder });
-      setUsers(userOrder);
+      // Reload from API to confirm save
+      await load();
       setReorderMode(false);
     } catch (err) {
       console.error('Failed to save user order:', err);

@@ -7,6 +7,15 @@ const router = express.Router();
 // Get all users (admin sees all, users see active list for task assignment)
 router.get('/', authenticate, async (req, res) => {
   try {
+    // For user role, ensure they have kanban_order set
+    if (req.user.role !== 'admin') {
+      await db.query(`
+        UPDATE users 
+        SET kanban_order = (SELECT COUNT(*) FROM users u2 WHERE u2.role = 'user' AND u2.created_at <= users.created_at) - 1
+        WHERE role = 'user' AND kanban_order = 0
+      `);
+    }
+    
     const query = req.user.role === 'admin'
       ? 'SELECT id, name, email, role, avatar_color, is_active, kanban_order, created_at FROM users ORDER BY created_at DESC'
       : 'SELECT id, name, email, role, avatar_color, kanban_order FROM users WHERE is_active = true AND role = $1 ORDER BY kanban_order ASC, name';
