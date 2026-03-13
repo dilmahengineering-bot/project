@@ -8,9 +8,10 @@ const router = express.Router();
 router.get('/', authenticate, async (req, res) => {
   try {
     const query = req.user.role === 'admin'
-      ? 'SELECT id, name, email, role, avatar_color, is_active, created_at FROM users ORDER BY created_at DESC'
-      : 'SELECT id, name, email, role, avatar_color FROM users WHERE is_active = true ORDER BY name';
-    const result = await db.query(query);
+      ? 'SELECT id, name, email, role, avatar_color, is_active, kanban_order, created_at FROM users ORDER BY created_at DESC'
+      : 'SELECT id, name, email, role, avatar_color, kanban_order FROM users WHERE is_active = true AND role = $1 ORDER BY kanban_order ASC, name';
+    const params = req.user.role === 'admin' ? [] : ['user'];
+    const result = await db.query(query, params);
     res.json({ users: result.rows });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -26,10 +27,17 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
     const exists = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (exists.rows[0]) return res.status(400).json({ error: 'Email already exists' });
 
+    // Get next kanban_order for user role
+    const orderResult = await db.query(
+      'SELECT COALESCE(MAX(kanban_order), 0) + 1 as next_order FROM users WHERE role = $1',
+      [role]
+    );
+    const nextOrder = orderResult.rows[0].next_order;
+
     const hashed = await bcrypt.hash(password, 12);
     const result = await db.query(
-      'INSERT INTO users (name, email, password, role, avatar_color) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, avatar_color, created_at',
-      [name, email.toLowerCase(), hashed, role, avatar_color]
+      'INSERT INTO users (name, email, password, role, avatar_color, kanban_order) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role, avatar_color, kanban_order, created_at',
+      [name, email.toLowerCase(), hashed, role, avatar_color, nextOrder]
     );
     res.status(201).json({ user: result.rows[0] });
   } catch (err) {
@@ -41,10 +49,10 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
 // Update user (admin only)
 router.put('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { name, email, role, avatar_color, is_active } = req.body;
+    const { name, email, role, avatar_color, is_active, kanban_order } = req.body;
     const result = await db.query(
-      'UPDATE users SET name=$1, email=$2, role=$3, avatar_color=$4, is_active=$5 WHERE id=$6 RETURNING id, name, email, role, avatar_color, is_active',
-      [name, email, role, avatar_color, is_active, req.params.id]
+      'UPDATE users SET name=$1, email=$2, role=$3, avatar_color=$4, is_active=$5, kanban_order=$6 WHERE id=$7 RETURNING id, name, email, role, avatar_color, is_active, kanban_order',
+      [name, email, role, avatar_color, is_active, kanban_order, req.params.id]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
     res.json({ user: result.rows[0] });
@@ -72,6 +80,24 @@ router.put('/:id/reset-password', authenticate, requireAdmin, async (req, res) =
     await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, req.params.id]);
     res.json({ message: 'Password reset' });
   } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update kanban order (admin only)
+router.post('/kanban-order/update', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { users } = req.body;
+    if (!Array.isArray(users)) return res.status(400).json({ error: 'Users array required' });
+
+    // Update kanban_order for all users
+    for (let i = 0; i < users.length; i++) {
+      await db.query('UPDATE users SET kanban_order = $1 WHERE id = $2', [i, users[i].id]);
+    }
+
+    res.json({ message: 'Kanban order updated' });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 });

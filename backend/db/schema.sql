@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
     avatar_color VARCHAR(7) DEFAULT '#6366f1',
     is_active BOOLEAN DEFAULT true,
+    kanban_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );

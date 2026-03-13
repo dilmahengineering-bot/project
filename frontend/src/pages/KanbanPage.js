@@ -5,6 +5,7 @@ import socketService from '../services/socket';
 import { getDeadlineStatus, getPriorityBadge, getInitials } from '../utils/helpers';
 import Layout from '../components/shared/Layout';
 import TaskModal from '../components/shared/TaskModal';
+import { useAuth } from '../context/AuthContext';
 
 const STATUS_COLUMNS = [
   { id: 'pending', label: '⏳ Pending', color: '#f59e0b', bg: '#fef3c7' },
@@ -13,11 +14,14 @@ const STATUS_COLUMNS = [
 ];
 
 export default function KanbanPage() {
+  const { isAdmin } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewBy, setViewBy] = useState('status'); // 'status' or 'user'
+  const [reorderMode, setReorderMode] = useState(false);
+  const [userOrder, setUserOrder] = useState([]);
 
   const load = async () => {
     try {
@@ -26,9 +30,34 @@ export default function KanbanPage() {
         api.get('/users')
       ]);
       setTasks(tasksRes.data.tasks.filter(t => t.status !== 'archived'));
-      setUsers(usersRes.data.users.filter(u => u.role === 'user'));
+      const usersData = usersRes.data.users.filter(u => u.role === 'user');
+      setUsers(usersData);
+      setUserOrder(usersData);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
+  };
+
+  const saveUserOrder = async () => {
+    try {
+      await api.post('/users/kanban-order/update', { users: userOrder });
+      setUsers(userOrder);
+      setReorderMode(false);
+    } catch (err) {
+      console.error('Failed to save user order:', err);
+      // Revert on error
+      load();
+    }
+  };
+
+  const onUserReorderDragEnd = (result) => {
+    const { destination, source, index } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+    const items = Array.from(userOrder);
+    const [reorderedItem] = items.splice(source.index, 1);
+    items.splice(destination.index, 0, reorderedItem);
+    setUserOrder(items);
   };
 
   useEffect(() => { load(); }, []);
@@ -82,7 +111,7 @@ export default function KanbanPage() {
     if (viewBy === 'status') {
       updates.status = destination.droppableId;
     } else {
-      updates.assigned_to = destination.droppableId === 'unassigned' ? null : destination.droppableId;
+      updates.assigned_to = destination.droppableId;
     }
 
     // Optimistic update
@@ -101,16 +130,13 @@ export default function KanbanPage() {
 
   const getTasksFor = (columnId) => {
     if (viewBy === 'status') return tasks.filter(t => t.status === columnId);
-    if (columnId === 'unassigned') return tasks.filter(t => !t.assigned_to);
     return tasks.filter(t => t.assigned_to === columnId);
   };
 
+  const displayUsers = reorderMode ? userOrder : users;
   const columns = viewBy === 'status'
     ? STATUS_COLUMNS
-    : [
-        { id: 'unassigned', label: '❓ Unassigned', color: '#6b7280', bg: '#f3f4f6' },
-        ...users.map(u => ({ id: u.id, label: u.name, color: u.avatar_color || '#4f46e5', bg: '#ede9fe', user: u }))
-      ];
+    : displayUsers.map(u => ({ id: u.id, label: u.name, color: u.avatar_color || '#4f46e5', bg: '#ede9fe', user: u }));
 
   if (loading) return (
     <Layout title="📊 Kanban Board">
@@ -128,10 +154,59 @@ export default function KanbanPage() {
           <span style={{fontSize:'13px',color:'var(--text-muted)'}}>Group by:</span>
           <button className={`btn btn-sm${viewBy==='status'?' btn-primary':' btn-ghost'}`} onClick={() => setViewBy('status')}>Status</button>
           <button className={`btn btn-sm${viewBy==='user'?' btn-primary':' btn-ghost'}`} onClick={() => setViewBy('user')}>User</button>
+          {isAdmin && viewBy === 'user' && !reorderMode && (
+            <button className="btn btn-sm btn-ghost" onClick={() => { setReorderMode(true); setUserOrder([...users]); }} style={{marginLeft:'12px', borderLeft:'1px solid var(--border)', paddingLeft:'12px'}}>↻ Reorder</button>
+          )}
+          {reorderMode && (
+            <>
+              <button className="btn btn-sm btn-primary" onClick={saveUserOrder}>✓ Save</button>
+              <button className="btn btn-sm btn-ghost" onClick={() => { setReorderMode(false); setUserOrder([...users]); }}>✕ Cancel</button>
+            </>
+          )}
         </div>
       </div>
 
-      <DragDropContext onDragEnd={onDragEnd}>
+      <DragDropContext onDragEnd={reorderMode ? onUserReorderDragEnd : onDragEnd}>
+        {reorderMode && viewBy === 'user' && (
+          <div style={{marginBottom:'20px',padding:'16px',background:'var(--bg-secondary)',borderRadius:'var(--radius)',border:'2px dashed #d97706'}}>
+            <p style={{fontSize:'12px',color:'var(--text-muted)',marginBottom:'12px',fontStyle:'italic'}}>Drag to reorder users:</p>
+            <Droppable droppableId="user-reorder" direction="horizontal">
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  style={{display:'flex',gap:'12px',flexWrap:'wrap',minHeight:'60px',padding:'8px'}}
+                >
+                  {userOrder.map((user, index) => (
+                    <Draggable key={user.id} draggableId={`user-${user.id}`} index={index}>
+                      {(prov, snap) => (
+                        <div
+                          ref={prov.innerRef}
+                          {...prov.draggableProps}
+                          {...prov.dragHandleProps}
+                          style={{
+                            padding:'8px 12px',
+                            background:snap.isDragging ? user.avatar_color || '#4f46e5' : 'white',
+                            color:snap.isDragging ? 'white' : 'var(--text-primary)',
+                            border:`2px solid ${user.avatar_color || '#4f46e5'}`,
+                            borderRadius:'6px',
+                            cursor:'grab',
+                            fontWeight:'500',
+                            fontSize:'14px',
+                            ...prov.draggableProps.style
+                          }}
+                        >
+                          {user.name}
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        )}
         <div className="kanban-board">
           {columns.map(col => {
             const colTasks = getTasksFor(col.id);

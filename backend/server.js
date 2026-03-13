@@ -83,6 +83,7 @@ const initDB = async () => {
         role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
         avatar_color VARCHAR(7) DEFAULT '#6366f1',
         is_active BOOLEAN DEFAULT true,
+        kanban_order INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
@@ -131,6 +132,13 @@ const initDB = async () => {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+
+    // Add kanban_order column if it doesn't exist (for existing databases)
+    try {
+      await db.query(`ALTER TABLE users ADD COLUMN kanban_order INTEGER DEFAULT 0`);
+    } catch (err) {
+      // Column might already exist, ignore error
+    }
 
     // Seed admin
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@taskflow.com';
