@@ -81,14 +81,18 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Reset password (admin only)
+// Reset password (admin only) - resets to default: Admin@123
 router.put('/:id/reset-password', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { newPassword } = req.body;
-    const hashed = await bcrypt.hash(newPassword, 12);
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot reset your own password from here' });
+    const user = await db.query('SELECT id, name FROM users WHERE id = $1', [req.params.id]);
+    if (!user.rows[0]) return res.status(404).json({ error: 'User not found' });
+    const defaultPassword = 'Admin@123';
+    const hashed = await bcrypt.hash(defaultPassword, 12);
     await db.query('UPDATE users SET password = $1 WHERE id = $2', [hashed, req.params.id]);
-    res.json({ message: 'Password reset' });
+    res.json({ message: `Password reset to default for ${user.rows[0].name}` });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 });

@@ -36,12 +36,14 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
             <NavItem to="/dashboard" icon="🏠" label="Dashboard" />
             <NavItem to="/tasks" icon="✅" label="My Tasks" />
             <NavItem to="/kanban" icon="📊" label="Kanban Board" />
+            <NavItem to="/cnc-kanban" icon="⚙️" label="CNC Kanban" />
           </div>
 
           {isAdmin && (
             <div className="nav-section">
               <div className="nav-section-title">Admin</div>
               <NavItem to="/admin/tasks" icon="📋" label="All Tasks" />
+              <NavItem to="/admin/workflows" icon="🔧" label="Workflows" />
               <NavItem to="/admin/extensions" icon="🕐" label="Extensions" badge={pendingExtensions} />
               <NavItem to="/admin/users" icon="👥" label="Users" />
               <NavItem to="/admin/reports" icon="📄" label="Reports" />

@@ -8,6 +8,14 @@ const bcrypt = require('bcryptjs');
 const http = require('http');
 const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
+const path = require('path');
+const fs = require('fs');
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -50,6 +58,32 @@ io.on('connection', (socket) => {
     }
     console.log(`👋 User ${socket.user.name} disconnected`);
   });
+
+  // CNC Job Card events
+  socket.on('cnc-job-card:created', (data) => {
+    io.emit('cnc-job-card:created', data);
+    console.log(`📋 New CNC job card created: ${data.job_card_number}`);
+  });
+
+  socket.on('cnc-job-card:updated', (data) => {
+    io.emit('cnc-job-card:updated', data);
+    console.log(`✏️ CNC job card updated: ${data.id}`);
+  });
+
+  socket.on('cnc-job-card:stage-moved', (data) => {
+    io.emit('cnc-job-card:stage-moved', data);
+    console.log(`🔄 CNC job card moved to stage: ${data.stage_name}`);
+  });
+
+  socket.on('cnc-job-card:completed', (data) => {
+    io.emit('cnc-job-card:completed', data);
+    console.log(`✅ CNC job card completed: ${data.id}`);
+  });
+
+  socket.on('workflow:updated', (data) => {
+    io.emit('workflow:updated', data);
+    console.log(`🔧 Workflow updated: ${data.id}`);
+  });
 });
 
 // Make io accessible to routes
@@ -57,15 +91,33 @@ app.locals.io = io;
 app.locals.userSockets = userSockets;
 
 app.use(helmet({ crossOriginEmbedderPolicy: false }));
-app.use(cors({ origin: process.env.FRONTEND_URL || '*', credentials: true }));
+app.use(cors({ 
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://123.231.13.189:3000'
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true 
+}));
 app.use(express.json());
 app.use(morgan('dev'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/workflows', require('./routes/workflows'));
+app.use('/api/cnc-jobs', require('./routes/cnc-jobs'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
@@ -133,6 +185,150 @@ const initDB = async () => {
       )
     `);
 
+    // Workflows table for CNC manufacturing
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS workflows (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        workflow_type VARCHAR(50) DEFAULT 'cnc_manufacturing',
+        is_active BOOLEAN DEFAULT true,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Add missing columns if table already exists
+    await db.query(`ALTER TABLE workflows ADD COLUMN IF NOT EXISTS workflow_type VARCHAR(50) DEFAULT 'cnc_manufacturing'`).catch(() => {});
+    await db.query(`ALTER TABLE workflows ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id) ON DELETE SET NULL`).catch(() => {});
+
+    // Workflow stages table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS workflow_stages (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        workflow_id UUID REFERENCES workflows(id) ON DELETE CASCADE,
+        stage_name VARCHAR(255) NOT NULL,
+        stage_order INTEGER NOT NULL,
+        color VARCHAR(7) DEFAULT '#6366f1',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Rename column if table already exists with old name
+    await db.query(`ALTER TABLE workflow_stages RENAME COLUMN name TO stage_name`).catch(() => {});
+    await db.query(`ALTER TABLE workflow_stages ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`).catch(() => {});
+
+    // CNC Job Cards table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS cnc_job_cards (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        workflow_id UUID REFERENCES workflows(id) ON DELETE SET NULL,
+        current_stage_id UUID REFERENCES workflow_stages(id) ON DELETE SET NULL,
+        job_name VARCHAR(255) NOT NULL,
+        job_card_number VARCHAR(100) UNIQUE,
+        subjob_card_number VARCHAR(100),
+        job_date TIMESTAMP,
+        machine_name VARCHAR(255),
+        client_name VARCHAR(255),
+        part_number VARCHAR(255),
+        manufacturing_type VARCHAR(50),
+        quantity INTEGER DEFAULT 1,
+        estimate_end_date TIMESTAMP,
+        actual_end_date TIMESTAMP,
+        assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+        priority VARCHAR(20) DEFAULT 'medium',
+        status VARCHAR(50) DEFAULT 'active',
+        notes TEXT,
+        material VARCHAR(255),
+        drawing_number VARCHAR(255),
+        tolerance VARCHAR(100),
+        surface_finish VARCHAR(100),
+        is_active BOOLEAN DEFAULT true,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Add new columns to existing cnc_job_cards table
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS material VARCHAR(255)`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS drawing_number VARCHAR(255)`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS tolerance VARCHAR(100)`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS surface_finish VARCHAR(100)`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS actual_end_date TIMESTAMP`).catch(() => {});
+
+    // Procurement detail columns
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS item_code VARCHAR(255)`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS dimension VARCHAR(255)`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS pr_number VARCHAR(100)`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS po_number VARCHAR(100)`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS estimated_delivery_date TIMESTAMP`).catch(() => {});
+
+    // CNC Job Card Attachments table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS cnc_job_attachments (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        job_card_id UUID REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
+        file_name VARCHAR(500) NOT NULL,
+        original_name VARCHAR(500) NOT NULL,
+        file_type VARCHAR(100),
+        file_size INTEGER,
+        uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // CNC Job Card History table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS cnc_job_card_history (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        job_card_id UUID REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
+        action_type VARCHAR(50) NOT NULL,
+        from_stage_id UUID REFERENCES workflow_stages(id) ON DELETE SET NULL,
+        to_stage_id UUID REFERENCES workflow_stages(id) ON DELETE SET NULL,
+        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        notes TEXT,
+        old_value TEXT,
+        new_value TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // CNC Deadline Extensions table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS cnc_deadline_extensions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        job_card_id UUID REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
+        requested_by UUID REFERENCES users(id),
+        previous_deadline TIMESTAMP NOT NULL,
+        new_deadline TIMESTAMP NOT NULL,
+        reason TEXT,
+        approval_status VARCHAR(20) DEFAULT 'pending' CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+        approved_by UUID REFERENCES users(id),
+        approved_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Add columns to cnc_job_cards for extension support
+    await db.query(`ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS extended_estimate_end_date TIMESTAMP`).catch(() => {});
+
+    // Add columns to cnc_job_card_history for field change tracking
+    await db.query(`ALTER TABLE cnc_job_card_history ADD COLUMN IF NOT EXISTS old_value TEXT`).catch(() => {});
+    await db.query(`ALTER TABLE cnc_job_card_history ADD COLUMN IF NOT EXISTS new_value TEXT`).catch(() => {});
+
+    // Create indexes
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS idx_workflows_active ON workflows(is_active);
+      CREATE INDEX IF NOT EXISTS idx_workflow_stages_workflow ON workflow_stages(workflow_id);
+      CREATE INDEX IF NOT EXISTS idx_cnc_job_workflow ON cnc_job_cards(workflow_id);
+      CREATE INDEX IF NOT EXISTS idx_cnc_job_stage ON cnc_job_cards(current_stage_id);
+      CREATE INDEX IF NOT EXISTS idx_cnc_job_status ON cnc_job_cards(status);
+      CREATE INDEX IF NOT EXISTS idx_cnc_history_job ON cnc_job_card_history(job_card_id);
+    `);
+
     // Add kanban_order column if it doesn't exist (for existing databases)
     try {
       await db.query(`ALTER TABLE users ADD COLUMN kanban_order INTEGER DEFAULT 0`);
@@ -158,7 +354,7 @@ const initDB = async () => {
 };
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', async () => {
+  console.log(`🚀 Server running on port ${PORT} at http://0.0.0.0:${PORT}`);
   await initDB();
 });

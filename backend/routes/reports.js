@@ -145,7 +145,30 @@ router.get('/stats', authenticate, async (req, res) => {
       ? await db.query("SELECT COUNT(*) as count FROM deadline_extensions WHERE approval_status = 'pending'")
       : { rows: [{ count: 0 }] };
 
-    res.json({ stats: stats.rows[0], pending_extensions: parseInt(pending_extensions.rows[0].count) });
+    // CNC stats
+    const cncFilter = req.user.role !== 'admin' ? `AND assigned_to = '${req.user.id}'` : '';
+    const cncStats = await db.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'active') as active,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE estimate_end_date < NOW() AND status = 'active') as overdue,
+        COUNT(*) FILTER (WHERE estimate_end_date IS NULL AND status = 'active') as no_deadline,
+        COUNT(*) FILTER (WHERE estimate_end_date BETWEEN NOW() AND NOW() + INTERVAL '5 days' AND status = 'active') as due_soon,
+        COUNT(*) FILTER (WHERE status = 'active' AND estimate_end_date IS NOT NULL) as with_deadline
+      FROM cnc_job_cards WHERE 1=1 ${cncFilter}
+    `);
+
+    const cncPendingExt = req.user.role === 'admin'
+      ? await db.query("SELECT COUNT(*) as count FROM cnc_deadline_extensions WHERE approval_status = 'pending'")
+      : { rows: [{ count: 0 }] };
+
+    res.json({ 
+      stats: stats.rows[0], 
+      pending_extensions: parseInt(pending_extensions.rows[0].count),
+      cnc_stats: cncStats.rows[0],
+      cnc_pending_extensions: parseInt(cncPendingExt.rows[0].count)
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

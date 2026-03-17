@@ -5,10 +5,12 @@ import LoginPage from './components/auth/LoginPage';
 import DashboardPage from './components/dashboard/DashboardPage';
 import TasksPage from './pages/TasksPage';
 import KanbanPage from './pages/KanbanPage';
+import CNCKanbanPage from './pages/CNCKanbanPage';
 import UsersPage from './pages/UsersPage';
 import ExtensionsPage from './pages/ExtensionsPage';
 import ReportsPage from './pages/ReportsPage';
 import ProfilePage from './pages/ProfilePage';
+import WorkflowManager from './components/admin/WorkflowManager';
 
 const PrivateRoute = ({ children, adminOnly = false }) => {
   const { user, loading, isAdmin } = useAuth();
@@ -33,9 +35,11 @@ function AppRoutes() {
       <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
       <Route path="/tasks" element={<PrivateRoute><TasksPage /></PrivateRoute>} />
       <Route path="/kanban" element={<PrivateRoute><KanbanPage /></PrivateRoute>} />
+      <Route path="/cnc-kanban" element={<PrivateRoute><CNCKanbanPage /></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
       <Route path="/admin/tasks" element={<PrivateRoute adminOnly><TasksPage adminView /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute adminOnly><UsersPage /></PrivateRoute>} />
+      <Route path="/admin/workflows" element={<PrivateRoute adminOnly><WorkflowManager /></PrivateRoute>} />
       <Route path="/admin/extensions" element={<PrivateRoute adminOnly><ExtensionsPage /></PrivateRoute>} />
       <Route path="/admin/reports" element={<PrivateRoute adminOnly><ReportsPage /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

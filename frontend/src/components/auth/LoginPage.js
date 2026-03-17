@@ -20,10 +20,16 @@ export default function LoginPage() {
       toast.success('Welcome back, ' + user.name + '!');
       navigate('/dashboard');
     } catch (err) {
-      const errorMsg = err.response?.data?.error || err.message || 'Login failed';
-      setError(errorMsg);
-      console.error('Login error:', err);
-      toast.error(errorMsg);
+      const errorInfo = err.errorInfo || {};
+      const errorMsg = `${errorInfo.title || 'Login Failed'}${errorInfo.message ? ': ' + errorInfo.message : ''}`;
+      setError({
+        title: errorInfo.title || 'Login Failed',
+        message: errorInfo.message || err.message || 'An unexpected error occurred',
+        code: errorInfo.code,
+        baseURL: errorInfo.baseURL,
+      });
+      console.error('Login error details:', { errorInfo, fullError: err });
+      toast.error(errorMsg, { duration: 5000 });
     } finally {
       setLoading(false);
     }
@@ -43,8 +49,40 @@ export default function LoginPage() {
         <p style={{color:'#6b7280',fontSize:'14px',marginBottom:'28px'}}>Enter your credentials to continue</p>
 
         {error && (
-          <div style={{marginBottom:'16px',padding:'12px',background:'#fee2e2',border:'1px solid #fecaca',borderRadius:'8px',color:'#dc2626',fontSize:'14px'}}>
-            {error}
+          <div style={{marginBottom:'16px',padding:'14px',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'8px',color:'#991b1b',fontSize:'14px'}}>
+            <div style={{fontWeight:'600',marginBottom:'6px'}}>{typeof error === 'object' ? error.title : 'Error'}</div>
+            <div style={{color:'#7f1d1d',fontSize:'13px',lineHeight:'1.5'}}>{typeof error === 'object' ? error.message : error}</div>
+            {typeof error === 'object' && error.code && (
+              <div style={{marginTop:'8px',fontSize:'12px',color:'#b91c1c',fontFamily:'monospace',background:'rgba(0,0,0,0.05)',padding:'6px 8px',borderRadius:'4px'}}>
+                [Code: {error.code}]
+              </div>
+            )}
+            {typeof error === 'object' && error.baseURL && (
+              <div style={{marginTop:'8px',fontSize:'12px',color:'#7f1d1d',background:'rgba(0,0,0,0.05)',padding:'6px 8px',borderRadius:'4px'}}>
+                API URL: <code style={{color:'#b91c1c'}}>{error.baseURL}</code>
+              </div>
+            )}
+            {typeof error === 'object' && error.code === 'INVALID_CREDENTIALS' && (
+              <div style={{marginTop:'10px',padding:'8px',background:'#fffbeb',borderRadius:'4px',color:'#92400e',fontSize:'12px'}}>
+                <strong>Tip:</strong> Use admin@taskflow.com / Admin@123 for testing
+              </div>
+            )}
+            {typeof error === 'object' && error.code === 'BACKEND_NOT_FOUND' && (
+              <div style={{marginTop:'10px',padding:'8px',background:'#fffbeb',borderRadius:'4px',color:'#92400e',fontSize:'12px'}}>
+                <strong>Troubleshooting:</strong>
+                <div style={{marginTop:'4px'}}>1. Check if backend is running: <code>npm start</code> in /backend folder</div>
+                <div>2. Verify backend is listening on port 5000</div>
+                <div>3. Check if .env file has correct API_URL</div>
+              </div>
+            )}
+            {typeof error === 'object' && error.code === 'NETWORK_ERROR' && (
+              <div style={{marginTop:'10px',padding:'8px',background:'#fffbeb',borderRadius:'4px',color:'#92400e',fontSize:'12px'}}>
+                <strong>Troubleshooting:</strong>
+                <div style={{marginTop:'4px'}}>1. Check your internet connection</div>
+                <div>2. Verify backend server is running</div>
+                <div>3. Check if firewall is blocking port 5000</div>
+              </div>
+            )}
           </div>
         )}
 

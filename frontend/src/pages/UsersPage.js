@@ -46,6 +46,14 @@ export default function UsersPage() {
     load();
   };
 
+  const handleResetPassword = async (u) => {
+    if (!window.confirm(`Reset password for ${u.name} to default (Admin@123)?`)) return;
+    try {
+      const res = await api.put('/users/' + u.id + '/reset-password');
+      toast.success(res.data.message || 'Password reset to Admin@123');
+    } catch (err) { toast.error(err.response?.data?.error || 'Failed to reset password'); }
+  };
+
   return (
     <Layout title="👥 Users Management">
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
@@ -72,6 +80,7 @@ export default function UsersPage() {
                   <span style={{fontSize:'11px',color:'var(--text-light)'}}>Joined {formatDate(u.created_at)}</span>
                   <div style={{display:'flex',gap:'6px'}}>
                     <button className="btn btn-ghost btn-sm" onClick={() => openEdit(u)}>Edit</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleResetPassword(u)} title="Reset password to Admin@123" style={{fontSize:'12px'}}>🔑 Reset</button>
                     <button className="btn btn-danger btn-sm" onClick={() => handleDelete(u)}>Deactivate</button>
                   </div>
                 </div>
