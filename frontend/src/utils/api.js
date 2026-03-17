@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL for API requests
-const baseURL = 'http://localhost:5000/api';
+const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 console.log('API Base URL:', baseURL);
 
 // Error message mapping

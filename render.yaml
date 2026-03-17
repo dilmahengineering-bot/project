@@ -3,6 +3,9 @@ services:
     name: taskflow-frontend
     staticPublishPath: ./frontend/build
     buildCommand: cd frontend && npm install && npm run build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://taskflow-backend-qga6.onrender.com/api
     routes:
       - path: /*
         destination: /index.html
