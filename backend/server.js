@@ -97,9 +97,10 @@ app.use(cors({
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
       'http://localhost:3001',
-      'http://123.231.13.189:3000'
+      'http://123.231.13.189:3000',
+      'https://taskflow-frontend.onrender.com'
     ];
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || (origin && origin.endsWith('.onrender.com'))) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
