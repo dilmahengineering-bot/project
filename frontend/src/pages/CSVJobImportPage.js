@@ -88,6 +88,38 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
     }
   };
 
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.add('drag-over');
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        setCsvFile(file);
+      } else {
+        toast.error('Please drop a valid CSV file');
+      }
+    }
+  };
+
+  const triggerFileInput = () => {
+    document.getElementById('csvFileInput').click();
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -168,7 +200,12 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
           {/* Step 3: Upload CSV */}
           <section className="import-section">
             <h2>📤 Step 3: Upload CSV File</h2>
-            <div className="file-upload-area">
+            <div 
+              className="file-upload-area"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               <input
                 id="csvFileInput"
                 type="file"
@@ -178,13 +215,31 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
               />
               <div className="file-input-label">
                 {csvFile ? (
-                  <>
-                    <span className="file-selected">✓ {csvFile.name}</span>
-                  </>
+                  <div className="file-selected-display">
+                    <span className="check-icon">✓</span>
+                    <span className="file-name">{csvFile.name}</span>
+                    <button
+                      className="btn-clear"
+                      onClick={() => {
+                        setCsvFile(null);
+                        document.getElementById('csvFileInput').value = '';
+                      }}
+                      title="Clear selection"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ) : (
                   <>
                     <span className="upload-icon">📁</span>
-                    <p>Click to select or drag CSV file here</p>
+                    <p>Drag CSV file here or click to browse</p>
+                    <button 
+                      className="btn btn-info browse-btn"
+                      onClick={triggerFileInput}
+                      type="button"
+                    >
+                      📂 Browse Files
+                    </button>
                   </>
                 )}
               </div>
