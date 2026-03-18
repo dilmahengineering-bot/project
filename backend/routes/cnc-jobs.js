@@ -583,11 +583,15 @@ router.post(
   }
 );
 
-// Complete/close job card
+// Complete/close job card (admin only)
 router.post(
   '/:id/complete',
   authenticate,
   async (req, res) => {
+    // Admin-only check
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required. Only admins can mark job cards as completed.' });
+    }
 
     const client = await db.pool.connect();
     try {
@@ -608,10 +612,10 @@ router.post(
 
       const fromStageId = jobCardResult.rows[0].current_stage_id;
 
-      // Update job card
+      // Update job card: mark as completed and archive (sets status='completed', is_active=false)
       const result = await client.query(
         `UPDATE cnc_job_cards 
-         SET is_active = false, actual_end_date = NOW() 
+         SET status = 'completed', actual_end_date = NOW() 
          WHERE id = $1 RETURNING *`,
         [id]
       );
@@ -621,7 +625,7 @@ router.post(
         `INSERT INTO cnc_job_card_history (
           job_card_id, action_type, from_stage_id, user_id, notes
         ) VALUES ($1, $2, $3, $4, $5)`,
-        [id, 'completed', fromStageId, req.user.id, notes || 'Job card completed']
+        [id, 'completed', fromStageId, req.user.id, notes || 'Job card completed and archived']
       );
 
       await client.query('COMMIT');

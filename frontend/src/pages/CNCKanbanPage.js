@@ -41,6 +41,7 @@ export default function CNCKanbanPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedJobCard, setSelectedJobCard] = useState(null);
   const [draggedCard, setDraggedCard] = useState(null);
+  const [viewMode, setViewMode] = useState('active'); // 'active' or 'completed'
 
   // Load workflows and job cards
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function CNCKanbanPage() {
     if (selectedWorkflow) {
       loadJobCards(selectedWorkflow.id);
     }
-  }, [selectedWorkflow]);
+  }, [selectedWorkflow, viewMode]);
 
   const loadData = async () => {
     try {
@@ -75,7 +76,7 @@ export default function CNCKanbanPage() {
     try {
       // Fetch workflow details to get stages (avoids stale closure issue)
       const [jobResponse, wfResponse] = await Promise.all([
-        cncJobService.getJobCardsByWorkflow(workflowId),
+        cncJobService.getJobCardsByWorkflow(workflowId, viewMode === 'completed' ? 'completed' : 'active'),
         workflowService.getWorkflow(workflowId)
       ]);
       const groupedByStage = {};
@@ -86,16 +87,18 @@ export default function CNCKanbanPage() {
         groupedByStage[stage.id] = [];
       });
 
-      // Group job cards by stage
-      jobResponse.data.data?.forEach(card => {
-        const stageId = card.current_stage_id;
-        if (stageId) {
-          if (!groupedByStage[stageId]) {
-            groupedByStage[stageId] = [];
+      // Group job cards by stage (only if viewing active jobs; completed jobs don't have stages)
+      if (viewMode === 'active') {
+        jobResponse.data.data?.forEach(card => {
+          const stageId = card.current_stage_id;
+          if (stageId) {
+            if (!groupedByStage[stageId]) {
+              groupedByStage[stageId] = [];
+            }
+            groupedByStage[stageId].push(card);
           }
-          groupedByStage[stageId].push(card);
-        }
-      });
+        });
+      }
 
       setJobCards(groupedByStage);
     } catch (err) {

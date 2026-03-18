@@ -1,6 +1,8 @@
 import axios from 'axios';
 
 // Base URL for API requests
+console.log('DEBUG - process.env.REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+console.log('DEBUG - All env vars with REACT_APP:', Object.keys(process.env).filter(k => k.includes('REACT_APP')).map(k => `${k}=${process.env[k]}`));
 const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 console.log('API Base URL:', baseURL);
 

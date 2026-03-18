@@ -233,6 +233,22 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave }) 
     }
   };
 
+  const handleDelete = async () => {
+    if (window.confirm('⚠️ Are you sure you want to DELETE this job card? This action cannot be undone.')) {
+      try {
+        setLoading(true);
+        await cncJobService.deleteJobCard(jobCard.id);
+        toast.success('Job card deleted successfully');
+        onSave();
+        onClose();
+      } catch (err) {
+        setSubmitError(err.response?.data?.error || 'Failed to delete job card');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const handleExtension = async () => {
     if (!extForm.new_deadline) return toast.error('New deadline required');
     try {
@@ -427,10 +443,18 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave }) 
 
             <div className="modal-footer">
               <div className="footer-left">
-                {jobCard && (
-                  <button type="button" className="btn btn-secondary" onClick={handleComplete} disabled={loading}>
-                    ✓ Mark as Completed
-                  </button>
+                {jobCard && isAdmin && (
+                  <>
+                    <button type="button" className="btn btn-secondary" onClick={handleComplete} disabled={loading} title="Admin only: Mark this job card as completed">
+                      ✓ Mark as Completed
+                    </button>
+                    <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={loading} title="Admin only: Delete this job card" style={{ marginLeft: '8px', backgroundColor: '#ef4444', borderColor: '#dc2626' }}>
+                      🗑️ Delete
+                    </button>
+                  </>
+                )}
+                {jobCard && !isAdmin && (
+                  <p style={{ color: '#6b7280', fontSize: '12px', margin: 0 }}>ℹ️ Only admins can mark job cards as completed</p>
                 )}
               </div>
               <div className="footer-right">
