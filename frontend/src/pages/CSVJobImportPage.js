@@ -72,17 +72,18 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
       formData.append('csv_file', csvFile);
       formData.append('workflow_id', selectedWorkflow);
 
-      const res = await api.post('/cnc-jobs/bulk-import', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      console.log('Uploading CSV file:', csvFile.name, 'Workflow:', selectedWorkflow);
 
+      const res = await api.post('/cnc-jobs/bulk-import', formData);
+
+      console.log('Upload response:', res.data);
       setImportResult(res.data);
       toast.success(`Imported ${res.data.summary.imported} job cards!`);
       setCsvFile(null);
       document.getElementById('csvFileInput').value = '';
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Import failed');
       console.error('Upload error:', error);
+      toast.error(error.response?.data?.error || error.message || 'Import failed');
     } finally {
       setUploading(false);
     }

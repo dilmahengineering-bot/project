@@ -1036,8 +1036,9 @@ router.post(
       const results = [];
       const errors = [];
       let successCount = 0;
+      const rows = [];
 
-      // Parse CSV
+      // Parse CSV - collect all rows first
       return new Promise((resolve) => {
         const Readable = require('stream').Readable;
         const csvStream = new Readable();
@@ -1046,136 +1047,142 @@ router.post(
 
         csvStream
           .pipe(csv())
-          .on('data', async (row) => {
-            try {
-              // Validate required fields
-              if (!row.job_name || !row.job_card_number || !row.part_number) {
+          .on('data', (row) => {
+            rows.push(row);
+          })
+          .on('end', async () => {
+            // Process all collected rows
+            for (const row of rows) {
+              try {
+                // Validate required fields
+                if (!row.job_name || !row.job_card_number || !row.part_number) {
+                  errors.push({
+                    row: row.job_card_number || 'Unknown',
+                    error: 'Missing required fields: job_name, job_card_number, or part_number'
+                  });
+                  continue;
+                }
+
+                const { job_name, job_card_number, subjob_card_number, job_date, machine_name, client_name, part_number, manufacturing_type, quantity, estimate_end_date, assigned_to, priority, notes } = row;
+
+                // Check if job card already exists
+                const existCheck = await db.query(
+                  'SELECT id FROM cnc_job_cards WHERE job_card_number = $1',
+                  [job_card_number]
+                );
+                if (existCheck.rows.length > 0) {
+                  errors.push({
+                    row: job_card_number,
+                    error: 'Job card number already exists'
+                  });
+                  continue;
+                }
+
+                // Validate manufacturing type
+                if (manufacturing_type && !['internal', 'external'].includes(manufacturing_type.toLowerCase())) {
+                  errors.push({
+                    row: job_card_number,
+                    error: 'Manufacturing type must be "internal" or "external"'
+                  });
+                  continue;
+                }
+
+                // Validate priority
+                if (priority && !['low', 'medium', 'high'].includes(priority.toLowerCase())) {
+                  errors.push({
+                    row: job_card_number,
+                    error: 'Priority must be "low", "medium", or "high"'
+                  });
+                  continue;
+                }
+
+                // Parse dates
+                let jobDate = null;
+                let estEndDate = null;
+                if (job_date) {
+                  jobDate = new Date(job_date);
+                  if (isNaN(jobDate)) {
+                    errors.push({
+                      row: job_card_number,
+                      error: 'Invalid job_date format (use YYYY-MM-DD)'
+                    });
+                    continue;
+                  }
+                }
+                if (estimate_end_date) {
+                  estEndDate = new Date(estimate_end_date);
+                  if (isNaN(estEndDate)) {
+                    errors.push({
+                      row: job_card_number,
+                      error: 'Invalid estimate_end_date format (use YYYY-MM-DD)'
+                    });
+                    continue;
+                  }
+                }
+
+                // Parse user assignment
+                let assignedUserId = null;
+                if (assigned_to) {
+                  const userCheck = await db.query(
+                    'SELECT id FROM users WHERE email = $1',
+                    [assigned_to]
+                  );
+                  if (userCheck.rows.length > 0) {
+                    assignedUserId = userCheck.rows[0].id;
+                  }
+                }
+
+                // Create job card
+                const result = await db.query(
+                  `INSERT INTO cnc_job_cards (
+                    job_name, job_card_number, subjob_card_number, job_date, 
+                    machine_name, client_name, part_number, manufacturing_type, 
+                    quantity, estimate_end_date, workflow_id, current_stage_id, 
+                    assigned_to, created_by, priority, notes
+                  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                  RETURNING id`,
+                  [
+                    job_name,
+                    job_card_number,
+                    subjob_card_number || null,
+                    jobDate,
+                    machine_name || null,
+                    client_name || null,
+                    part_number,
+                    manufacturing_type ? manufacturing_type.toLowerCase() : 'internal',
+                    quantity || 1,
+                    estEndDate,
+                    workflow_id,
+                    firstStageId,
+                    assignedUserId,
+                    req.user.id,
+                    priority ? priority.toLowerCase() : 'medium',
+                    notes || null
+                  ]
+                );
+
+                // Log history
+                await db.query(
+                  `INSERT INTO cnc_job_card_history (job_card_id, action_type, user_id, notes) VALUES ($1, $2, $3, $4)`,
+                  [result.rows[0].id, 'created_bulk', req.user.id, 'Bulk import from CSV']
+                );
+
+                successCount++;
+                results.push({
+                  job_card_number,
+                  job_name,
+                  status: 'success'
+                });
+              } catch (error) {
+                console.error('Error processing CSV row:', error);
                 errors.push({
                   row: row.job_card_number || 'Unknown',
-                  error: 'Missing required fields: job_name, job_card_number, or part_number'
+                  error: error.message
                 });
-                return;
               }
-
-              const { job_name, job_card_number, subjob_card_number, job_date, machine_name, client_name, part_number, manufacturing_type, quantity, estimate_end_date, assigned_to, priority, notes } = row;
-
-              // Check if job card already exists
-              const existCheck = await db.query(
-                'SELECT id FROM cnc_job_cards WHERE job_card_number = $1',
-                [job_card_number]
-              );
-              if (existCheck.rows.length > 0) {
-                errors.push({
-                  row: job_card_number,
-                  error: 'Job card number already exists'
-                });
-                return;
-              }
-
-              // Validate manufacturing type
-              if (manufacturing_type && !['internal', 'external'].includes(manufacturing_type.toLowerCase())) {
-                errors.push({
-                  row: job_card_number,
-                  error: 'Manufacturing type must be "internal" or "external"'
-                });
-                return;
-              }
-
-              // Validate priority
-              if (priority && !['low', 'medium', 'high'].includes(priority.toLowerCase())) {
-                errors.push({
-                  row: job_card_number,
-                  error: 'Priority must be "low", "medium", or "high"'
-                });
-                return;
-              }
-
-              // Parse dates
-              let jobDate = null;
-              let estEndDate = null;
-              if (job_date) {
-                jobDate = new Date(job_date);
-                if (isNaN(jobDate)) {
-                  errors.push({
-                    row: job_card_number,
-                    error: 'Invalid job_date format'
-                  });
-                  return;
-                }
-              }
-              if (estimate_end_date) {
-                estEndDate = new Date(estimate_end_date);
-                if (isNaN(estEndDate)) {
-                  errors.push({
-                    row: job_card_number,
-                    error: 'Invalid estimate_end_date format'
-                  });
-                  return;
-                }
-              }
-
-              // Parse user assignment
-              let assignedUserId = null;
-              if (assigned_to) {
-                const userCheck = await db.query(
-                  'SELECT id FROM users WHERE email = $1',
-                  [assigned_to]
-                );
-                if (userCheck.rows.length > 0) {
-                  assignedUserId = userCheck.rows[0].id;
-                }
-              }
-
-              // Create job card
-              const result = await db.query(
-                `INSERT INTO cnc_job_cards (
-                  job_name, job_card_number, subjob_card_number, job_date, 
-                  machine_name, client_name, part_number, manufacturing_type, 
-                  quantity, estimate_end_date, workflow_id, current_stage_id, 
-                  assigned_to, created_by, priority, notes
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-                RETURNING id`,
-                [
-                  job_name,
-                  job_card_number,
-                  subjob_card_number || null,
-                  jobDate,
-                  machine_name || null,
-                  client_name || null,
-                  part_number,
-                  manufacturing_type ? manufacturing_type.toLowerCase() : 'internal',
-                  quantity || 1,
-                  estEndDate,
-                  workflow_id,
-                  firstStageId,
-                  assignedUserId,
-                  req.user.id,
-                  priority ? priority.toLowerCase() : 'medium',
-                  notes || null
-                ]
-              );
-
-              // Log history
-              await db.query(
-                `INSERT INTO cnc_job_card_history (job_card_id, action_type, user_id, notes) VALUES ($1, $2, $3, $4)`,
-                [result.rows[0].id, 'created_bulk', req.user.id, 'Bulk import from CSV']
-              );
-
-              successCount++;
-              results.push({
-                job_card_number,
-                job_name,
-                status: 'success'
-              });
-            } catch (error) {
-              console.error('Error processing CSV row:', error);
-              errors.push({
-                row: row.job_card_number || 'Unknown',
-                error: error.message
-              });
             }
-          })
-          .on('end', () => {
+
+            // Send response after all processing is done
             res.json({
               success: true,
               summary: {
@@ -1189,6 +1196,7 @@ router.post(
             resolve();
           })
           .on('error', (error) => {
+            console.error('CSV parse error:', error);
             res.status(400).json({ error: 'Failed to parse CSV: ' + error.message });
             resolve();
           });
