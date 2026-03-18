@@ -987,24 +987,58 @@ const csvUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
+    console.log('File received:', file.originalname, file.mimetype);
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext === '.csv') {
+    if (ext === '.csv' || file.mimetype === 'text/csv' || file.mimetype === 'application/vnd.ms-excel') {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV files are allowed'));
+      cb(new Error('Only CSV files are allowed. Received: ' + file.mimetype));
     }
   }
 });
+
+// Error handler middleware for multer
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'FILE_TOO_LARGE') {
+      return res.status(400).json({ error: 'File size exceeds 5MB limit' });
+    }
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File size exceeds 5MB limit' });
+    }
+    return res.status(400).json({ error: 'File upload error: ' + err.message });
+  } else if (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  next();
+};
 
 router.post(
   '/bulk-import',
   authenticate,
   requireAdmin,
-  csvUpload.single('csv_file'),
+  (req, res, next) => {
+    console.log('CSV import request received. Headers:', req.headers);
+    csvUpload.single('csv_file')(req, res, (err) => {
+      if (err) {
+        console.error('Multer error:', err);
+        if (err instanceof multer.MulterError) {
+          if (err.code === 'FILE_TOO_LARGE') {
+            return res.status(400).json({ error: 'File size exceeds 5MB limit' });
+          }
+          return res.status(400).json({ error: 'File upload error: ' + err.message });
+        }
+        return res.status(400).json({ error: err.message });
+      }
+      console.log('File uploaded:', req.file ? req.file.originalname : 'NO FILE');
+      next();
+    });
+  },
   async (req, res) => {
     try {
+      console.log('Processing CSV import. File present:', !!req.file);
       if (!req.file) {
-        return res.status(400).json({ error: 'No CSV file provided' });
+        return res.status(400).json({ error: 'No CSV file provided. Make sure to upload a .csv file.' });
       }
 
       const { workflow_id } = req.body;

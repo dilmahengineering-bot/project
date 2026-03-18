@@ -48,11 +48,14 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.type === 'text/csv') {
+    console.log('File selected:', file ? { name: file.name, type: file.type, size: file.size } : 'none');
+    if (file && (file.type === 'text/csv' || file.type === 'application/vnd.ms-excel' || file.name.endsWith('.csv'))) {
       setCsvFile(file);
+      console.log('CSV file accepted');
     } else {
       toast.error('Please select a valid CSV file');
       setCsvFile(null);
+      console.log('File rejected - invalid type:', file?.type);
     }
   };
 
@@ -109,10 +112,13 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       const file = files[0];
-      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+      console.log('File dropped:', { name: file.name, type: file.type });
+      if ((file.type === 'text/csv' || file.type === 'application/vnd.ms-excel' || file.name.endsWith('.csv'))) {
         setCsvFile(file);
+        console.log('CSV file accepted from drop');
       } else {
         toast.error('Please drop a valid CSV file');
+        console.log('File rejected - invalid type:', file.type);
       }
     }
   };
