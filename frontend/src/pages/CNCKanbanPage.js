@@ -234,7 +234,47 @@ export default function CNCKanbanPage() {
       )}
 
       {selectedWorkflow ? (
-        <div className="kanban-board">
+        <>
+          {/* CNC Summary Stats */}
+          {(() => {
+            const allCards = Object.values(jobCards).flat();
+            if (allCards.length === 0) return null;
+            const active = allCards.filter(j => j.status === 'active').length;
+            const completed = allCards.filter(j => j.status === 'completed').length;
+            const overdue = allCards.filter(j => {
+              if (j.status === 'completed' || !j.estimate_end_date) return false;
+              return new Date(j.estimate_end_date) < new Date();
+            }).length;
+            const dueSoon = allCards.filter(j => {
+              if (j.status === 'completed' || !j.estimate_end_date) return false;
+              const days = Math.ceil((new Date(j.estimate_end_date) - new Date()) / (1000 * 60 * 60 * 24));
+              return days >= 0 && days <= 5;
+            }).length;
+            const noDeadline = allCards.filter(j => j.status === 'active' && !j.estimate_end_date).length;
+            const stats = [
+              { label: 'Total', value: allCards.length, icon: '📊', color: '#4f46e5', bg: '#ede9fe' },
+              { label: 'Active', value: active, icon: '⚙️', color: '#0891b2', bg: '#cffafe' },
+              { label: 'Completed', value: completed, icon: '✅', color: '#059669', bg: '#d1fae5' },
+              { label: 'Overdue', value: overdue, icon: '🚨', color: '#dc2626', bg: '#fee2e2' },
+              { label: 'Due ≤ 5 Days', value: dueSoon, icon: '⚠️', color: '#d97706', bg: '#fef3c7' },
+              { label: 'No Deadline', value: noDeadline, icon: '📅', color: '#ea580c', bg: '#ffedd5' },
+            ];
+            return (
+              <div className="stats-grid" style={{marginBottom:'20px'}}>
+                {stats.map((s, i) => (
+                  <div key={i} className="stat-card">
+                    <div className="stat-icon" style={{background: s.bg}}>
+                      <span style={{fontSize:'22px'}}>{s.icon}</span>
+                    </div>
+                    <div className="stat-value" style={{color: s.color}}>{s.value}</div>
+                    <div className="stat-label">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          <div className="kanban-board">
           {selectedWorkflow.stages?.map(stage => (
             <div
               key={stage.id}
@@ -340,7 +380,8 @@ export default function CNCKanbanPage() {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        </>
       ) : (
         <div className="empty-board">
           <p>No workflows available. Create one in the Workflow Manager.</p>
