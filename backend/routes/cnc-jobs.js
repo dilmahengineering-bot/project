@@ -1017,28 +1017,23 @@ router.post(
   '/bulk-import',
   authenticate,
   requireAdmin,
-  (req, res, next) => {
-    console.log('CSV import request received. Headers:', req.headers);
-    csvUpload.single('csv_file')(req, res, (err) => {
-      if (err) {
-        console.error('Multer error:', err);
-        if (err instanceof multer.MulterError) {
-          if (err.code === 'FILE_TOO_LARGE') {
-            return res.status(400).json({ error: 'File size exceeds 5MB limit' });
-          }
-          return res.status(400).json({ error: 'File upload error: ' + err.message });
-        }
-        return res.status(400).json({ error: err.message });
-      }
-      console.log('File uploaded:', req.file ? req.file.originalname : 'NO FILE');
-      next();
-    });
-  },
+  csvUpload.single('csv_file'),
   async (req, res) => {
     try {
-      console.log('Processing CSV import. File present:', !!req.file);
+      console.log('=== CSV Import Handler ===');
+      console.log('Request received');
+      console.log('User:', req.user?.id);
+      console.log('File present:', !!req.file);
+      if (req.file) {
+        console.log('File name:', req.file.originalname);
+        console.log('File size:', req.file.size);
+        console.log('File mimetype:', req.file.mimetype);
+      }
+      console.log('Body:', req.body);
+
       if (!req.file) {
-        return res.status(400).json({ error: 'No CSV file provided. Make sure to upload a .csv file.' });
+        console.log('ERROR: No file in request');
+        return res.status(400).json({ error: 'No CSV file provided. Please upload a .csv file.' });
       }
 
       const { workflow_id } = req.body;
@@ -1278,5 +1273,26 @@ router.post(
     }
   }
 );
+
+// Error handling middleware for multer and other errors
+router.use((error, req, res, next) => {
+  console.error('Route error middleware:', error.message);
+  
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'FILE_TOO_LARGE') {
+      return res.status(400).json({ error: 'File size exceeds 5MB limit' });
+    }
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File size exceeds 5MB limit' });
+    }
+    return res.status(400).json({ error: 'File upload error: ' + error.message });
+  }
+  
+  if (error instanceof Error) {
+    return res.status(400).json({ error: error.message });
+  }
+  
+  res.status(500).json({ error: 'Unknown error occurred' });
+});
 
 module.exports = router;

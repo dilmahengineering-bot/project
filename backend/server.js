@@ -109,7 +109,17 @@ app.use(cors({
   credentials: true 
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// Logging for file uploads
+app.use((req, res, next) => {
+  if (req.is('multipart/form-data')) {
+    console.log(`📤 Multipart request: ${req.method} ${req.path}`);
+  }
+  next();
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
