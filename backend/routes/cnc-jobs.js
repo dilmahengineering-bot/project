@@ -1022,6 +1022,9 @@ router.post(
     try {
       console.log('=== CSV Import Handler ===');
       console.log('Request received');
+      console.log('Content-Type header:', req.get('content-type'));
+      console.log('Is multipart?', req.is('multipart'));
+      console.log('Is multipart/form-data?', req.is('multipart/form-data'));
       console.log('User:', req.user?.id);
       console.log('File present:', !!req.file);
       if (req.file) {
@@ -1029,16 +1032,26 @@ router.post(
         console.log('File size:', req.file.size);
         console.log('File mimetype:', req.file.mimetype);
       }
+      console.log('Body keys:', Object.keys(req.body));
       console.log('Body:', req.body);
 
       if (!req.file) {
         console.log('ERROR: No file in request');
-        return res.status(400).json({ error: 'No CSV file provided. Please upload a .csv file.' });
+        console.log('Available fields in req.body:', Object.keys(req.body));
+        return res.status(400).json({ 
+          error: 'No CSV file provided. Please upload a .csv file.',
+          debug: { hasFile: !!req.file, bodyFields: Object.keys(req.body) }
+        });
       }
 
       const { workflow_id } = req.body;
       if (!workflow_id) {
-        return res.status(400).json({ error: 'workflow_id is required' });
+        console.log('ERROR: workflow_id missing from body');
+        console.log('Body contents:', req.body);
+        return res.status(400).json({ 
+          error: 'workflow_id is required in form data',
+          debug: { workflow_id, body: req.body }
+        });
       }
 
       // Verify workflow exists
@@ -1064,6 +1077,7 @@ router.post(
 
       const results = [];
       const errors = [];
+      const skipped = [];
       let successCount = 0;
       const rows = [];
 
@@ -1094,15 +1108,16 @@ router.post(
 
                 const { job_name, job_card_number, subjob_card_number, job_date, machine_name, client_name, part_number, manufacturing_type, quantity, estimate_end_date, assigned_to, priority, notes } = row;
 
-                // Check if job card already exists
+                // Check if job card already exists (duplicate check)
                 const existCheck = await db.query(
                   'SELECT id FROM cnc_job_cards WHERE job_card_number = $1',
                   [job_card_number]
                 );
                 if (existCheck.rows.length > 0) {
-                  errors.push({
-                    row: job_card_number,
-                    error: 'Job card number already exists'
+                  skipped.push({
+                    job_card_number,
+                    job_name,
+                    reason: 'Job card number already exists in database'
                   });
                   continue;
                 }
@@ -1252,11 +1267,13 @@ router.post(
             res.json({
               success: true,
               summary: {
-                total: successCount + errors.length,
+                total: successCount + skipped.length + errors.length,
                 imported: successCount,
+                skipped: skipped.length,
                 errors: errors.length
               },
               imported: results,
+              skipped: skipped,
               errors: errors
             });
             resolve();

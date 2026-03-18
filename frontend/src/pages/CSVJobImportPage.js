@@ -75,18 +75,29 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
       formData.append('csv_file', csvFile);
       formData.append('workflow_id', selectedWorkflow);
 
-      console.log('Uploading CSV file:', csvFile.name, 'Workflow:', selectedWorkflow);
+      console.log('FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}:`, value instanceof File ? `${value.name} (${value.type})` : value);
+      }
 
       const res = await api.post('/cnc-jobs/bulk-import', formData);
 
       console.log('Upload response:', res.data);
       setImportResult(res.data);
-      toast.success(`Imported ${res.data.summary.imported} job cards!`);
+      const { imported, skipped, errors } = res.data.summary;
+      let msg = `Imported ${imported} job card${imported !== 1 ? 's' : ''}`;
+      if (skipped > 0) msg += `, ${skipped} skipped (duplicates)`;
+      if (errors > 0) msg += `, ${errors} error${errors !== 1 ? 's' : ''}`;
+      if (imported > 0) toast.success(msg);
+      else if (skipped > 0) toast.info(msg);
+      else toast.error(msg);
       setCsvFile(null);
       document.getElementById('csvFileInput').value = '';
     } catch (error) {
-      console.error('Upload error:', error);
-      toast.error(error.response?.data?.error || error.message || 'Import failed');
+      console.error('Upload error full:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMsg = error.response?.data?.error || error.message || 'Import failed';
+      toast.error(errorMsg);
     } finally {
       setUploading(false);
     }
@@ -273,6 +284,12 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
                   <span className="stat-value">{importResult.summary.total}</span>
                   <span className="stat-label">Total Records</span>
                 </div>
+                {importResult.summary.skipped > 0 && (
+                  <div className="summary-stat skipped">
+                    <span className="stat-value">{importResult.summary.skipped}</span>
+                    <span className="stat-label">Skipped (Duplicates)</span>
+                  </div>
+                )}
                 {importResult.summary.errors > 0 && (
                   <div className="summary-stat error">
                     <span className="stat-value">{importResult.summary.errors}</span>
@@ -292,6 +309,24 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
                         <div className="item-details">
                           <strong>{item.job_card_number}</strong>
                           <small>{item.job_name}</small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Skipped Duplicates List */}
+              {importResult.skipped && importResult.skipped.length > 0 && (
+                <div className="results-list">
+                  <h3>⊘ Skipped (Already Exist):</h3>
+                  <div className="skipped-items">
+                    {importResult.skipped.map((item, idx) => (
+                      <div key={idx} className="skipped-item">
+                        <span className="skip-icon">⊘</span>
+                        <div className="item-details">
+                          <strong>{item.job_card_number}</strong>
+                          <small>{item.reason}</small>
                         </div>
                       </div>
                     ))}

@@ -112,10 +112,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+// Request logging for debugging
+app.use((req, res, next) => {
+  if (req.path.includes('bulk-import')) {
+    console.log('\n=== BULK IMPORT REQUEST ===');
+    console.log('Path:', req.path);
+    console.log('Content-Type:', req.get('content-type'));
+    console.log('Headers:', req.headers);
+    console.log('Method:', req.method);
+  }
+  next();
+});
+
 // Logging for file uploads
 app.use((req, res, next) => {
   if (req.is('multipart/form-data')) {
     console.log(`📤 Multipart request: ${req.method} ${req.path}`);
+    console.log('   Content-Type:', req.get('content-type'));
   }
   next();
 });

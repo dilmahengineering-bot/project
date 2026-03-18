@@ -254,6 +254,10 @@
   border-left: 4px solid #dc2626;
 }
 
+.summary-stat.skipped {
+  border-left: 4px solid #f59e0b;
+}
+
 .summary-stat.total {
   border-left: 4px solid #4f46e5;
 }
@@ -280,6 +284,10 @@
   color: #dc2626;
 }
 
+.summary-stat.skipped .stat-value {
+  color: #f59e0b;
+}
+
 .summary-stat.total .stat-value {
   color: #4f46e5;
 }
@@ -296,14 +304,16 @@
 }
 
 .success-items,
-.error-items {
+.error-items,
+.skipped-items {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
 .success-item,
-.error-item {
+.error-item,
+.skipped-item {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
@@ -321,6 +331,10 @@
   border-left-color: #dc2626;
 }
 
+.skipped-item {
+  border-left-color: #f59e0b;
+}
+
 .check-icon {
   font-size: 1.25rem;
   color: #059669;
@@ -331,6 +345,13 @@
 .error-icon {
   font-size: 1.25rem;
   color: #dc2626;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.skip-icon {
+  font-size: 1.25rem;
+  color: #f59e0b;
   flex-shrink: 0;
   margin-top: 0.125rem;
 }

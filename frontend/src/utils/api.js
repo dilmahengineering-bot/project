@@ -101,6 +101,10 @@ const api = axios.create({
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('tf_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // Let browser set Content-Type with boundary for FormData (file uploads)
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
   return config;
 });
 
