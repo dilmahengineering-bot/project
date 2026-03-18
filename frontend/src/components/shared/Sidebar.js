@@ -44,6 +44,7 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
               <div className="nav-section-title">Admin</div>
               <NavItem to="/admin/tasks" icon="📋" label="All Tasks" />
               <NavItem to="/admin/workflows" icon="🔧" label="Workflows" />
+              <NavItem to="/admin/csv-import" icon="📊" label="CSV Import" />
               <NavItem to="/admin/extensions" icon="🕐" label="Extensions" badge={pendingExtensions} />
               <NavItem to="/admin/users" icon="👥" label="Users" />
               <NavItem to="/admin/reports" icon="📄" label="Reports" />

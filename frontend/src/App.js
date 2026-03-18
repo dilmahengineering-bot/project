@@ -7,6 +7,7 @@ import TasksPage from './pages/TasksPage';
 import KanbanPage from './pages/KanbanPage';
 import CNCKanbanPage from './pages/CNCKanbanPage';
 import CompletedRecordsPage from './pages/CompletedRecordsPage';
+import CSVJobImportPage from './pages/CSVJobImportPage';
 import UsersPage from './pages/UsersPage';
 import ExtensionsPage from './pages/ExtensionsPage';
 import ReportsPage from './pages/ReportsPage';
@@ -42,6 +43,7 @@ function AppRoutes() {
       <Route path="/admin/tasks" element={<PrivateRoute adminOnly><TasksPage adminView /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute adminOnly><UsersPage /></PrivateRoute>} />
       <Route path="/admin/workflows" element={<PrivateRoute adminOnly><WorkflowManager /></PrivateRoute>} />
+      <Route path="/admin/csv-import" element={<PrivateRoute adminOnly><CSVJobImportPage /></PrivateRoute>} />
       <Route path="/admin/extensions" element={<PrivateRoute adminOnly><ExtensionsPage /></PrivateRoute>} />
       <Route path="/admin/reports" element={<PrivateRoute adminOnly><ReportsPage /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
