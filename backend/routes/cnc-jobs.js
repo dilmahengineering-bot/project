@@ -1130,25 +1130,53 @@ router.post(
                   continue;
                 }
 
-                // Parse dates
+                // Parse dates - handle multiple formats (YYYY-MM-DD or DD/MM/YYYY)
+                const parseDate = (dateStr) => {
+                  if (!dateStr || typeof dateStr !== 'string') return null;
+                  dateStr = dateStr.trim();
+                  if (!dateStr) return null;
+
+                  // Try YYYY-MM-DD format first
+                  let date = new Date(dateStr);
+                  if (!isNaN(date)) return date;
+
+                  // Try DD/MM/YYYY format
+                  const ddmmMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                  if (ddmmMatch) {
+                    const [, day, month, year] = ddmmMatch;
+                    date = new Date(year, month - 1, day);
+                    if (!isNaN(date)) return date;
+                  }
+
+                  // Try DD-MM-YYYY format
+                  const ddmmDashMatch = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+                  if (ddmmDashMatch) {
+                    const [, day, month, year] = ddmmDashMatch;
+                    date = new Date(year, month - 1, day);
+                    if (!isNaN(date)) return date;
+                  }
+
+                  return null;
+                };
+
                 let jobDate = null;
                 let estEndDate = null;
                 if (job_date) {
-                  jobDate = new Date(job_date);
-                  if (isNaN(jobDate)) {
+                  jobDate = parseDate(job_date);
+                  if (jobDate === null) {
                     errors.push({
                       row: job_card_number,
-                      error: 'Invalid job_date format (use YYYY-MM-DD)'
+                      error: `Invalid job_date format: "${job_date}" (use YYYY-MM-DD or DD/MM/YYYY)`
                     });
                     continue;
                   }
                 }
                 if (estimate_end_date) {
-                  estEndDate = new Date(estimate_end_date);
-                  if (isNaN(estEndDate)) {
+                  estEndDate = parseDate(estimate_end_date);
+                  if (estEndDate === null) {
                     errors.push({
                       row: job_card_number,
-                      error: 'Invalid estimate_end_date format (use YYYY-MM-DD)'
+                      error: `Invalid estimate_end_date format: "${estimate_end_date}" (use YYYY-MM-DD or DD/MM/YYYY)`
                     });
                     continue;
                   }
@@ -1156,13 +1184,22 @@ router.post(
 
                 // Parse user assignment
                 let assignedUserId = null;
-                if (assigned_to) {
+                if (assigned_to && assigned_to.trim()) {
                   const userCheck = await db.query(
                     'SELECT id FROM users WHERE email = $1',
                     [assigned_to]
                   );
                   if (userCheck.rows.length > 0) {
                     assignedUserId = userCheck.rows[0].id;
+                  }
+                }
+
+                // Parse quantity - handle empty values
+                let parsedQuantity = 1;
+                if (quantity && typeof quantity === 'string' && quantity.trim()) {
+                  const numQty = parseInt(quantity, 10);
+                  if (!isNaN(numQty) && numQty > 0) {
+                    parsedQuantity = numQty;
                   }
                 }
 
@@ -1184,7 +1221,7 @@ router.post(
                     client_name || null,
                     part_number,
                     manufacturing_type ? manufacturing_type.toLowerCase() : 'internal',
-                    quantity || 1,
+                    parsedQuantity,
                     estEndDate,
                     workflow_id,
                     firstStageId,

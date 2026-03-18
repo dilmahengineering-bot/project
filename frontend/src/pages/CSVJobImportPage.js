@@ -160,13 +160,13 @@ Sample Job 2,JC-002,,2026-03-18,CNC-MT02,Client B,PART-002,external,5,2026-03-30
                   <li><strong>job_name</strong> (Required): Name of the job</li>
                   <li><strong>job_card_number</strong> (Required): Unique job card number</li>
                   <li><strong>subjob_card_number</strong> (Optional): Sub-job card number</li>
-                  <li><strong>job_date</strong> (Optional): Date in YYYY-MM-DD format</li>
+                  <li><strong>job_date</strong> (Optional): Date in YYYY-MM-DD or DD/MM/YYYY format</li>
                   <li><strong>machine_name</strong> (Optional): Machine name</li>
                   <li><strong>client_name</strong> (Optional): Client name</li>
                   <li><strong>part_number</strong> (Required): Part identification number</li>
                   <li><strong>manufacturing_type</strong> (Required): "internal" or "external"</li>
                   <li><strong>quantity</strong> (Optional): Number of units (default: 1)</li>
-                  <li><strong>estimate_end_date</strong> (Optional): Date in YYYY-MM-DD format</li>
+                  <li><strong>estimate_end_date</strong> (Optional): Date in YYYY-MM-DD or DD/MM/YYYY format</li>
                   <li><strong>assigned_to</strong> (Optional): User email for assignment</li>
                   <li><strong>priority</strong> (Optional): "low", "medium", or "high"</li>
                   <li><strong>notes</strong> (Optional): Any additional notes</li>
