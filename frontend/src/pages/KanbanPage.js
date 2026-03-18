@@ -414,6 +414,43 @@ export default function KanbanPage() {
       {/* ============ CNC JOBS TAB ============ */}
       {activeTab === 'cnc' && (
         <>
+          {/* CNC Summary Stats */}
+          {!cncLoading && cncJobs.length > 0 && (() => {
+            const active = cncJobs.filter(j => j.status === 'active').length;
+            const completed = cncJobs.filter(j => j.status === 'completed').length;
+            const overdue = cncJobs.filter(j => {
+              if (j.status === 'completed' || !j.estimate_end_date) return false;
+              return new Date(j.estimate_end_date) < new Date();
+            }).length;
+            const dueSoon = cncJobs.filter(j => {
+              if (j.status === 'completed' || !j.estimate_end_date) return false;
+              const days = Math.ceil((new Date(j.estimate_end_date) - new Date()) / (1000 * 60 * 60 * 24));
+              return days >= 0 && days <= 5;
+            }).length;
+            const noDeadline = cncJobs.filter(j => j.status === 'active' && !j.estimate_end_date).length;
+            const cncStats = [
+              { label: 'Total', value: cncJobs.length, icon: '📊', color: '#4f46e5', bg: '#ede9fe' },
+              { label: 'Active', value: active, icon: '⚙️', color: '#0891b2', bg: '#cffafe' },
+              { label: 'Completed', value: completed, icon: '✅', color: '#059669', bg: '#d1fae5' },
+              { label: 'Overdue', value: overdue, icon: '🚨', color: '#dc2626', bg: '#fee2e2' },
+              { label: 'Due ≤ 5 Days', value: dueSoon, icon: '⚠️', color: '#d97706', bg: '#fef3c7' },
+              { label: 'No Deadline', value: noDeadline, icon: '📅', color: '#ea580c', bg: '#ffedd5' },
+            ];
+            return (
+              <div className="stats-grid" style={{marginBottom:'20px'}}>
+                {cncStats.map((s, i) => (
+                  <div key={i} className="stat-card">
+                    <div className="stat-icon" style={{background: s.bg}}>
+                      <span style={{fontSize:'22px'}}>{s.icon}</span>
+                    </div>
+                    <div className="stat-value" style={{color: s.color}}>{s.value}</div>
+                    <div className="stat-label">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px',flexWrap:'wrap',gap:'12px'}}>
             <div>
               <p style={{color:'var(--text-muted)',fontSize:'14px'}}>{cncJobs.length} CNC job cards</p>
