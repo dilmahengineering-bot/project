@@ -34,7 +34,7 @@ const cncJobService = {
 
   // Helpers
   getJobCardsByWorkflow: (workflowId, status = 'active') => 
-    api.get('/cnc-jobs', { params: { workflow_id: workflowId, status } }),
+    api.get('/cnc-jobs', { params: { workflow_id: workflowId, status, limit: 1000 } }),
 };
 
 export default cncJobService;
