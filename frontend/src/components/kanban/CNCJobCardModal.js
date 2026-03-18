@@ -6,7 +6,7 @@ import { formatDate, timeAgo } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import './CNCJobCardModal.css';
 
-export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave }) {
+export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, isCompletedRecord = false }) {
   const { user, isAdmin } = useAuth();
   const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('details');
@@ -314,11 +314,11 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave }) 
         {activeTab === 'details' && (
           <form onSubmit={handleSubmit} className="job-card-form">
             <div className="form-section">
-              <h4>Job Information {!isNew && !isAdmin && <span style={{fontSize:'11px',color:'#6b7280',fontWeight:'normal'}}>(🔒 Read-only)</span>}</h4>
+              <h4>Job Information {(!isNew && !isAdmin) || isCompletedRecord ? <span style={{fontSize:'11px',color:'#6b7280',fontWeight:'normal'}}>(🔒 Read-only)</span> : ''}</h4>
               <div className="form-grid">
                 <div className="form-group">
                   <label>Job Name *</label>
-                  <input type="text" name="job_name" value={formData.job_name} onChange={handleChange} placeholder="e.g., Shaft Drilling" required disabled={!isNew && !isAdmin} />
+                  <input type="text" name="job_name" value={formData.job_name} onChange={handleChange} placeholder="e.g., Shaft Drilling" required disabled={isCompletedRecord || (!isNew && !isAdmin)} />
                 </div>
                 <div className="form-group">
                   <label>Job Card Number *</label>
@@ -326,27 +326,27 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave }) 
                 </div>
                 <div className="form-group">
                   <label>Sub Job Card Number</label>
-                  <input type="text" name="subjob_card_number" value={formData.subjob_card_number} onChange={handleChange} placeholder="e.g., SJC-001" disabled={!isNew && !isAdmin} />
+                  <input type="text" name="subjob_card_number" value={formData.subjob_card_number} onChange={handleChange} placeholder="e.g., SJC-001" disabled={isCompletedRecord || (!isNew && !isAdmin)} />
                 </div>
                 <div className="form-group">
                   <label>Part Number *</label>
-                  <input type="text" name="part_number" value={formData.part_number} onChange={handleChange} placeholder="e.g., PN-12345" required disabled={!isNew && !isAdmin} />
+                  <input type="text" name="part_number" value={formData.part_number} onChange={handleChange} placeholder="e.g., PN-12345" required disabled={isCompletedRecord || (!isNew && !isAdmin)} />
                 </div>
                 <div className="form-group">
                   <label>Drawing Number</label>
-                  <input type="text" name="drawing_number" value={formData.drawing_number} onChange={handleChange} placeholder="e.g., DWG-2024-001" disabled={!isNew && !isAdmin} />
+                  <input type="text" name="drawing_number" value={formData.drawing_number} onChange={handleChange} placeholder="e.g., DWG-2024-001" disabled={isCompletedRecord || (!isNew && !isAdmin)} />
                 </div>
                 <div className="form-group">
                   <label>Job Date *</label>
-                  <input type="date" name="job_date" value={formData.job_date} onChange={handleChange} required disabled={!isNew && !isAdmin} />
+                  <input type="date" name="job_date" value={formData.job_date} onChange={handleChange} required disabled={isCompletedRecord || (!isNew && !isAdmin)} />
                 </div>
                 <div className="form-group">
                   <label>Quantity</label>
-                  <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} min="1" disabled={!isNew && !isAdmin} />
+                  <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} min="1" disabled={isCompletedRecord || (!isNew && !isAdmin)} />
                 </div>
                 <div className="form-group">
                   <label>Client Name / Machine Line Name</label>
-                  <input type="text" name="client_name" value={formData.client_name} onChange={handleChange} placeholder="e.g., ABC Manufacturing" disabled={!isNew && !isAdmin} />
+                  <input type="text" name="client_name" value={formData.client_name} onChange={handleChange} placeholder="e.g., ABC Manufacturing" disabled={isCompletedRecord || (!isNew && !isAdmin)} />
                 </div>
               </div>
             </div>
@@ -443,7 +443,10 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave }) 
 
             <div className="modal-footer">
               <div className="footer-left">
-                {jobCard && isAdmin && (
+                {isCompletedRecord && (
+                  <p style={{ color: '#10b981', fontSize: '12px', margin: 0, fontWeight: '500' }}>✓ This record is archived and cannot be modified</p>
+                )}
+                {jobCard && !isCompletedRecord && isAdmin && (
                   <>
                     <button type="button" className="btn btn-secondary" onClick={handleComplete} disabled={loading} title="Admin only: Mark this job card as completed">
                       ✓ Mark as Completed
@@ -453,15 +456,17 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave }) 
                     </button>
                   </>
                 )}
-                {jobCard && !isAdmin && (
+                {jobCard && !isCompletedRecord && !isAdmin && (
                   <p style={{ color: '#6b7280', fontSize: '12px', margin: 0 }}>ℹ️ Only admins can mark job cards as completed</p>
                 )}
               </div>
               <div className="footer-right">
                 <button type="button" className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={loading}>
-                  {loading ? 'Saving...' : jobCard ? 'Update Job Card' : 'Create Job Card'}
-                </button>
+                {!isCompletedRecord && (
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? 'Saving...' : jobCard ? 'Update Job Card' : 'Create Job Card'}
+                  </button>
+                )}
               </div>
             </div>
           </form>

@@ -1,0 +1,306 @@
+.completed-records-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.records-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  gap: 24px;
+}
+
+.records-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  color: #1f2937;
+}
+
+.records-header .subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.header-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 100%);
+  border-radius: 12px;
+  border: 1px solid #c7d2fe;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6366f1;
+  margin-top: 4px;
+}
+
+.records-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 250px;
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.sort-select {
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 2px dashed #e5e7eb;
+  color: #6b7280;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.records-table-container {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.records-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.records-table thead {
+  background: #f3f4f6;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.records-table th {
+  padding: 14px;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  white-space: nowrap;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.record-row {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.2s;
+}
+
+.record-row:hover {
+  background-color: #f9fafb;
+}
+
+.record-row:last-child {
+  border-bottom: none;
+}
+
+.records-table td {
+  padding: 12px 14px;
+  color: #374151;
+}
+
+.record-row .card-number {
+  font-weight: 600;
+  color: #6366f1;
+  font-family: monospace;
+}
+
+.record-row .job-name {
+  font-weight: 500;
+  color: #1f2937;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.record-row .part-number {
+  font-family: monospace;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.record-row .client {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.record-row .machine {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+  font-size: 12px;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  background-color: #e0e7ff;
+  color: #4338ca;
+}
+
+.type-badge[data-type="external"] {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.record-row .completion-date {
+  white-space: nowrap;
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.lead-days {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.lead-label {
+  display: block;
+  font-size: 10px;
+  color: #9ca3af;
+  text-transform: uppercase;
+}
+
+.record-row .actions {
+  text-align: center;
+}
+
+.btn-view {
+  padding: 6px 12px;
+  background-color: #f0f4ff;
+  border: 1px solid #d1d5f0;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #4338ca;
+  font-weight: 500;
+}
+
+.btn-view:hover {
+  background-color: #e0e7ff;
+  border-color: #c7d2fe;
+  transform: translateY(-1px);
+}
+
+.btn-view:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 1024px) {
+  .records-header {
+    flex-direction: column;
+  }
+
+  .header-stats {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .records-table {
+    font-size: 12px;
+  }
+
+  .records-table th,
+  .records-table td {
+    padding: 10px 8px;
+  }
+
+  .record-row .job-name,
+  .record-row .client {
+    max-width: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pending-records-page {
+    padding: 16px;
+  }
+
+  .records-controls {
+    flex-direction: column;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
+  .sort-select {
+    width: 100%;
+  }
+
+  .records-table-container {
+    overflow-x: auto;
+  }
+
+  .records-table {
+    min-width: 800px;
+  }
+}

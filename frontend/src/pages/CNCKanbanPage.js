@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import cncJobService from '../services/cncJobService';
 import workflowService from '../services/workflowService';
@@ -32,6 +33,7 @@ const getCardUrgencyClass = (card) => {
 };
 
 export default function CNCKanbanPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [workflows, setWorkflows] = useState([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
@@ -208,6 +210,13 @@ export default function CNCKanbanPage() {
               </option>
             ))}
           </select>
+          <button 
+            className="btn btn-secondary"
+            onClick={() => navigate('/cnc-completed-records')}
+            title="View archived completed job cards"
+          >
+            📋 Completed Records
+          </button>
           <button 
             className="btn btn-primary"
             onClick={() => handleOpenModal()}

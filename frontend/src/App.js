@@ -6,6 +6,7 @@ import DashboardPage from './components/dashboard/DashboardPage';
 import TasksPage from './pages/TasksPage';
 import KanbanPage from './pages/KanbanPage';
 import CNCKanbanPage from './pages/CNCKanbanPage';
+import CompletedRecordsPage from './pages/CompletedRecordsPage';
 import UsersPage from './pages/UsersPage';
 import ExtensionsPage from './pages/ExtensionsPage';
 import ReportsPage from './pages/ReportsPage';
@@ -36,6 +37,7 @@ function AppRoutes() {
       <Route path="/tasks" element={<PrivateRoute><TasksPage /></PrivateRoute>} />
       <Route path="/kanban" element={<PrivateRoute><KanbanPage /></PrivateRoute>} />
       <Route path="/cnc-kanban" element={<PrivateRoute><CNCKanbanPage /></PrivateRoute>} />
+      <Route path="/cnc-completed-records" element={<PrivateRoute><CompletedRecordsPage /></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
       <Route path="/admin/tasks" element={<PrivateRoute adminOnly><TasksPage adminView /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute adminOnly><UsersPage /></PrivateRoute>} />
