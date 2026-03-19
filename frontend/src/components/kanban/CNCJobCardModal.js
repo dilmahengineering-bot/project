@@ -43,6 +43,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
   const [uploadingFile, setUploadingFile] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [extForm, setExtForm] = useState({ new_deadline: '', reason: '' });
+  const [currentStageId, setCurrentStageId] = useState(jobCard?.current_stage_id || '');
   const isNew = !jobCard?.id;
 
   useEffect(() => {
@@ -408,16 +409,17 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                   <div className="form-group">
                     <label>Stage</label>
                     <select
-                      value={jobCard?.current_stage_id || ''}
+                      value={currentStageId}
                       disabled={isCompletedRecord || isGuest}
                       onChange={async (e) => {
                         const newStageId = e.target.value;
-                        if (!newStageId || newStageId === jobCard.current_stage_id) return;
+                        if (!newStageId || newStageId === currentStageId) return;
                         try {
                           await cncJobService.moveJobCardStage(jobCard.id, {
                             stage_id: newStageId,
                             notes: 'Stage changed from modal'
                           });
+                          setCurrentStageId(newStageId);
                           toast.success('Stage updated');
                           onSave?.();
                         } catch (err) {
