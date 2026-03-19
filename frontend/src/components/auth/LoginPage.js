@@ -37,91 +37,112 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <div className="login-logo">
-          <div className="icon">📋</div>
-          <div>
-            <h1 style={{fontSize:'24px',color:'#1e1b4b'}}>TaskFlow</h1>
-            <p style={{fontSize:'12px',color:'#6b7280',marginTop:'2px'}}>Team Task Management</p>
-          </div>
-        </div>
-        <h2 style={{fontSize:'20px',marginBottom:'8px',color:'#111827'}}>Sign in to your account</h2>
-        <p style={{color:'#6b7280',fontSize:'14px',marginBottom:'28px'}}>Enter your credentials to continue</p>
-
-        {error && (
-          <div style={{marginBottom:'16px',padding:'14px',background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'8px',color:'#991b1b',fontSize:'14px'}}>
-            <div style={{fontWeight:'600',marginBottom:'6px'}}>{typeof error === 'object' ? error.title : 'Error'}</div>
-            <div style={{color:'#7f1d1d',fontSize:'13px',lineHeight:'1.5'}}>{typeof error === 'object' ? error.message : error}</div>
-            {typeof error === 'object' && error.code && (
-              <div style={{marginTop:'8px',fontSize:'12px',color:'#b91c1c',fontFamily:'monospace',background:'rgba(0,0,0,0.05)',padding:'6px 8px',borderRadius:'4px'}}>
-                [Code: {error.code}]
-              </div>
-            )}
-            {typeof error === 'object' && error.baseURL && (
-              <div style={{marginTop:'8px',fontSize:'12px',color:'#7f1d1d',background:'rgba(0,0,0,0.05)',padding:'6px 8px',borderRadius:'4px'}}>
-                API URL: <code style={{color:'#b91c1c'}}>{error.baseURL}</code>
-              </div>
-            )}
-            {typeof error === 'object' && error.code === 'INVALID_CREDENTIALS' && (
-              <div style={{marginTop:'10px',padding:'8px',background:'#fffbeb',borderRadius:'4px',color:'#92400e',fontSize:'12px'}}>
-                <strong>Tip:</strong> Use admin@taskflow.com / Admin@123 for testing
-              </div>
-            )}
-            {typeof error === 'object' && error.code === 'BACKEND_NOT_FOUND' && (
-              <div style={{marginTop:'10px',padding:'8px',background:'#fffbeb',borderRadius:'4px',color:'#92400e',fontSize:'12px'}}>
-                <strong>Troubleshooting:</strong>
-                <div style={{marginTop:'4px'}}>1. Check if backend is running: <code>npm start</code> in /backend folder</div>
-                <div>2. Verify backend is listening on port 5000</div>
-                <div>3. Check if .env file has correct API_URL</div>
-              </div>
-            )}
-            {typeof error === 'object' && error.code === 'NETWORK_ERROR' && (
-              <div style={{marginTop:'10px',padding:'8px',background:'#fffbeb',borderRadius:'4px',color:'#92400e',fontSize:'12px'}}>
-                <strong>Troubleshooting:</strong>
-                <div style={{marginTop:'4px'}}>1. Check your internet connection</div>
-                <div>2. Verify backend server is running</div>
-                <div>3. Check if firewall is blocking port 5000</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
-            <input
-              type="email" className="form-control"
-              placeholder="you@company.com"
-              value={form.email}
-              onChange={e => setForm(p => ({...p, email: e.target.value}))}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <div style={{position:'relative'}}>
-              <input
-                type={showPass ? 'text' : 'password'}
-                className="form-control"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={e => setForm(p => ({...p, password: e.target.value}))}
-                required style={{paddingRight:'44px'}}
-              />
-              <button type="button" onClick={() => setShowPass(p => !p)}
-                style={{position:'absolute',right:'12px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'16px',color:'#9ca3af'}}>
-                {showPass ? '🙈' : '👁'}
-              </button>
+      {/* Left Panel - Branding */}
+      <div className="login-left">
+        <div className="login-left-content">
+          <div className="login-brand">
+            <div className="brand-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+            </div>
+            <div>
+              <h1 className="brand-name">Dilmah CNC</h1>
+              <p className="brand-subtitle">Precision Manufacturing</p>
             </div>
           </div>
-          <button type="submit" className="btn btn-primary btn-lg" style={{width:'100%',marginTop:'8px'}} disabled={loading}>
-            {loading ? <><span className="spinner" style={{width:'18px',height:'18px',borderWidth:'2px'}}></span> Signing in...</> : 'Sign In'}
-          </button>
-        </form>
 
-        <div style={{marginTop:'24px',padding:'16px',background:'#f5f3ff',borderRadius:'10px'}}>
-          <p style={{fontSize:'12px',color:'#6b7280',marginBottom:'6px',fontWeight:'600'}}>Demo Credentials</p>
-          <p style={{fontSize:'12px',color:'#4f46e5'}}>Admin: admin@taskflow.com / Admin@123</p>
+          <div className="login-hero">
+            <h2 className="hero-title">
+              Streamlining Precision<br />
+              <span className="hero-highlight">CNC Manufacturing Workflows</span>
+            </h2>
+            <p className="hero-description">
+              A professional quotation management platform designed for Dilmah CNC Manufacturing operations, 
+              enabling accurate multi-part, multi-operation costing with full engineering traceability. The 
+              system ensures precision, consistency, and compliance, supporting advanced CNC machining, 
+              transparent cost structures, and ISO-aligned approval workflows.
+            </p>
+          </div>
+
+          <div className="login-features">
+            <div className="feature-item">
+              <span className="feature-check">✔</span>
+              <span>Multi-part quotations</span>
+            </div>
+            <div className="feature-item">
+              <span className="feature-check">✔</span>
+              <span>Machine costing</span>
+            </div>
+            <div className="feature-item">
+              <span className="feature-check">✔</span>
+              <span>Approval workflows</span>
+            </div>
+            <div className="feature-item">
+              <span className="feature-check">✔</span>
+              <span>Real-time calculations</span>
+            </div>
+          </div>
+
+          <div className="login-footer">
+            <p>&copy; 2026 Dilmah Ceylon Tea Company PLC &ndash; CNC Manufacturing &amp; Engineering Innovations. All Rights Reserved.</p>
+            <p className="powered-by">Powered by MJF Group Engineering Innovations</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Login Form */}
+      <div className="login-right">
+        <div className="login-card">
+          <h2 className="login-title">Welcome back</h2>
+          <p className="login-subtitle">Sign in to your account to continue</p>
+
+          {error && (
+            <div className="login-error">
+              <div style={{fontWeight:'600',marginBottom:'4px'}}>{typeof error === 'object' ? error.title : 'Error'}</div>
+              <div style={{fontSize:'13px',opacity:0.9}}>{typeof error === 'object' ? error.message : error}</div>
+              {typeof error === 'object' && error.code && (
+                <div style={{marginTop:'6px',fontSize:'11px',fontFamily:'monospace',opacity:0.7}}>[{error.code}]</div>
+              )}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label" style={{color:'#374151',fontWeight:'500'}}>Username</label>
+              <input
+                type="email" className="form-control login-input"
+                placeholder="admin"
+                value={form.email}
+                onChange={e => setForm(p => ({...p, email: e.target.value}))}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{color:'#374151',fontWeight:'500'}}>Password</label>
+              <div style={{position:'relative'}}>
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  className="form-control login-input"
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={e => setForm(p => ({...p, password: e.target.value}))}
+                  required style={{paddingRight:'44px'}}
+                />
+                <button type="button" onClick={() => setShowPass(p => !p)}
+                  style={{position:'absolute',right:'12px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'18px',color:'#9ca3af',lineHeight:1}}>
+                  {showPass ? '🙈' : '👁'}
+                </button>
+              </div>
+            </div>
+            <button type="submit" className="btn-login" disabled={loading}>
+              {loading ? <><span className="spinner" style={{width:'18px',height:'18px',borderWidth:'2px'}}></span> Signing in...</> : 'Sign In'}
+            </button>
+          </form>
         </div>
       </div>
     </div>

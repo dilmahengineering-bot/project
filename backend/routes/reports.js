@@ -175,4 +175,70 @@ router.get('/stats', authenticate, async (req, res) => {
   }
 });
 
+// Per-user stats for both Tasks and CNC (admin only)
+router.get('/user-stats', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userTaskStats = await db.query(`
+      SELECT 
+        u.id, u.name, u.email, u.avatar_color,
+        COUNT(t.id) as task_total,
+        COUNT(t.id) FILTER (WHERE t.status = 'pending') as task_pending,
+        COUNT(t.id) FILTER (WHERE t.status = 'in_progress') as task_in_progress,
+        COUNT(t.id) FILTER (WHERE t.status = 'completed') as task_completed,
+        COUNT(t.id) FILTER (WHERE t.status = 'archived') as task_archived,
+        COUNT(t.id) FILTER (WHERE (t.extended_deadline IS NOT NULL AND t.extended_deadline < NOW() OR t.extended_deadline IS NULL AND t.deadline < NOW()) AND t.status NOT IN ('completed','archived')) as task_overdue
+      FROM users u
+      LEFT JOIN tasks t ON t.assigned_to = u.id
+      WHERE u.is_active = true AND u.role = 'user'
+      GROUP BY u.id, u.name, u.email, u.avatar_color
+      ORDER BY u.name ASC
+    `);
+
+    const userCncStats = await db.query(`
+      SELECT 
+        u.id,
+        COUNT(c.id) as cnc_total,
+        COUNT(c.id) FILTER (WHERE c.status = 'active') as cnc_active,
+        COUNT(c.id) FILTER (WHERE c.status = 'completed') as cnc_completed,
+        COUNT(c.id) FILTER (WHERE c.estimate_end_date < NOW() AND c.status = 'active') as cnc_overdue,
+        COUNT(c.id) FILTER (WHERE c.estimate_end_date IS NULL AND c.status = 'active') as cnc_no_deadline
+      FROM users u
+      LEFT JOIN cnc_job_cards c ON c.assigned_to = u.id
+      WHERE u.is_active = true AND u.role = 'user'
+      GROUP BY u.id
+    `);
+
+    // Merge task and CNC stats per user
+    const cncMap = {};
+    userCncStats.rows.forEach(r => { cncMap[r.id] = r; });
+
+    const userStats = userTaskStats.rows.map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      avatar_color: u.avatar_color,
+      tasks: {
+        total: parseInt(u.task_total),
+        pending: parseInt(u.task_pending),
+        in_progress: parseInt(u.task_in_progress),
+        completed: parseInt(u.task_completed),
+        archived: parseInt(u.task_archived),
+        overdue: parseInt(u.task_overdue),
+      },
+      cnc: {
+        total: parseInt(cncMap[u.id]?.cnc_total || 0),
+        active: parseInt(cncMap[u.id]?.cnc_active || 0),
+        completed: parseInt(cncMap[u.id]?.cnc_completed || 0),
+        overdue: parseInt(cncMap[u.id]?.cnc_overdue || 0),
+        no_deadline: parseInt(cncMap[u.id]?.cnc_no_deadline || 0),
+      }
+    }));
+
+    res.json({ user_stats: userStats });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch user stats' });
+  }
+});
+
 module.exports = router;
