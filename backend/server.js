@@ -361,8 +361,20 @@ const initDB = async () => {
     }
 
     // Update role CHECK constraint to include 'guest'
-    await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`).catch(() => {});
-    await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'user', 'guest'))`).catch(() => {});
+    try {
+      const constraintRes = await db.query(`
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_class rel ON rel.oid = con.conrelid
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE rel.relname = 'users' AND att.attname = 'role' AND con.contype = 'c'
+      `);
+      for (const row of constraintRes.rows) {
+        await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS "${row.conname}"`);
+      }
+      await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'user', 'guest'))`);
+    } catch (err) {
+      console.log('Role constraint migration note:', err.message);
+    }
 
     // Seed admin
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@taskflow.com';
