@@ -67,6 +67,15 @@ export default function CNCKanbanPage() {
     }
   }, [selectedWorkflow, viewMode]);
 
+  // Auto-refresh for guest users (every 30 seconds)
+  useEffect(() => {
+    if (!isGuest || !selectedWorkflow) return;
+    const interval = setInterval(() => {
+      loadJobCards(selectedWorkflow.id);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isGuest, selectedWorkflow, viewMode]);
+
   const loadData = async () => {
     try {
       setLoading(true);
