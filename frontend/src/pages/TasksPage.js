@@ -28,6 +28,7 @@ export default function TasksPage({ adminView = false }) {
   const [cncStats, setCncStats] = useState(null);
   const [cncLoading, setCncLoading] = useState(false);
   const [cncFilter, setCncFilter] = useState('active');
+  const [cncSearch, setCncSearch] = useState('');
   const [selectedCncJob, setSelectedCncJob] = useState(null);
   const [showCncModal, setShowCncModal] = useState(false);
   const [cncWorkflow, setCncWorkflow] = useState(null);
@@ -52,13 +53,13 @@ export default function TasksPage({ adminView = false }) {
     setCncLoading(true);
     try {
       const res = adminView
-        ? await cncJobService.getAllJobsAdmin(cncFilter)
-        : await cncJobService.getMyJobs(cncFilter);
+        ? await cncJobService.getAllJobsAdmin(cncFilter, cncSearch)
+        : await cncJobService.getMyJobs(cncFilter, cncSearch);
       setCncJobs(res.data.data || []);
       setCncStats(res.data.stats || null);
     } catch (err) { console.error(err); }
     finally { setCncLoading(false); }
-  }, [cncFilter, adminView]);
+  }, [cncFilter, cncSearch, adminView]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (activeTab === 'cnc') loadCncJobs(); }, [activeTab, loadCncJobs]);
@@ -147,7 +148,20 @@ export default function TasksPage({ adminView = false }) {
             <button className="btn btn-primary" onClick={openNew}>+ New Task</button>
           )}
           {activeTab === 'cnc' && (
-            <button className="btn btn-primary" onClick={() => navigate('/cnc-kanban')}>Open CNC Kanban</button>
+            <div style={{display:'flex',gap:'8px'}}>
+              <button className="btn btn-ghost" onClick={() => navigate('/cnc-kanban')}>📊 Open Kanban</button>
+              {isAdmin && <button className="btn btn-primary" onClick={async () => {
+                try {
+                  const wfs = await workflowService.getAllWorkflows();
+                  if (wfs.data.length > 0) {
+                    const detail = await workflowService.getWorkflow(wfs.data[0].id);
+                    setCncWorkflow(detail.data);
+                  }
+                  setSelectedCncJob(null);
+                  setShowCncModal(true);
+                } catch (err) { console.error(err); }
+              }}>+ New CNC Job</button>}
+            </div>
           )}
         </div>
       </div>
@@ -306,11 +320,17 @@ export default function TasksPage({ adminView = false }) {
 
           {/* CNC Filter */}
           <div className="filter-bar" style={{marginBottom:'16px'}}>
+            <div className="search-input" style={{flex:1,minWidth:'200px',position:'relative'}}>
+              <span className="search-icon" style={{position:'absolute',left:'12px',top:'50%',transform:'translateY(-50%)'}}>🔍</span>
+              <input className="form-control" placeholder="Search CNC jobs..." style={{paddingLeft:'38px'}}
+                value={cncSearch} onChange={e => setCncSearch(e.target.value)} />
+            </div>
             <select className="form-control" style={{width:'auto',minWidth:'140px'}} value={cncFilter} onChange={e => setCncFilter(e.target.value)}>
               <option value="active">Active Jobs</option>
               <option value="completed">Completed Jobs</option>
               <option value="all">All Jobs</option>
             </select>
+            <button className="btn btn-ghost" onClick={() => { setCncSearch(''); setCncFilter('active'); }}>Clear</button>
           </div>
 
           {/* CNC Table */}
@@ -323,7 +343,6 @@ export default function TasksPage({ adminView = false }) {
                   <div className="empty-icon">⚙️</div>
                   <h3>{adminView ? 'No CNC job cards found' : 'No CNC job cards assigned'}</h3>
                   <p>{adminView ? 'No CNC job cards match your filters.' : 'CNC job cards assigned to you will appear here.'}</p>
-                  <button className="btn btn-primary btn-sm" style={{marginTop:'12px'}} onClick={() => navigate('/cnc-kanban')}>Go to CNC Kanban</button>
                 </div>
               ) : (
                 <table>

@@ -50,7 +50,7 @@ router.get(
   authenticate,
   async (req, res) => {
     try {
-      const { status = 'active' } = req.query;
+      const { status = 'active', search = '' } = req.query;
       let query_str = `
         SELECT 
           j.*,
@@ -68,6 +68,11 @@ router.get(
         WHERE j.assigned_to = $1
       `;
       const params = [req.user.id];
+
+      if (search) {
+        query_str += ` AND (j.job_name ILIKE $${params.length + 1} OR j.job_card_number ILIKE $${params.length + 1} OR j.part_number ILIKE $${params.length + 1} OR j.client_name ILIKE $${params.length + 1})`;
+        params.push(`%${search}%`);
+      }
 
       if (status === 'active') {
         query_str += ` AND j.status = 'active'`;

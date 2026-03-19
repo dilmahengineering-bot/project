@@ -4,7 +4,7 @@ const cncJobService = {
   // Job Cards
   getAllJobCards: (params = {}) => api.get('/cnc-jobs', { params }),
   getJobCard: (id) => api.get(`/cnc-jobs/${id}`),
-  getMyJobs: (status = 'active') => api.get('/cnc-jobs/my-jobs', { params: { status } }),
+  getMyJobs: (status = 'active', search = '') => api.get('/cnc-jobs/my-jobs', { params: { status, search } }),
   getAllJobsAdmin: (status = 'active', search = '') => api.get('/cnc-jobs/all-jobs', { params: { status, search } }),
   createJobCard: (data) => api.post('/cnc-jobs', data),
   updateJobCard: (id, data) => api.put(`/cnc-jobs/${id}`, data),
