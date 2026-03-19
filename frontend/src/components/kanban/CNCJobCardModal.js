@@ -385,7 +385,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
             </div>
 
             <div className="form-section">
-              <h4>Assignment & Priority</h4>
+              <h4>Assignment, Priority & Stage</h4>
               <div className="form-grid">
                 <div className="form-group">
                   <label>Assign To</label>
@@ -404,6 +404,33 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                     <option value="high">High</option>
                   </select>
                 </div>
+                {!isNew && workflow?.stages?.length > 0 && (
+                  <div className="form-group">
+                    <label>Stage</label>
+                    <select
+                      value={jobCard?.current_stage_id || ''}
+                      disabled={isCompletedRecord || isGuest}
+                      onChange={async (e) => {
+                        const newStageId = e.target.value;
+                        if (!newStageId || newStageId === jobCard.current_stage_id) return;
+                        try {
+                          await cncJobService.moveJobCardStage(jobCard.id, {
+                            stage_id: newStageId,
+                            notes: 'Stage changed from modal'
+                          });
+                          toast.success('Stage updated');
+                          onSave?.();
+                        } catch (err) {
+                          toast.error(err.response?.data?.error || 'Failed to change stage');
+                        }
+                      }}
+                    >
+                      {workflow.stages.map(s => (
+                        <option key={s.id} value={s.id}>{s.stage_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
