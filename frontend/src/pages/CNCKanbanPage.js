@@ -6,20 +6,31 @@ import workflowService from '../services/workflowService';
 import CNCJobCardModal from '../components/kanban/CNCJobCardModal';
 import './CNCKanbanPage.css';
 
-const getLeadTime = (card) => {
+const getCardAge = (card) => {
   const start = card.job_date ? new Date(card.job_date) : null;
   if (!start) return null;
-  const end = card.status === 'completed' && card.updated_at ? new Date(card.updated_at) : new Date();
-  const diffMs = end - start;
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const now = new Date();
+  const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
   if (days < 0) return null;
   if (days === 0) return '< 1 day';
   return days === 1 ? '1 day' : days + ' days';
 };
 
+const getDaysToComplete = (card) => {
+  if (card.status === 'completed') return null;
+  const extDate = card.approved_extension_date;
+  const deadline = extDate ? new Date(extDate) : (card.estimate_end_date ? new Date(card.estimate_end_date) : null);
+  if (!deadline) return null;
+  const now = new Date();
+  const days = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+  return { days, isExtended: !!extDate };
+};
+
 const getDaysRemaining = (card) => {
-  if (!card.estimate_end_date || card.status === 'completed') return null;
-  const deadline = new Date(card.estimate_end_date);
+  const extDate = card.approved_extension_date;
+  const deadlineStr = extDate || card.estimate_end_date;
+  if (!deadlineStr || card.status === 'completed') return null;
+  const deadline = new Date(deadlineStr);
   const now = new Date();
   return Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
 };
@@ -352,11 +363,27 @@ export default function CNCKanbanPage() {
                       </div>
                     )}
 
-                    {getLeadTime(card) && (
-                      <div className="card-lead-time">
-                        <span>🕐 Lead Time: <strong>{getLeadTime(card)}</strong></span>
+                    {getCardAge(card) && (
+                      <div className="card-age">
+                        <span>📅 Age: <strong>{getCardAge(card)}</strong></span>
                       </div>
                     )}
+
+                    {(() => {
+                      const dtc = getDaysToComplete(card);
+                      if (!dtc) return null;
+                      const isOverdue = dtc.days < 1;
+                      const isWarning = dtc.days >= 1 && dtc.days <= 5;
+                      const label = isOverdue
+                        ? `Overdue by ${Math.abs(dtc.days)} day${Math.abs(dtc.days) !== 1 ? 's' : ''}`
+                        : `${dtc.days} day${dtc.days !== 1 ? 's' : ''} remaining`;
+                      return (
+                        <div className={`card-days-remaining ${isOverdue ? 'days-overdue' : isWarning ? 'days-warning' : 'days-safe'} ${dtc.isExtended ? 'days-extended' : ''}`}>
+                          <span>{isOverdue ? '🔴' : isWarning ? '🟡' : '🟢'} {label}</span>
+                          {dtc.isExtended && <span className="extended-badge">Extended</span>}
+                        </div>
+                      );
+                    })()}
 
                     <div className="card-footer">
                       <span className="created-date">

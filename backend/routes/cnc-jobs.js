@@ -58,7 +58,8 @@ router.get(
           s.stage_name as stage_name,
           u.name as assigned_user,
           creator.name as created_by_name,
-          (SELECT COUNT(*) FROM cnc_job_attachments a WHERE a.job_card_id = j.id) as attachment_count
+          (SELECT COUNT(*) FROM cnc_job_attachments a WHERE a.job_card_id = j.id) as attachment_count,
+          (SELECT ext.new_deadline FROM cnc_job_extensions ext WHERE ext.job_card_id = j.id AND ext.approval_status = 'approved' ORDER BY ext.created_at DESC LIMIT 1) as approved_extension_date
         FROM cnc_job_cards j
         LEFT JOIN workflows w ON j.workflow_id = w.id
         LEFT JOIN workflow_stages s ON j.current_stage_id = s.id
@@ -113,7 +114,8 @@ router.get(
           s.stage_name as stage_name,
           u.name as assigned_user,
           creator.name as created_by_name,
-          (SELECT COUNT(*) FROM cnc_job_attachments a WHERE a.job_card_id = j.id) as attachment_count
+          (SELECT COUNT(*) FROM cnc_job_attachments a WHERE a.job_card_id = j.id) as attachment_count,
+          (SELECT ext.new_deadline FROM cnc_job_extensions ext WHERE ext.job_card_id = j.id AND ext.approval_status = 'approved' ORDER BY ext.created_at DESC LIMIT 1) as approved_extension_date
         FROM cnc_job_cards j
         LEFT JOIN workflows w ON j.workflow_id = w.id
         LEFT JOIN workflow_stages s ON j.current_stage_id = s.id
@@ -179,7 +181,8 @@ router.get(
           s.stage_name as stage_name,
           u.name as assigned_user,
           creator.name as created_by_name,
-          (SELECT COUNT(*) FROM cnc_job_attachments a WHERE a.job_card_id = j.id) as attachment_count
+          (SELECT COUNT(*) FROM cnc_job_attachments a WHERE a.job_card_id = j.id) as attachment_count,
+          (SELECT ext.new_deadline FROM cnc_job_extensions ext WHERE ext.job_card_id = j.id AND ext.approval_status = 'approved' ORDER BY ext.created_at DESC LIMIT 1) as approved_extension_date
         FROM cnc_job_cards j
         LEFT JOIN workflows w ON j.workflow_id = w.id
         LEFT JOIN workflow_stages s ON j.current_stage_id = s.id
