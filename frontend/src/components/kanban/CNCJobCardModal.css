@@ -410,15 +410,48 @@
   cursor: not-allowed;
 }
 
-/* Responsive */
+/* Responsive — tablet */
+@media (max-width: 768px) {
+  .modal-dialog.modal-lg {
+    max-width: 95vw;
+  }
+
+  .modal-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 16px;
+    gap: 0;
+  }
+
+  .tab {
+    padding: 10px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .modal-header { padding: 16px; }
+  .job-card-form { padding: 16px; gap: 16px; }
+  .modal-footer { padding: 16px; }
+
+  .form-section h4 { font-size: 13px; }
+  .form-group label { font-size: 11px; }
+}
+
+/* Responsive — phone */
 @media (max-width: 640px) {
   .form-grid {
     grid-template-columns: 1fr;
   }
 
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
   .modal-dialog {
-    max-height: 100vh;
-    border-radius: 0;
+    max-height: 95vh;
+    border-radius: 12px 12px 0 0;
     max-width: 100%;
   }
 
@@ -426,8 +459,31 @@
     max-width: 100%;
   }
 
+  .modal-header {
+    padding: 14px 16px;
+  }
+
+  .modal-header h2 {
+    font-size: 16px;
+  }
+
+  .job-card-form {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .modal-tabs {
+    padding: 0 12px;
+  }
+
+  .tab {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
   .modal-footer {
     flex-direction: column;
+    padding: 14px;
   }
 
   .footer-left,
@@ -446,6 +502,14 @@
   .attachment-upload {
     flex-direction: column;
     text-align: center;
+  }
+
+  .attachments-section { padding: 14px; }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 16px; /* prevent iOS zoom */
   }
 }
 

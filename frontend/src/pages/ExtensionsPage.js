@@ -61,7 +61,7 @@ export default function ExtensionsPage() {
 
   return (
     <Layout title="🕐 Deadline Extensions">
-      <div style={{marginBottom:'20px',display:'flex',gap:'16px'}}>
+      <div style={{marginBottom:'20px',display:'flex',gap:'16px',flexWrap:'wrap'}}>
         <div className="stat-card" style={{flex:1}}>
           <div style={{fontSize:'28px',fontWeight:'800',color:'var(--warning)'}}>{allPending.length}</div>
           <div style={{fontSize:'13px',color:'var(--text-muted)'}}>Pending Review</div>
@@ -76,7 +76,7 @@ export default function ExtensionsPage() {
         </div>
       </div>
 
-      <div style={{display:'flex',gap:'8px',marginBottom:'20px'}}>
+      <div style={{display:'flex',gap:'8px',marginBottom:'20px',flexWrap:'wrap'}}>
         {[{key:'all',label:'All'},{key:'tasks',label:'📋 Tasks'},{key:'cnc',label:'🔧 CNC Jobs'}].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} className={`btn ${tab === t.key ? 'btn-primary' : 'btn-ghost'}`} style={{fontSize:'13px'}}>
             {t.label}

@@ -145,7 +145,7 @@ export default function ReportsPage() {
         )}
 
         {/* Charts Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
           {/* Task Bar Chart */}
           <div className="card">
             <div className="card-header"><h3 style={{ fontSize: '15px' }}>Task Status Distribution</h3></div>
@@ -186,7 +186,7 @@ export default function ReportsPage() {
 
         {/* Health Metrics */}
         {stats && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
+          <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
             <div className="card">
               <div className="card-header"><h3 style={{ fontSize: '15px' }}>Task Health</h3></div>
               <div style={{ padding: '24px' }}>

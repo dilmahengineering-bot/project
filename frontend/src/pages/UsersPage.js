@@ -56,7 +56,7 @@ export default function UsersPage() {
 
   return (
     <Layout title="👥 Users Management">
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px',flexWrap:'wrap',gap:'12px'}}>
         <p style={{color:'var(--text-muted)',fontSize:'14px'}}>{users.length} users total</p>
         <button className="btn btn-primary" onClick={openNew}>+ Add User</button>
       </div>
@@ -76,7 +76,7 @@ export default function UsersPage() {
                   </div>
                   <span className={`task-badge ${u.role==='admin'?'badge-high':'badge-in_progress'}`}>{u.role}</span>
                 </div>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'8px'}}>
                   <span style={{fontSize:'11px',color:'var(--text-light)'}}>Joined {formatDate(u.created_at)}</span>
                   <div style={{display:'flex',gap:'6px'}}>
                     <button className="btn btn-ghost btn-sm" onClick={() => openEdit(u)}>Edit</button>
@@ -99,7 +99,7 @@ export default function UsersPage() {
               <button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <div className="modal-body">
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+              <div className="form-row" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
                 <div className="form-group">
                   <label className="form-label">Full Name</label>
                   <input className="form-control" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="John Smith" />
@@ -109,7 +109,7 @@ export default function UsersPage() {
                   <input type="email" className="form-control" value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))} placeholder="john@company.com" />
                 </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+              <div className="form-row" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
                 <div className="form-group">
                   <label className="form-label">{selected ? 'New Password (leave blank)' : 'Password *'}</label>
                   <input type="password" className="form-control" value={form.password} onChange={e=>setForm(p=>({...p,password:e.target.value}))} placeholder="••••••••" />

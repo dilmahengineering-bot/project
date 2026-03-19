@@ -180,7 +180,7 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
         </div>
 
         {!isNew && (
-          <div style={{display:'flex',borderBottom:'1px solid var(--border)',padding:'0 24px'}}>
+          <div style={{display:'flex',borderBottom:'1px solid var(--border)',padding:'0 24px',overflowX:'auto'}}>
             {['details','history','extensions'].map(t => (
               <button key={t} onClick={() => setTab(t)}
                 style={{padding:'10px 16px',border:'none',background:'none',cursor:'pointer',fontSize:'13px',fontWeight:'600',
@@ -204,7 +204,7 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
                 <label className="form-label">Description</label>
                 <textarea className="form-control" placeholder="Task description..." value={form.description || ''} onChange={e => setForm(p=>({...p,description:e.target.value}))} />
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+              <div className="form-row" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
                 <div className="form-group">
                   <label className="form-label">Assigned To</label>
                   <select className="form-control" value={form.assigned_to} onChange={e => setForm(p=>({...p,assigned_to:e.target.value}))}>
@@ -221,7 +221,7 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
                   </select>
                 </div>
               </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
+              <div className="form-row" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px'}}>
                 <div className="form-group">
                   <label className="form-label">Deadline * {deadlineDisabled && <span style={{color:'var(--danger)',fontSize:'12px'}}>(Changed once)</span>}</label>
                   <input type="date" className="form-control" value={form.deadline} onChange={e => setForm(p=>({...p,deadline:e.target.value}))} disabled={deadlineDisabled} style={{cursor: deadlineDisabled ? 'not-allowed' : 'pointer', opacity: deadlineDisabled ? 0.6 : 1}} />
@@ -264,7 +264,7 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
               {!isAdmin && task?.status !== 'archived' && (
                 <div style={{background:'var(--surface2)',padding:'16px',borderRadius:'var(--radius)',marginBottom:'20px'}}>
                   <h4 style={{fontSize:'14px',marginBottom:'12px'}}>Request Extension</h4>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                  <div className="form-row" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
                     <div>
                       <label className="form-label">New Deadline</label>
                       <input type="date" className="form-control" value={extForm.new_deadline} onChange={e => setExtForm(p=>({...p,new_deadline:e.target.value}))} />

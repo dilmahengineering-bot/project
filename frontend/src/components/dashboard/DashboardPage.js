@@ -160,7 +160,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:'24px'}}>
+      <div className="dashboard-grid" style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:'24px'}}>
         {/* Left Column */}
         <div>
           {/* Recent Pending Tasks */}

@@ -136,14 +136,14 @@ export default function TasksPage({ adminView = false }) {
 
   return (
     <Layout title={adminView ? '📋 All Tasks' : '✅ My Tasks'}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px',flexWrap:'wrap',gap:'12px'}}>
+      <div className="page-header-row" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px',flexWrap:'wrap',gap:'12px'}}>
         <div>
           <h2 style={{fontSize:'20px'}}>{adminView ? 'All Tasks' : 'My Tasks'}</h2>
           <p style={{color:'var(--text-muted)',fontSize:'14px'}}>
             {activeTab === 'tasks' ? `${total} tasks` : `${cncJobs.length} CNC job cards`}
           </p>
         </div>
-        <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+        <div className="page-header-actions" style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
           {activeTab === 'tasks' && (
             <button className="btn btn-primary" onClick={openNew}>+ New Task</button>
           )}
@@ -167,7 +167,7 @@ export default function TasksPage({ adminView = false }) {
       </div>
 
       {/* Tab bar */}
-      <div style={{display:'flex',gap:'4px',marginBottom:'16px',background:'var(--surface2)',padding:'4px',borderRadius:'var(--radius-sm)',width:'fit-content'}}>
+      <div style={{display:'flex',gap:'4px',marginBottom:'16px',background:'var(--surface2)',padding:'4px',borderRadius:'var(--radius-sm)',maxWidth:'100%',overflowX:'auto'}}>
           <button
             onClick={() => setActiveTab('tasks')}
             style={{
@@ -298,22 +298,22 @@ export default function TasksPage({ adminView = false }) {
         <>
           {/* CNC Stats */}
           {cncStats && (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:'12px',marginBottom:'16px'}}>
-              <div style={{background:'white',borderRadius:'var(--radius-sm)',padding:'16px',border:'1px solid var(--border)',textAlign:'center'}}>
-                <div style={{fontSize:'24px',fontWeight:'800',color:'var(--primary)',fontFamily:'Space Grotesk'}}>{cncStats.total || 0}</div>
-                <div style={{fontSize:'12px',color:'var(--text-muted)',marginTop:'2px'}}>Total CNC Jobs</div>
+            <div className="stats-grid" style={{marginBottom:'16px'}}>
+              <div className="stat-card" style={{textAlign:'center',padding:'16px'}}>
+                <div className="stat-value" style={{color:'var(--primary)'}}>{cncStats.total || 0}</div>
+                <div className="stat-label">Total CNC Jobs</div>
               </div>
-              <div style={{background:'white',borderRadius:'var(--radius-sm)',padding:'16px',border:'1px solid var(--border)',textAlign:'center'}}>
-                <div style={{fontSize:'24px',fontWeight:'800',color:'#3b82f6',fontFamily:'Space Grotesk'}}>{cncStats.active || 0}</div>
-                <div style={{fontSize:'12px',color:'var(--text-muted)',marginTop:'2px'}}>Active</div>
+              <div className="stat-card" style={{textAlign:'center',padding:'16px'}}>
+                <div className="stat-value" style={{color:'#3b82f6'}}>{cncStats.active || 0}</div>
+                <div className="stat-label">Active</div>
               </div>
-              <div style={{background:'white',borderRadius:'var(--radius-sm)',padding:'16px',border:'1px solid var(--border)',textAlign:'center'}}>
-                <div style={{fontSize:'24px',fontWeight:'800',color:'var(--success)',fontFamily:'Space Grotesk'}}>{cncStats.completed || 0}</div>
-                <div style={{fontSize:'12px',color:'var(--text-muted)',marginTop:'2px'}}>Completed</div>
+              <div className="stat-card" style={{textAlign:'center',padding:'16px'}}>
+                <div className="stat-value" style={{color:'var(--success)'}}>{cncStats.completed || 0}</div>
+                <div className="stat-label">Completed</div>
               </div>
-              <div style={{background:'white',borderRadius:'var(--radius-sm)',padding:'16px',border:'1px solid var(--border)',textAlign:'center'}}>
-                <div style={{fontSize:'24px',fontWeight:'800',color:'var(--danger)',fontFamily:'Space Grotesk'}}>{cncStats.overdue || 0}</div>
-                <div style={{fontSize:'12px',color:'var(--text-muted)',marginTop:'2px'}}>Overdue</div>
+              <div className="stat-card" style={{textAlign:'center',padding:'16px'}}>
+                <div className="stat-value" style={{color:'var(--danger)'}}>{cncStats.overdue || 0}</div>
+                <div className="stat-label">Overdue</div>
               </div>
             </div>
           )}

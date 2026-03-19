@@ -21,7 +21,7 @@ export default function Layout({ children, title }) {
       <div className="main-content">
         <header className="header">
           <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
-            <button className="btn btn-ghost btn-icon mobile-menu-btn" onClick={() => setSidebarOpen(true)} style={{display:'none'}}>
+            <button className="btn btn-ghost btn-icon mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
               ☰
             </button>
             <h2 className="header-title">{title}</h2>
