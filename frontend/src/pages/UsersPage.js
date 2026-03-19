@@ -118,6 +118,7 @@ export default function UsersPage() {
                   <label className="form-label">Role</label>
                   <select className="form-control" value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))}>
                     <option value="user">User</option>
+                    <option value="guest">Guest (CNC Only)</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>

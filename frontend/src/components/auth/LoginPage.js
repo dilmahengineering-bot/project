@@ -18,7 +18,7 @@ export default function LoginPage() {
     try {
       const user = await login(form.email, form.password);
       toast.success('Welcome back, ' + user.name + '!');
-      navigate('/dashboard');
+      navigate(user.role === 'guest' ? '/cnc-kanban' : '/dashboard');
     } catch (err) {
       const errorInfo = err.errorInfo || {};
       const errorMsg = `${errorInfo.title || 'Login Failed'}${errorInfo.message ? ': ' + errorInfo.message : ''}`;

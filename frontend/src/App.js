@@ -14,8 +14,8 @@ import ReportsPage from './pages/ReportsPage';
 import ProfilePage from './pages/ProfilePage';
 import WorkflowManager from './components/admin/WorkflowManager';
 
-const PrivateRoute = ({ children, adminOnly = false }) => {
-  const { user, loading, isAdmin } = useAuth();
+const PrivateRoute = ({ children, adminOnly = false, denyGuest = false }) => {
+  const { user, loading, isAdmin, isGuest } = useAuth();
   if (loading) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',background:'var(--bg)'}}>
       <div style={{textAlign:'center'}}>
@@ -25,7 +25,8 @@ const PrivateRoute = ({ children, adminOnly = false }) => {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && !isAdmin) return <Navigate to="/dashboard" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to={isGuest ? '/cnc-kanban' : '/dashboard'} replace />;
+  if (denyGuest && isGuest) return <Navigate to="/cnc-kanban" replace />;
   return children;
 };
 
@@ -33,12 +34,12 @@ function AppRoutes() {
   const { user } = useAuth();
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
-      <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-      <Route path="/tasks" element={<PrivateRoute><TasksPage /></PrivateRoute>} />
-      <Route path="/kanban" element={<PrivateRoute><KanbanPage /></PrivateRoute>} />
+      <Route path="/login" element={user ? <Navigate to={user.role === 'guest' ? '/cnc-kanban' : '/dashboard'} replace /> : <LoginPage />} />
+      <Route path="/dashboard" element={<PrivateRoute denyGuest><DashboardPage /></PrivateRoute>} />
+      <Route path="/tasks" element={<PrivateRoute denyGuest><TasksPage /></PrivateRoute>} />
+      <Route path="/kanban" element={<PrivateRoute denyGuest><KanbanPage /></PrivateRoute>} />
       <Route path="/cnc-kanban" element={<PrivateRoute><CNCKanbanPage /></PrivateRoute>} />
-      <Route path="/cnc-completed-records" element={<PrivateRoute><CompletedRecordsPage /></PrivateRoute>} />
+      <Route path="/cnc-completed-records" element={<PrivateRoute denyGuest><CompletedRecordsPage /></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
       <Route path="/admin/tasks" element={<PrivateRoute adminOnly><TasksPage adminView /></PrivateRoute>} />
       <Route path="/admin/users" element={<PrivateRoute adminOnly><UsersPage /></PrivateRoute>} />
@@ -46,7 +47,7 @@ function AppRoutes() {
       <Route path="/admin/csv-import" element={<PrivateRoute adminOnly><CSVJobImportPage /></PrivateRoute>} />
       <Route path="/admin/extensions" element={<PrivateRoute adminOnly><ExtensionsPage /></PrivateRoute>} />
       <Route path="/admin/reports" element={<PrivateRoute adminOnly><ReportsPage /></PrivateRoute>} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to={user?.role === 'guest' ? '/cnc-kanban' : '/dashboard'} replace />} />
     </Routes>
   );
 }

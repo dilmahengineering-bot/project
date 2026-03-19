@@ -156,7 +156,7 @@ const initDB = async () => {
         name VARCHAR(100) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
+        role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user', 'guest')),
         avatar_color VARCHAR(7) DEFAULT '#6366f1',
         is_active BOOLEAN DEFAULT true,
         kanban_order INTEGER DEFAULT 0,
@@ -359,6 +359,10 @@ const initDB = async () => {
     } catch (err) {
       // Column might already exist, ignore error
     }
+
+    // Update role CHECK constraint to include 'guest'
+    await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`).catch(() => {});
+    await db.query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'user', 'guest'))`).catch(() => {});
 
     // Seed admin
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@taskflow.com';

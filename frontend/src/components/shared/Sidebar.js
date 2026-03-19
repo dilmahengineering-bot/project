@@ -13,7 +13,7 @@ const NavItem = ({ to, icon, label, badge }) => (
 );
 
 export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isGuest } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -33,9 +33,9 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
         <nav className="sidebar-nav">
           <div className="nav-section">
             <div className="nav-section-title">Main</div>
-            <NavItem to="/dashboard" icon="🏠" label="Dashboard" />
-            <NavItem to="/tasks" icon="✅" label="My Tasks" />
-            <NavItem to="/kanban" icon="📊" label="Kanban Board" />
+            {!isGuest && <NavItem to="/dashboard" icon="🏠" label="Dashboard" />}
+            {!isGuest && <NavItem to="/tasks" icon="✅" label="My Tasks" />}
+            {!isGuest && <NavItem to="/kanban" icon="📊" label="Kanban Board" />}
             <NavItem to="/cnc-kanban" icon="⚙️" label="CNC Kanban" />
           </div>
 
