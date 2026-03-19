@@ -34,7 +34,7 @@ const getCardUrgencyClass = (card) => {
 
 export default function CNCKanbanPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const [workflows, setWorkflows] = useState([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [jobCards, setJobCards] = useState({});
@@ -126,6 +126,7 @@ export default function CNCKanbanPage() {
   };
 
   const handleDragStart = (e, card) => {
+    if (isGuest) { e.preventDefault(); return; }
     setDraggedCard(card);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -210,6 +211,7 @@ export default function CNCKanbanPage() {
               </option>
             ))}
           </select>
+          {!isGuest && (
           <button 
             className="btn btn-secondary"
             onClick={() => navigate('/cnc-completed-records')}
@@ -217,12 +219,15 @@ export default function CNCKanbanPage() {
           >
             📋 Completed Records
           </button>
+          )}
+          {!isGuest && (
           <button 
             className="btn btn-primary"
             onClick={() => handleOpenModal()}
           >
             + New Job Card
           </button>
+          )}
         </div>
       </div>
 
@@ -292,7 +297,7 @@ export default function CNCKanbanPage() {
                   <div
                     key={card.id}
                     className={`job-card ${getCardUrgencyClass(card)}`}
-                    draggable
+                    draggable={!isGuest}
                     onDragStart={(e) => handleDragStart(e, card)}
                     onClick={() => handleOpenModal(card)}
                   >
@@ -394,6 +399,7 @@ export default function CNCKanbanPage() {
           workflow={selectedWorkflow}
           onClose={handleCloseModal}
           onSave={handleCardCreated}
+          isCompletedRecord={isGuest}
         />
       )}
     </div>

@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import './CNCJobCardModal.css';
 
 export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, isCompletedRecord = false }) {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isGuest } = useAuth();
   const fileInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('details');
   const [formData, setFormData] = useState({
@@ -281,7 +281,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-dialog modal-lg" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{jobCard ? 'Edit Job Card' : 'Create New CNC Job Card'}</h2>
+          <h2>{isGuest ? 'View Job Card' : jobCard ? 'Edit Job Card' : 'Create New CNC Job Card'}</h2>
           <div className="header-actions">
             {jobCard && (
               <button type="button" className="btn btn-report" onClick={handleDownloadReport} disabled={loading} title="Download PDF Report">
@@ -444,7 +444,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
             <div className="modal-footer">
               <div className="footer-left">
                 {isCompletedRecord && (
-                  <p style={{ color: '#10b981', fontSize: '12px', margin: 0, fontWeight: '500' }}>✓ This record is archived and cannot be modified</p>
+                  <p style={{ color: '#10b981', fontSize: '12px', margin: 0, fontWeight: '500' }}>{isGuest ? '👁️ Guest view — read-only access' : '✓ This record is archived and cannot be modified'}</p>
                 )}
                 {jobCard && !isCompletedRecord && isAdmin && (
                   <>
@@ -498,7 +498,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
 
         {activeTab === 'extensions' && (
           <div style={{padding:'24px',maxHeight:'60vh',overflowY:'auto'}}>
-            {!isAdmin && (
+            {!isAdmin && !isGuest && (
               <div style={{background:'var(--surface2, #f8fafc)',padding:'16px',borderRadius:'8px',marginBottom:'20px',border:'1px solid var(--border)'}}>
                 <h4 style={{fontSize:'14px',marginBottom:'12px'}}>Request Extension</h4>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
@@ -549,6 +549,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
 
         {activeTab === 'attachments' && (
           <div className="attachments-section">
+            {!isCompletedRecord && !isGuest && (
             <div className="attachment-upload">
               <input
                 ref={fileInputRef}
@@ -566,6 +567,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
               </button>
               <span className="upload-hint">PDF, Images, CAD files (DWG, STEP, STL), Documents — Max 10MB</span>
             </div>
+            )}
 
             <div className="attachments-list">
               {attachments.length === 0 ? (
@@ -590,7 +592,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                         {formatFileSize(att.file_size)} · {att.uploaded_by_name} · {new Date(att.created_at).toLocaleDateString()}
                       </span>
                     </div>
-                    <button className="btn-delete-attachment" onClick={() => handleDeleteAttachment(att.id)} title="Delete">🗑️</button>
+                    {!isGuest && <button className="btn-delete-attachment" onClick={() => handleDeleteAttachment(att.id)} title="Delete">🗑️</button>}
                   </div>
                 ))
               )}

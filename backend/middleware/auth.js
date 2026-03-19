@@ -22,4 +22,9 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { authenticate, requireAdmin };
+const denyGuest = (req, res, next) => {
+  if (req.user?.role === 'guest') return res.status(403).json({ error: 'Guest users have read-only access' });
+  next();
+};
+
+module.exports = { authenticate, requireAdmin, denyGuest };

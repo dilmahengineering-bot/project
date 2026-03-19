@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { authenticate, requireAdmin } = require('../middleware/auth');
+const { authenticate, requireAdmin, denyGuest } = require('../middleware/auth');
 const { body, param, query, validationResult } = require('express-validator');
 const multer = require('multer');
 const path = require('path');
@@ -338,6 +338,7 @@ router.get('/:id', authenticate, async (req, res) => {
 router.post(
   '/',
   authenticate,
+  denyGuest,
   async (req, res) => {
 
     const client = await db.pool.connect();
@@ -444,6 +445,7 @@ router.post(
 router.put(
   '/:id',
   authenticate,
+  denyGuest,
   async (req, res) => {
 
     try {
@@ -524,6 +526,7 @@ router.put(
 router.post(
   '/:id/move-stage',
   authenticate,
+  denyGuest,
   async (req, res) => {
 
     const client = await db.pool.connect();
@@ -673,7 +676,7 @@ router.delete(
 // ==================== EXTENSIONS ====================
 
 // Request extension for CNC job estimate end date
-router.post('/:id/extension', authenticate, async (req, res) => {
+router.post('/:id/extension', authenticate, denyGuest, async (req, res) => {
   try {
     const { new_deadline, reason } = req.body;
     if (!new_deadline) return res.status(400).json({ error: 'New deadline is required' });
@@ -752,6 +755,7 @@ router.put('/extensions/:extId', authenticate, requireAdmin, async (req, res) =>
 router.post(
   '/:id/attachments',
   authenticate,
+  denyGuest,
   upload.single('file'),
   async (req, res) => {
     try {
@@ -804,7 +808,7 @@ router.get('/:id/attachments', authenticate, async (req, res) => {
 });
 
 // Delete attachment
-router.delete('/attachments/:attachmentId', authenticate, async (req, res) => {
+router.delete('/attachments/:attachmentId', authenticate, denyGuest, async (req, res) => {
   try {
     const { attachmentId } = req.params;
     const result = await db.query(
