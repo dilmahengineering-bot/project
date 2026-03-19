@@ -302,6 +302,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
             <button className={`tab ${activeTab === 'attachments' ? 'active' : ''}`} onClick={() => setActiveTab('attachments')}>
               📎 Attachments {attachments.length > 0 && <span className="tab-badge">{attachments.length}</span>}
             </button>
+            <button className={`tab ${activeTab === 'procurement' ? 'active' : ''}`} onClick={() => setActiveTab('procurement')}>📦 Procurement</button>
           </div>
         )}
 
@@ -384,36 +385,6 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
             </div>
 
             <div className="form-section">
-              <h4>📦 Procurement Details</h4>
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Material</label>
-                  <input type="text" name="material" value={formData.material} onChange={handleChange} placeholder="e.g., SS304, Aluminium 6061" />
-                </div>
-                <div className="form-group">
-                  <label>Item Code</label>
-                  <input type="text" name="item_code" value={formData.item_code} onChange={handleChange} placeholder="e.g., ITM-2024-001" />
-                </div>
-                <div className="form-group">
-                  <label>Dimension</label>
-                  <input type="text" name="dimension" value={formData.dimension} onChange={handleChange} placeholder="e.g., 100x50x25 mm" />
-                </div>
-                <div className="form-group">
-                  <label>PR Number</label>
-                  <input type="text" name="pr_number" value={formData.pr_number} onChange={handleChange} placeholder="e.g., PR-2024-001" />
-                </div>
-                <div className="form-group">
-                  <label>PO Number</label>
-                  <input type="text" name="po_number" value={formData.po_number} onChange={handleChange} placeholder="e.g., PO-2024-001" />
-                </div>
-                <div className="form-group">
-                  <label>Estimated Delivery Date</label>
-                  <input type="date" name="estimated_delivery_date" value={formData.estimated_delivery_date} onChange={handleChange} />
-                </div>
-              </div>
-            </div>
-
-            <div className="form-section">
               <h4>Assignment & Priority</h4>
               <div className="form-grid">
                 <div className="form-group">
@@ -435,6 +406,38 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                 </div>
               </div>
             </div>
+
+            {isNew && (
+              <div className="form-section">
+                <h4>📦 Procurement Details</h4>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Material</label>
+                    <input type="text" name="material" value={formData.material} onChange={handleChange} placeholder="e.g., SS304, Aluminium 6061" />
+                  </div>
+                  <div className="form-group">
+                    <label>Item Code</label>
+                    <input type="text" name="item_code" value={formData.item_code} onChange={handleChange} placeholder="e.g., ITM-2024-001" />
+                  </div>
+                  <div className="form-group">
+                    <label>Dimension</label>
+                    <input type="text" name="dimension" value={formData.dimension} onChange={handleChange} placeholder="e.g., 100x50x25 mm" />
+                  </div>
+                  <div className="form-group">
+                    <label>PR Number</label>
+                    <input type="text" name="pr_number" value={formData.pr_number} onChange={handleChange} placeholder="e.g., PR-2024-001" />
+                  </div>
+                  <div className="form-group">
+                    <label>PO Number</label>
+                    <input type="text" name="po_number" value={formData.po_number} onChange={handleChange} placeholder="e.g., PO-2024-001" />
+                  </div>
+                  <div className="form-group">
+                    <label>Estimated Delivery Date</label>
+                    <input type="date" name="estimated_delivery_date" value={formData.estimated_delivery_date} onChange={handleChange} />
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="form-section">
               <h4>Notes</h4>
@@ -595,6 +598,64 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                     {!isGuest && <button className="btn-delete-attachment" onClick={() => handleDeleteAttachment(att.id)} title="Delete">🗑️</button>}
                   </div>
                 ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'procurement' && (
+          <div style={{padding:'24px',maxHeight:'60vh',overflowY:'auto'}}>
+            <div className="form-section" style={{marginBottom:0}}>
+              <h4 style={{marginBottom:'16px'}}>📦 Procurement Details</h4>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Material</label>
+                  <input type="text" name="material" value={formData.material} onChange={handleChange} placeholder="e.g., SS304, Aluminium 6061" disabled={isCompletedRecord || isGuest} />
+                </div>
+                <div className="form-group">
+                  <label>Item Code</label>
+                  <input type="text" name="item_code" value={formData.item_code} onChange={handleChange} placeholder="e.g., ITM-2024-001" disabled={isCompletedRecord || isGuest} />
+                </div>
+                <div className="form-group">
+                  <label>Dimension</label>
+                  <input type="text" name="dimension" value={formData.dimension} onChange={handleChange} placeholder="e.g., 100x50x25 mm" disabled={isCompletedRecord || isGuest} />
+                </div>
+                <div className="form-group">
+                  <label>PR Number</label>
+                  <input type="text" name="pr_number" value={formData.pr_number} onChange={handleChange} placeholder="e.g., PR-2024-001" disabled={isCompletedRecord || isGuest} />
+                </div>
+                <div className="form-group">
+                  <label>PO Number</label>
+                  <input type="text" name="po_number" value={formData.po_number} onChange={handleChange} placeholder="e.g., PO-2024-001" disabled={isCompletedRecord || isGuest} />
+                </div>
+                <div className="form-group">
+                  <label>Estimated Delivery Date</label>
+                  <input type="date" name="estimated_delivery_date" value={formData.estimated_delivery_date} onChange={handleChange} disabled={isCompletedRecord || isGuest} />
+                </div>
+              </div>
+              {!isCompletedRecord && !isGuest && (
+                <button type="button" className="btn btn-primary" style={{marginTop:'16px'}} disabled={loading} onClick={async () => {
+                  try {
+                    setLoading(true);
+                    await cncJobService.updateJobCard(jobCard.id, {
+                      ...formData,
+                      material: formData.material || null,
+                      item_code: formData.item_code || null,
+                      dimension: formData.dimension || null,
+                      pr_number: formData.pr_number || null,
+                      po_number: formData.po_number || null,
+                      estimated_delivery_date: formData.estimated_delivery_date || null
+                    });
+                    toast.success('Procurement details saved');
+                    onSave?.();
+                  } catch (err) {
+                    toast.error(err.response?.data?.error || 'Failed to save');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}>
+                  {loading ? 'Saving...' : '💾 Save Procurement Details'}
+                </button>
               )}
             </div>
           </div>
