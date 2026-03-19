@@ -6,26 +6,6 @@ const router = express.Router();
 
 router.get('/pdf', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { status, assigned_to, from_date, to_date } = req.query;
-    let where = [];
-    let params = [];
-    let idx = 1;
-
-    if (status) { where.push(`t.status = $${idx}`); params.push(status); idx++; }
-    if (assigned_to) { where.push(`t.assigned_to = $${idx}`); params.push(assigned_to); idx++; }
-    if (from_date) { where.push(`t.created_at >= $${idx}`); params.push(from_date); idx++; }
-    if (to_date) { where.push(`t.created_at <= $${idx}`); params.push(to_date); idx++; }
-
-    const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
-
-    const tasks = await db.query(`
-      SELECT t.*, u1.name as assigned_name, u2.name as created_name
-      FROM tasks t
-      LEFT JOIN users u1 ON t.assigned_to = u1.id
-      LEFT JOIN users u2 ON t.created_by = u2.id
-      ${whereClause}
-      ORDER BY t.deadline ASC
-    `, params);
 
     // Task stats (overall)
     const taskStats = await db.query(`
@@ -301,51 +281,6 @@ router.get('/pdf', authenticate, requireAdmin, async (req, res) => {
       y += 10;
     });
 
-    // ══════════════════════════════════════════════════════════
-    // SECTION: Task Details Table
-    // ══════════════════════════════════════════════════════════
-    y = checkPage(y, 60);
-    y = drawSectionTitle('Task Details', y);
-
-    // Table header
-    const cols = [180, 100, 100, 70, 45];
-    const headers = ['Title', 'Assigned To', 'Deadline', 'Status', 'Priority'];
-    doc.rect(leftM, y, contentW, 20).fill('#ede9fe');
-    doc.fillColor('#1e1b4b').fontSize(9).font('Helvetica-Bold');
-    let tx = leftM;
-    headers.forEach((h, i) => {
-      doc.text(h, tx + 4, y + 5, { width: cols[i] - 8 });
-      tx += cols[i];
-    });
-    y += 22;
-
-    tasks.rows.forEach((task, rowIdx) => {
-      y = checkPage(y, 20);
-      if (rowIdx % 2 === 0) doc.rect(leftM, y, contentW, 18).fill('#faf5ff');
-      
-      const statusColors = { pending: '#f59e0b', in_progress: '#3b82f6', completed: '#10b981', archived: '#6b7280' };
-      const deadline = new Date(task.extended_deadline || task.deadline);
-      const isOverdue = deadline < new Date() && !['completed', 'archived'].includes(task.status);
-
-      doc.fillColor('#374151').fontSize(8).font('Helvetica');
-      let cx = leftM;
-      const vals = [
-        task.title.substring(0, 30),
-        (task.assigned_name || 'Unassigned').substring(0, 16),
-        deadline.toLocaleDateString(),
-        task.status.replace('_', ' '),
-        task.priority
-      ];
-      vals.forEach((v, i) => {
-        if (i === 3) doc.fillColor(statusColors[task.status] || '#374151');
-        else if (i === 4 && task.priority === 'high') doc.fillColor('#ef4444');
-        else doc.fillColor(isOverdue && i === 2 ? '#ef4444' : '#374151');
-        doc.text(v, cx + 4, y + 5, { width: cols[i] - 8 });
-        cx += cols[i];
-      });
-      y += 18;
-    });
-
     // Footer on last page
     y = Math.max(y + 20, 720);
     if (y > 750) { doc.addPage(); y = 50; }
@@ -408,6 +343,279 @@ router.get('/stats', authenticate, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Individual User Report PDF (admin only)
+router.get('/user-pdf/:userId', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // Get user info
+    const userRes = await db.query('SELECT id, name, email FROM users WHERE id = $1', [userId]);
+    if (userRes.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const user = userRes.rows[0];
+
+    // User's tasks
+    const tasks = await db.query(`
+      SELECT t.*, u2.name as created_name
+      FROM tasks t
+      LEFT JOIN users u2 ON t.created_by = u2.id
+      WHERE t.assigned_to = $1
+      ORDER BY t.deadline ASC
+    `, [userId]);
+
+    // User's task stats
+    const taskStats = await db.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'pending') as pending,
+        COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE status = 'archived') as archived,
+        COUNT(*) FILTER (WHERE (extended_deadline IS NOT NULL AND extended_deadline < NOW() OR extended_deadline IS NULL AND deadline < NOW()) AND status NOT IN ('completed','archived')) as overdue
+      FROM tasks WHERE assigned_to = $1
+    `, [userId]);
+
+    // User's CNC job cards
+    const cncJobs = await db.query(`
+      SELECT c.*, w.name as workflow_name, ws.name as stage_name
+      FROM cnc_job_cards c
+      LEFT JOIN workflows w ON c.workflow_id = w.id
+      LEFT JOIN workflow_stages ws ON c.current_stage_id = ws.id
+      WHERE c.assigned_to = $1
+      ORDER BY c.created_at DESC
+    `, [userId]);
+
+    // User's CNC stats
+    const cncStats = await db.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'active') as active,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE estimate_end_date < NOW() AND status = 'active') as overdue,
+        COUNT(*) FILTER (WHERE estimate_end_date IS NULL AND status = 'active') as no_deadline
+      FROM cnc_job_cards WHERE assigned_to = $1
+    `, [userId]);
+
+    // Procurement summary — jobs with procurement data
+    const procurement = await db.query(`
+      SELECT job_card_number, job_name, material, item_code, dimension, pr_number, po_number, estimated_delivery_date, client_name, quantity
+      FROM cnc_job_cards
+      WHERE assigned_to = $1 AND (material IS NOT NULL OR item_code IS NOT NULL OR pr_number IS NOT NULL OR po_number IS NOT NULL)
+      ORDER BY created_at DESC
+    `, [userId]);
+
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="user-report-${user.name.replace(/\s+/g, '-')}-${Date.now()}.pdf"`);
+    doc.pipe(res);
+
+    const pageW = doc.page.width;
+    const leftM = 50;
+    const rightM = pageW - 50;
+    const contentW = rightM - leftM;
+
+    function drawHeader(subtitle) {
+      doc.rect(0, 0, pageW, 85).fill('#1e1b4b');
+      doc.fillColor('white').fontSize(22).font('Helvetica-Bold').text('Dilmah CNC', leftM, 20);
+      doc.fontSize(10).font('Helvetica').text(subtitle || `Individual Report — ${user.name}`, leftM, 46);
+      doc.fontSize(9).text(`Generated: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, 330, 30, { align: 'right', width: 215 });
+      doc.fontSize(9).text(user.email, 330, 44, { align: 'right', width: 215 });
+      return 105;
+    }
+
+    function drawSectionTitle(title, y) {
+      doc.fillColor('#1e1b4b').fontSize(14).font('Helvetica-Bold').text(title, leftM, y);
+      doc.moveTo(leftM, y + 18).lineTo(rightM, y + 18).strokeColor('#c7d2fe').lineWidth(1.5).stroke();
+      return y + 28;
+    }
+
+    function drawStatBox(x, y, w, h, value, label, color, bgColor) {
+      doc.rect(x, y, w, h).fillAndStroke(bgColor, '#e0e7ff');
+      doc.fillColor(color).fontSize(18).font('Helvetica-Bold').text(String(value || 0), x + 4, y + 6, { width: w - 8, align: 'center' });
+      doc.fillColor('#6b7280').fontSize(8).font('Helvetica').text(label, x + 4, y + 27, { width: w - 8, align: 'center' });
+    }
+
+    function checkPage(y, needed) {
+      if (y + needed > 750) { doc.addPage(); return drawHeader(); }
+      return y;
+    }
+
+    function drawFooter(y) {
+      y = Math.max(y + 15, 720);
+      if (y > 750) { doc.addPage(); y = 50; }
+      doc.moveTo(leftM, y).lineTo(rightM, y).strokeColor('#c7d2fe').lineWidth(1).stroke();
+      doc.fillColor('#9ca3af').fontSize(8).font('Helvetica').text('Dilmah CNC — Confidential User Report', leftM, y + 6);
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // PAGE 1: User Summary Stats
+    // ══════════════════════════════════════════════════════════
+    let y = drawHeader();
+    const ts = taskStats.rows[0];
+    const cs = cncStats.rows[0];
+
+    // Task stats boxes
+    y = drawSectionTitle('Task Summary', y);
+    const boxW = (contentW - 25) / 6;
+    [
+      { label: 'Total', value: ts.total, color: '#6366f1', bg: '#f5f3ff' },
+      { label: 'Pending', value: ts.pending, color: '#d97706', bg: '#fffbeb' },
+      { label: 'In Progress', value: ts.in_progress, color: '#2563eb', bg: '#eff6ff' },
+      { label: 'Completed', value: ts.completed, color: '#059669', bg: '#ecfdf5' },
+      { label: 'Archived', value: ts.archived, color: '#6b7280', bg: '#f3f4f6' },
+      { label: 'Overdue', value: ts.overdue, color: '#dc2626', bg: '#fef2f2' },
+    ].forEach((item, i) => {
+      drawStatBox(leftM + i * (boxW + 5), y, boxW, 40, item.value, item.label, item.color, item.bg);
+    });
+    y += 54;
+
+    // CNC stats boxes
+    y = drawSectionTitle('CNC Job Card Summary', y);
+    [
+      { label: 'Total', value: cs.total, color: '#6366f1', bg: '#f5f3ff' },
+      { label: 'Active', value: cs.active, color: '#2563eb', bg: '#eff6ff' },
+      { label: 'Completed', value: cs.completed, color: '#059669', bg: '#ecfdf5' },
+      { label: 'Overdue', value: cs.overdue, color: '#dc2626', bg: '#fef2f2' },
+      { label: 'No Deadline', value: cs.no_deadline, color: '#6b7280', bg: '#f3f4f6' },
+    ].forEach((item, i) => {
+      drawStatBox(leftM + i * (boxW + 5), y, boxW, 40, item.value, item.label, item.color, item.bg);
+    });
+    y += 60;
+
+    // ══════════════════════════════════════════════════════════
+    // SECTION: Task Details Table
+    // ══════════════════════════════════════════════════════════
+    y = checkPage(y, 60);
+    y = drawSectionTitle('Task Details', y);
+
+    if (tasks.rows.length === 0) {
+      doc.fillColor('#9ca3af').fontSize(10).font('Helvetica').text('No tasks assigned to this user.', leftM, y);
+      y += 20;
+    } else {
+      const tCols = [170, 110, 85, 75, 55];
+      const tHeaders = ['Title', 'Created By', 'Deadline', 'Status', 'Priority'];
+      doc.rect(leftM, y, contentW, 20).fill('#ede9fe');
+      doc.fillColor('#1e1b4b').fontSize(9).font('Helvetica-Bold');
+      let tx = leftM;
+      tHeaders.forEach((h, i) => { doc.text(h, tx + 4, y + 5, { width: tCols[i] - 8 }); tx += tCols[i]; });
+      y += 22;
+
+      const statusColors = { pending: '#f59e0b', in_progress: '#3b82f6', completed: '#10b981', archived: '#6b7280' };
+      tasks.rows.forEach((task, rowIdx) => {
+        y = checkPage(y, 20);
+        if (rowIdx % 2 === 0) doc.rect(leftM, y, contentW, 18).fill('#faf5ff');
+        const deadline = new Date(task.extended_deadline || task.deadline);
+        const isOverdue = deadline < new Date() && !['completed', 'archived'].includes(task.status);
+        doc.fillColor('#374151').fontSize(8).font('Helvetica');
+        let cx = leftM;
+        [
+          task.title.substring(0, 28),
+          (task.created_name || '-').substring(0, 18),
+          deadline.toLocaleDateString(),
+          task.status.replace('_', ' '),
+          task.priority
+        ].forEach((v, i) => {
+          if (i === 3) doc.fillColor(statusColors[task.status] || '#374151');
+          else if (i === 4 && task.priority === 'high') doc.fillColor('#ef4444');
+          else doc.fillColor(isOverdue && i === 2 ? '#ef4444' : '#374151');
+          doc.text(v, cx + 4, y + 5, { width: tCols[i] - 8 });
+          cx += tCols[i];
+        });
+        y += 18;
+      });
+    }
+    y += 10;
+
+    // ══════════════════════════════════════════════════════════
+    // SECTION: CNC Job Card Details Table
+    // ══════════════════════════════════════════════════════════
+    y = checkPage(y, 60);
+    y = drawSectionTitle('CNC Job Card Details', y);
+
+    if (cncJobs.rows.length === 0) {
+      doc.fillColor('#9ca3af').fontSize(10).font('Helvetica').text('No CNC job cards assigned to this user.', leftM, y);
+      y += 20;
+    } else {
+      const cCols = [85, 110, 80, 80, 70, 70];
+      const cHeaders = ['Job Card #', 'Job Name', 'Client', 'Stage', 'Status', 'End Date'];
+      doc.rect(leftM, y, contentW, 20).fill('#dbeafe');
+      doc.fillColor('#1e1b4b').fontSize(9).font('Helvetica-Bold');
+      let jx = leftM;
+      cHeaders.forEach((h, i) => { doc.text(h, jx + 4, y + 5, { width: cCols[i] - 8 }); jx += cCols[i]; });
+      y += 22;
+
+      cncJobs.rows.forEach((job, rowIdx) => {
+        y = checkPage(y, 20);
+        if (rowIdx % 2 === 0) doc.rect(leftM, y, contentW, 18).fill('#eff6ff');
+        const endDate = job.estimate_end_date ? new Date(job.estimate_end_date).toLocaleDateString() : 'None';
+        const isOverdue = job.estimate_end_date && new Date(job.estimate_end_date) < new Date() && job.status === 'active';
+        doc.fillColor('#374151').fontSize(8).font('Helvetica');
+        let cx = leftM;
+        [
+          (job.job_card_number || '-').substring(0, 14),
+          (job.job_name || '-').substring(0, 18),
+          (job.client_name || '-').substring(0, 12),
+          (job.stage_name || '-').substring(0, 12),
+          job.status,
+          endDate
+        ].forEach((v, i) => {
+          if (i === 4) doc.fillColor(job.status === 'completed' ? '#059669' : '#2563eb');
+          else if (i === 5 && isOverdue) doc.fillColor('#ef4444');
+          else doc.fillColor('#374151');
+          doc.text(v, cx + 4, y + 5, { width: cCols[i] - 8 });
+          cx += cCols[i];
+        });
+        y += 18;
+      });
+    }
+    y += 10;
+
+    // ══════════════════════════════════════════════════════════
+    // SECTION: Procurement Summary
+    // ══════════════════════════════════════════════════════════
+    y = checkPage(y, 60);
+    y = drawSectionTitle('Procurement Summary', y);
+
+    if (procurement.rows.length === 0) {
+      doc.fillColor('#9ca3af').fontSize(10).font('Helvetica').text('No procurement data available for this user.', leftM, y);
+      y += 20;
+    } else {
+      const pCols = [75, 70, 75, 70, 65, 65, 75];
+      const pHeaders = ['Job Card #', 'Material', 'Dimension', 'Item Code', 'PR No.', 'PO No.', 'Est. Delivery'];
+      doc.rect(leftM, y, contentW, 20).fill('#ecfdf5');
+      doc.fillColor('#1e1b4b').fontSize(8).font('Helvetica-Bold');
+      let px = leftM;
+      pHeaders.forEach((h, i) => { doc.text(h, px + 3, y + 5, { width: pCols[i] - 6 }); px += pCols[i]; });
+      y += 22;
+
+      procurement.rows.forEach((item, rowIdx) => {
+        y = checkPage(y, 20);
+        if (rowIdx % 2 === 0) doc.rect(leftM, y, contentW, 18).fill('#f0fdf4');
+        doc.fillColor('#374151').fontSize(7).font('Helvetica');
+        let cx = leftM;
+        [
+          (item.job_card_number || '-').substring(0, 12),
+          (item.material || '-').substring(0, 12),
+          (item.dimension || '-').substring(0, 12),
+          (item.item_code || '-').substring(0, 11),
+          (item.pr_number || '-').substring(0, 10),
+          (item.po_number || '-').substring(0, 10),
+          item.estimated_delivery_date ? new Date(item.estimated_delivery_date).toLocaleDateString() : '-'
+        ].forEach((v, i) => {
+          doc.text(v, cx + 3, y + 5, { width: pCols[i] - 6 });
+          cx += pCols[i];
+        });
+        y += 18;
+      });
+    }
+
+    drawFooter(y);
+    doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to generate user report' });
   }
 });
 

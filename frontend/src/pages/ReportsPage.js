@@ -11,6 +11,7 @@ export default function ReportsPage() {
   const [users, setUsers] = useState([]);
   const [filters, setFilters] = useState({ status: '', assigned_to: '', from_date: '', to_date: '' });
   const [downloading, setDownloading] = useState(false);
+  const [downloadingUser, setDownloadingUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedUser, setExpandedUser] = useState(null);
 
@@ -60,6 +61,22 @@ export default function ReportsPage() {
     { name: 'Overdue', value: parseInt(cncStats.overdue), color: '#ef4444' },
     { name: 'No Deadline', value: parseInt(cncStats.no_deadline), color: '#9ca3af' },
   ].filter(d => d.value > 0) : [];
+
+  const downloadUserPDF = async (userId, userName) => {
+    setDownloadingUser(userId);
+    try {
+      const token = localStorage.getItem('tf_token');
+      const base = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const res = await fetch(base + '/reports/user-pdf/' + userId, { headers: { Authorization: 'Bearer ' + token } });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `user-report-${userName.replace(/\s+/g, '-')}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Report downloaded for ${userName}!`);
+    } catch { toast.error('Failed to download user report'); }
+    finally { setDownloadingUser(null); }
+  };
 
   const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
 
@@ -243,6 +260,13 @@ export default function ReportsPage() {
                       {(user.tasks.overdue + user.cnc.overdue) > 0 && (
                         <span className="user-badge overdue-badge">🚨 {user.tasks.overdue + user.cnc.overdue} Overdue</span>
                       )}
+                      <button
+                        className="btn-user-report"
+                        onClick={(e) => { e.stopPropagation(); downloadUserPDF(user.id, user.name); }}
+                        disabled={downloadingUser === user.id}
+                      >
+                        {downloadingUser === user.id ? '⏳' : '📄'} Report
+                      </button>
                       <span className="expand-icon">{isExpanded ? '▲' : '▼'}</span>
                     </div>
                   </div>
