@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import cncJobService from '../services/cncJobService';
+import workflowService from '../services/workflowService';
 import socketService from '../services/socket';
 import { getDeadlineStatus, getStatusBadge, getPriorityBadge, formatDate } from '../utils/helpers';
 import Layout from '../components/shared/Layout';
 import TaskModal from '../components/shared/TaskModal';
+import CNCJobCardModal from '../components/kanban/CNCJobCardModal';
 import { useAuth } from '../context/AuthContext';
 
 export default function TasksPage({ adminView = false }) {
@@ -26,6 +28,9 @@ export default function TasksPage({ adminView = false }) {
   const [cncStats, setCncStats] = useState(null);
   const [cncLoading, setCncLoading] = useState(false);
   const [cncFilter, setCncFilter] = useState('active');
+  const [selectedCncJob, setSelectedCncJob] = useState(null);
+  const [showCncModal, setShowCncModal] = useState(false);
+  const [cncWorkflow, setCncWorkflow] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,6 +62,21 @@ export default function TasksPage({ adminView = false }) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (activeTab === 'cnc') loadCncJobs(); }, [activeTab, loadCncJobs]);
+
+  const openCncJob = async (job) => {
+    try {
+      if (job.workflow_id) {
+        const wfRes = await workflowService.getWorkflow(job.workflow_id);
+        setCncWorkflow(wfRes.data);
+      }
+      setSelectedCncJob(job);
+      setShowCncModal(true);
+    } catch (err) {
+      console.error('Error loading workflow:', err);
+      setSelectedCncJob(job);
+      setShowCncModal(true);
+    }
+  };
 
   // Real-time updates from Socket.io
   useEffect(() => {
@@ -325,7 +345,7 @@ export default function TasksPage({ adminView = false }) {
                       const dl = getCncDeadlineInfo(job);
                       const prColor = job.priority === 'high' ? '#ef4444' : job.priority === 'medium' ? '#f59e0b' : '#6b7280';
                       return (
-                        <tr key={job.id} onClick={() => navigate('/cnc-kanban')} style={{cursor:'pointer'}}>
+                        <tr key={job.id} onClick={() => openCncJob(job)} style={{cursor:'pointer'}}>
                           <td>
                             <div style={{fontWeight:'600',fontSize:'14px'}}>{job.job_name}</div>
                             {job.client_name && <div style={{fontSize:'12px',color:'var(--text-muted)',marginTop:'2px'}}>Client: {job.client_name}</div>}
@@ -377,6 +397,14 @@ export default function TasksPage({ adminView = false }) {
       )}
 
       {showModal && <TaskModal task={selected} users={users} onClose={() => setShowModal(false)} onSave={() => { setShowModal(false); load(); }} />}
+      {showCncModal && (
+        <CNCJobCardModal
+          jobCard={selectedCncJob}
+          workflow={cncWorkflow}
+          onClose={() => { setShowCncModal(false); setSelectedCncJob(null); setCncWorkflow(null); }}
+          onSave={() => { setShowCncModal(false); setSelectedCncJob(null); setCncWorkflow(null); loadCncJobs(); }}
+        />
+      )}
     </Layout>
   );
 }
