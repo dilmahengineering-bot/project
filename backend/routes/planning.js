@@ -144,9 +144,29 @@ router.post('/entries', authenticate, async (req, res) => {
     }
 
     // Verify machine exists
-    const machineCheck = await db.query('SELECT id FROM cnc_machines WHERE id = $1', [machine_id]);
+    const machineCheck = await db.query('SELECT id, machine_name FROM cnc_machines WHERE id = $1', [machine_id]);
     if (machineCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Machine not found' });
+    }
+
+    // Check for time overlap on same machine (one machine can only run one job at a time)
+    if (planned_start_time && planned_end_time) {
+      const overlap = await db.query(
+        `SELECT pe.id, jc.job_card_number, jc.job_name
+         FROM cnc_plan_entries pe
+         LEFT JOIN cnc_job_cards jc ON pe.job_card_id = jc.id
+         WHERE pe.machine_id = $1
+           AND pe.status != 'cancelled'
+           AND pe.planned_start_time < $3
+           AND pe.planned_end_time > $2`,
+        [machine_id, planned_start_time, planned_end_time]
+      );
+      if (overlap.rows.length > 0) {
+        const conflicting = overlap.rows[0];
+        return res.status(409).json({
+          error: `Time conflict on ${machineCheck.rows[0].machine_name}: overlaps with ${conflicting.job_card_number} (${conflicting.job_name})`
+        });
+      }
     }
 
     const result = await db.query(
@@ -341,6 +361,32 @@ router.put('/entries/:id', authenticate, async (req, res) => {
 
     // Auto-derive plan_date from planned_start_time if start is being updated
     const effectivePlanDate = plan_date || (planned_start_time ? planned_start_time.substring(0, 10) : undefined);
+
+    // Check for time overlap on same machine (exclude current entry)
+    if (planned_start_time && planned_end_time) {
+      // Get the machine_id for this entry (use provided or existing)
+      const targetMachine = machine_id || (await db.query('SELECT machine_id FROM cnc_plan_entries WHERE id = $1', [req.params.id])).rows[0]?.machine_id;
+      if (targetMachine) {
+        const overlap = await db.query(
+          `SELECT pe.id, jc.job_card_number, jc.job_name, m.machine_name
+           FROM cnc_plan_entries pe
+           LEFT JOIN cnc_job_cards jc ON pe.job_card_id = jc.id
+           LEFT JOIN cnc_machines m ON pe.machine_id = m.id
+           WHERE pe.machine_id = $1
+             AND pe.id != $4
+             AND pe.status != 'cancelled'
+             AND pe.planned_start_time < $3
+             AND pe.planned_end_time > $2`,
+          [targetMachine, planned_start_time, planned_end_time, req.params.id]
+        );
+        if (overlap.rows.length > 0) {
+          const c = overlap.rows[0];
+          return res.status(409).json({
+            error: `Time conflict on ${c.machine_name}: overlaps with ${c.job_card_number} (${c.job_name})`
+          });
+        }
+      }
+    }
 
     const result = await db.query(
       `UPDATE cnc_plan_entries SET
