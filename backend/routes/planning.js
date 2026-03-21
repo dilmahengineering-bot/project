@@ -322,7 +322,7 @@ router.get('/users', authenticate, async (req, res) => {
 // ==================== PRODUCTION REPORT PDF ====================
 
 const STATUS_LABELS = { planned: 'Planned', in_progress: 'In Progress', completed: 'Completed', cancelled: 'Cancelled' };
-const STATUS_COLORS = { planned: [99, 102, 241], in_progress: [245, 158, 11], completed: [16, 185, 129], cancelled: [239, 68, 68] };
+const STATUS_COLORS_RGB = { planned: [99, 102, 241], in_progress: [245, 158, 11], completed: [16, 185, 129], cancelled: [239, 68, 68] };
 
 router.get('/production-report-pdf', authenticate, async (req, res) => {
   try {
@@ -361,7 +361,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     }
 
     // Create PDF (A4 landscape)
-    const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
+    const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
     res.setHeader('Content-Type', 'application/pdf');
     const filename = `Production-Report-${start_date}-to-${end_date}.pdf`;
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -369,19 +369,36 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
     const pageW = doc.page.width;
     const pageH = doc.page.height;
-    const leftM = 40;
-    const rightM = pageW - 40;
+    const leftM = 30;
+    const rightM = pageW - 30;
     const contentW = rightM - leftM;
 
+    // ── Column definitions (proportional) ──
+    const COL_DEFS = [
+      { label: '#',              weight: 2.5 },
+      { label: 'Job Card',      weight: 6.5 },
+      { label: 'Job Name',      weight: 10  },
+      { label: 'Part No.',      weight: 6   },
+      { label: 'Client',        weight: 8   },
+      { label: 'Shift',         weight: 4   },
+      { label: 'Planned Start', weight: 8   },
+      { label: 'Planned End',   weight: 8   },
+      { label: 'Duration',      weight: 5.5 },
+      { label: 'Actual Start',  weight: 8   },
+      { label: 'Actual End',    weight: 8   },
+      { label: 'Status',        weight: 7   },
+      { label: 'Operator',      weight: 7.5 },
+    ];
+    const totalWeight = COL_DEFS.reduce((s, c) => s + c.weight, 0);
+    const COLS = COL_DEFS.map(c => ({ ...c, w: (c.weight / totalWeight) * contentW }));
+
+    // ── Helpers ──
     function formatDT(ts) {
-      if (!ts) return '—';
+      if (!ts) return '-';
       const dt = new Date(ts);
-      if (isNaN(dt.getTime())) return '—';
-      const mon = dt.toLocaleString('en-US', { month: 'short' });
-      const day = dt.getDate();
-      const hh = String(dt.getHours()).padStart(2, '0');
-      const mm = String(dt.getMinutes()).padStart(2, '0');
-      return `${mon} ${day} ${hh}:${mm}`;
+      if (isNaN(dt.getTime())) return '-';
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${months[dt.getMonth()]} ${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
     }
 
     function formatDateFull(dateStr) {
@@ -390,19 +407,19 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     }
 
     function getShift(ts) {
-      if (!ts) return '';
+      if (!ts) return '-';
       const dt = new Date(ts);
-      if (isNaN(dt.getTime())) return '';
+      if (isNaN(dt.getTime())) return '-';
       const h = dt.getHours();
       return h >= 6 && h < 18 ? 'Day' : 'Night';
     }
 
     function calcDuration(s, e) {
-      if (!s || !e) return '—';
+      if (!s || !e) return '-';
       const st = new Date(s), en = new Date(e);
-      if (isNaN(st.getTime()) || isNaN(en.getTime())) return '—';
+      if (isNaN(st.getTime()) || isNaN(en.getTime())) return '-';
       const mins = Math.round((en - st) / 60000);
-      if (mins <= 0) return '—';
+      if (mins <= 0) return '-';
       const days = Math.floor(mins / 1440);
       const h = Math.floor((mins % 1440) / 60);
       const m = mins % 60;
@@ -425,77 +442,106 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       });
     }
 
-    function drawPageHeader(dateStr) {
-      // Dark header bar
-      doc.rect(0, 0, pageW, 55).fill('#1e293b');
-      doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold')
-        .text('TaskFlow - CNC Production Planning', leftM, 12, { width: contentW / 2 });
-      doc.fontSize(9).font('Helvetica').fillColor('#94a3b8')
-        .text('Daily Production Sheet', leftM, 32);
-      
-      // Date
-      doc.fillColor('#ffffff').fontSize(13).font('Helvetica-Bold')
-        .text(formatDateFull(dateStr), leftM + contentW / 3, 14, { width: contentW / 3, align: 'center' });
-
-      // Generated date
-      doc.fillColor('#94a3b8').fontSize(8).font('Helvetica')
-        .text(`Generated: ${new Date().toLocaleDateString()}`, rightM - 150, 14, { width: 150, align: 'right' })
-        .text(`Date: ${dateStr}`, rightM - 150, 26, { width: 150, align: 'right' });
-
-      doc.fillColor('#000000');
-      return 65;
+    function truncText(text, maxW, fontSize) {
+      if (!text) return '-';
+      doc.fontSize(fontSize);
+      if (doc.widthOfString(text) <= maxW) return text;
+      while (text.length > 1 && doc.widthOfString(text + '..') > maxW) text = text.slice(0, -1);
+      return text + '..';
     }
 
-    function drawTableHeader(y) {
-      const cols = [
-        { label: '#', w: 20 },
-        { label: 'Job Card', w: 60 },
-        { label: 'Job Name', w: 85 },
-        { label: 'Part No.', w: 55 },
-        { label: 'Client', w: 65 },
-        { label: 'Shift', w: 32 },
-        { label: 'Planned Start', w: 72 },
-        { label: 'Planned End', w: 72 },
-        { label: 'Duration', w: 45 },
-        { label: 'Actual Start', w: 72 },
-        { label: 'Actual End', w: 72 },
-        { label: 'Status', w: 52 },
-        { label: 'Operator', w: 60 },
-      ];
-      
-      // Scale columns to fit content width
-      const totalW = cols.reduce((s, c) => s + c.w, 0);
-      const scale = contentW / totalW;
-      cols.forEach(c => c.w = Math.floor(c.w * scale));
+    // ── Draw bordered table cell ──
+    function drawCell(x, y, w, h, text, opts = {}) {
+      const { fontSize = 7, bold = false, align = 'left', bg = null, textColor = '#1e293b', padding = 3 } = opts;
 
-      doc.rect(leftM, y, contentW, 16).fill('#f1f5f9');
-      doc.fillColor('#475569').fontSize(7).font('Helvetica-Bold');
+      // Background
+      if (bg) doc.rect(x, y, w, h).fill(bg);
+
+      // Borders
+      doc.strokeColor('#cbd5e1').lineWidth(0.5);
+      doc.rect(x, y, w, h).stroke();
+
+      // Text
+      doc.fillColor(textColor).fontSize(fontSize).font(bold ? 'Helvetica-Bold' : 'Helvetica');
+      const displayText = truncText(String(text || '-'), w - padding * 2, fontSize);
+      doc.text(displayText, x + padding, y + (h - fontSize) / 2, {
+        width: w - padding * 2,
+        height: h,
+        lineBreak: false,
+        align,
+      });
+    }
+
+    // ── Page header ──
+    function drawPageHeader(dateStr) {
+      // Top bar
+      doc.rect(0, 0, pageW, 50).fill('#1e293b');
+
+      // Title left
+      doc.fillColor('#ffffff').fontSize(14).font('Helvetica-Bold')
+        .text('DAILY PRODUCTION SHEET', leftM, 10, { width: 250 });
+      doc.fillColor('#94a3b8').fontSize(8).font('Helvetica')
+        .text('TaskFlow CNC Production Planning', leftM, 28);
+
+      // Date center
+      doc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold')
+        .text(formatDateFull(dateStr), 0, 14, { width: pageW, align: 'center' });
+
+      // Info right
+      doc.fillColor('#94a3b8').fontSize(7).font('Helvetica')
+        .text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`, rightM - 140, 12, { width: 140, align: 'right' })
+        .text(`Report Date: ${dateStr}`, rightM - 140, 23, { width: 140, align: 'right' });
+
+      // Thin accent line
+      doc.rect(0, 50, pageW, 2).fill('#6366f1');
+
+      doc.fillColor('#000000');
+      return 60;
+    }
+
+    // ── Machine section header ──
+    function drawMachineHeader(y, machine, jobCount) {
+      doc.rect(leftM, y, contentW, 18).fill('#e0e7ff');
+      doc.strokeColor('#a5b4fc').lineWidth(0.5).rect(leftM, y, contentW, 18).stroke();
+
+      doc.fillColor('#312e81').fontSize(9).font('Helvetica-Bold')
+        .text(`${machine.machine_name}`, leftM + 8, y + 4, { width: contentW / 2 });
+      doc.fillColor('#4338ca').fontSize(7).font('Helvetica')
+        .text(`Code: ${machine.machine_code}  |  Type: ${machine.machine_type}  |  ${jobCount} job${jobCount !== 1 ? 's' : ''}`,
+          leftM + contentW / 2, y + 5, { width: contentW / 2 - 8, align: 'right' });
+
+      doc.fillColor('#000000');
+      return y + 20;
+    }
+
+    // ── Table header row ──
+    function drawTableHeader(y) {
+      const rowH = 16;
       let x = leftM;
-      cols.forEach(col => {
-        doc.text(col.label.toUpperCase(), x + 2, y + 4, { width: col.w - 4, align: 'left' });
+      COLS.forEach(col => {
+        drawCell(x, y, col.w, rowH, col.label.toUpperCase(), {
+          fontSize: 6.5,
+          bold: true,
+          bg: '#334155',
+          textColor: '#ffffff',
+          align: 'center',
+        });
         x += col.w;
       });
-
-      doc.fillColor('#000000');
-      return { y: y + 16, cols };
+      return y + rowH;
     }
 
-    function drawEntryRow(entry, idx, y, cols) {
-      const rowH = 14;
-      if (idx % 2 === 1) {
-        doc.rect(leftM, y, contentW, rowH).fill('#f8fafc');
-      }
-
-      // Status left accent
-      const sc = STATUS_COLORS[entry.status] || [99, 102, 241];
-      doc.rect(leftM, y, 2, rowH).fill(`rgb(${sc[0]},${sc[1]},${sc[2]})`);
+    // ── Table data row ──
+    function drawEntryRow(entry, idx, y) {
+      const rowH = 15;
+      const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
 
       const values = [
         String(idx + 1),
-        entry.job_card_number || '—',
-        entry.job_name || '—',
-        entry.part_number || '—',
-        entry.client_name || '—',
+        entry.job_card_number || '-',
+        entry.job_name || '-',
+        entry.part_number || '-',
+        entry.client_name || '-',
         getShift(entry.planned_start_time),
         formatDT(entry.planned_start_time),
         formatDT(entry.planned_end_time),
@@ -503,55 +549,138 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         formatDT(entry.actual_start_time),
         formatDT(entry.actual_end_time),
         STATUS_LABELS[entry.status] || entry.status,
-        entry.assigned_to_name || '—',
+        entry.assigned_to_name || '-',
       ];
 
-      doc.fillColor('#334155').fontSize(7).font('Helvetica');
       let x = leftM;
+
+      // Draw all cells with borders
       values.forEach((val, i) => {
-        doc.text(val, x + 3, y + 3, { width: cols[i].w - 6, lineBreak: false });
-        x += cols[i].w;
+        let cellBg = bg;
+        let cellTextColor = '#1e293b';
+        let cellAlign = 'left';
+
+        // Column-specific styling
+        if (i === 0) cellAlign = 'center';                   // #
+        if (i === 5) cellAlign = 'center';                   // Shift
+        if (i === 8) cellAlign = 'center';                   // Duration
+        if (i === 11) {                                      // Status
+          cellAlign = 'center';
+          const sc = STATUS_COLORS_RGB[entry.status];
+          if (sc) cellTextColor = `rgb(${sc[0]},${sc[1]},${sc[2]})`;
+        }
+
+        drawCell(x, y, COLS[i].w, rowH, val, {
+          fontSize: 7,
+          bg: cellBg,
+          textColor: cellTextColor,
+          align: cellAlign,
+        });
+        x += COLS[i].w;
       });
 
-      // Row border
-      doc.strokeColor('#e2e8f0').lineWidth(0.5).moveTo(leftM, y + rowH).lineTo(rightM, y + rowH).stroke();
-      doc.fillColor('#000000');
+      // Status color accent on left edge
+      const sc = STATUS_COLORS_RGB[entry.status] || [99, 102, 241];
+      doc.rect(leftM, y, 2.5, rowH).fill(`rgb(${sc[0]},${sc[1]},${sc[2]})`);
 
       return y + rowH;
     }
 
+    // ── Summary box ──
+    function drawSummary(y, dayEntries, machineCount) {
+      const boxH = 28;
+      y += 6;
+      doc.rect(leftM, y, contentW, boxH).fill('#f1f5f9');
+      doc.strokeColor('#cbd5e1').lineWidth(0.5).rect(leftM, y, contentW, boxH).stroke();
+
+      const planned = dayEntries.filter(e => e.status === 'planned').length;
+      const inProg = dayEntries.filter(e => e.status === 'in_progress').length;
+      const completed = dayEntries.filter(e => e.status === 'completed').length;
+      const cancelled = dayEntries.filter(e => e.status === 'cancelled').length;
+
+      const items = [
+        { label: 'Total Jobs', value: dayEntries.length, color: '#1e293b' },
+        { label: 'Machines', value: machineCount, color: '#1e293b' },
+        { label: 'Planned', value: planned, color: 'rgb(99,102,241)' },
+        { label: 'In Progress', value: inProg, color: 'rgb(245,158,11)' },
+        { label: 'Completed', value: completed, color: 'rgb(16,185,129)' },
+        { label: 'Cancelled', value: cancelled, color: 'rgb(239,68,68)' },
+      ];
+
+      const itemW = contentW / items.length;
+      items.forEach((item, i) => {
+        const ix = leftM + i * itemW;
+        doc.fillColor(item.color).fontSize(12).font('Helvetica-Bold')
+          .text(String(item.value), ix, y + 4, { width: itemW, align: 'center' });
+        doc.fillColor('#64748b').fontSize(6).font('Helvetica')
+          .text(item.label.toUpperCase(), ix, y + 18, { width: itemW, align: 'center' });
+      });
+
+      // Vertical dividers
+      doc.strokeColor('#cbd5e1').lineWidth(0.3);
+      for (let i = 1; i < items.length; i++) {
+        const dx = leftM + i * itemW;
+        doc.moveTo(dx, y + 4).lineTo(dx, y + boxH - 4).stroke();
+      }
+
+      doc.fillColor('#000000');
+      return y + boxH + 4;
+    }
+
+    // ── Signature block ──
     function drawSignatures(y) {
-      const sigY = Math.max(y + 20, pageH - 100);
-      const sigW = contentW / 3 - 20;
+      // Push signatures to bottom of page
+      const sigBlockH = 80;
+      const sigY = Math.max(y + 15, pageH - 30 - sigBlockH);
 
-      doc.strokeColor('#1e293b').lineWidth(1);
+      // Title line
+      doc.strokeColor('#e2e8f0').lineWidth(0.5)
+        .moveTo(leftM, sigY).lineTo(rightM, sigY).stroke();
+      doc.fillColor('#64748b').fontSize(7).font('Helvetica-Bold')
+        .text('APPROVALS', leftM, sigY + 4, { width: contentW, align: 'center' });
 
+      const sigStartY = sigY + 16;
+      const sigW = (contentW - 40) / 3;
       const roles = ['Workshop Technician', 'Workshop Engineer', 'Workshop Manager'];
+
       roles.forEach((role, i) => {
-        const sx = leftM + i * (sigW + 30);
+        const sx = leftM + i * (sigW + 20);
+
+        // Signature box
+        doc.rect(sx, sigStartY, sigW, 55).fill('#fafbfc');
+        doc.strokeColor('#cbd5e1').lineWidth(0.5).rect(sx, sigStartY, sigW, 55).stroke();
+
+        // Role title
+        doc.fillColor('#1e293b').fontSize(8).font('Helvetica-Bold')
+          .text(role, sx, sigStartY + 4, { width: sigW, align: 'center' });
+
         // Signature line
-        doc.moveTo(sx, sigY + 30).lineTo(sx + sigW, sigY + 30).stroke();
-        doc.fillColor('#1e293b').fontSize(9).font('Helvetica-Bold')
-          .text(role, sx, sigY + 34, { width: sigW, align: 'center' });
-        doc.fillColor('#64748b').fontSize(7).font('Helvetica')
-          .text('Name: ____________________', sx, sigY + 48, { width: sigW })
-          .text('Date: ____________________', sx, sigY + 60, { width: sigW });
+        doc.strokeColor('#1e293b').lineWidth(0.8)
+          .moveTo(sx + 15, sigStartY + 32).lineTo(sx + sigW - 15, sigStartY + 32).stroke();
+        doc.fillColor('#94a3b8').fontSize(6).font('Helvetica')
+          .text('Signature', sx + 15, sigStartY + 34, { width: sigW - 30, align: 'center' });
+
+        // Name and Date
+        doc.fillColor('#64748b').fontSize(6.5).font('Helvetica')
+          .text('Name: ..............................', sx + 8, sigStartY + 42)
+          .text('Date: ................................', sx + 8, sigStartY + 49);
       });
 
       doc.fillColor('#000000');
     }
 
+    // ── Page footer ──
     function drawFooter(pageNum, totalPages) {
-      const footY = pageH - 25;
-      doc.rect(0, footY, pageW, 25).fill('#f1f5f9');
-      doc.fillColor('#94a3b8').fontSize(7).font('Helvetica')
-        .text('TaskFlow CNC Production Planning System', leftM, footY + 8, { width: contentW / 3 })
-        .text(`Page ${pageNum} of ${totalPages}`, leftM + contentW / 3, footY + 8, { width: contentW / 3, align: 'center' })
-        .text('Confidential', leftM + 2 * contentW / 3, footY + 8, { width: contentW / 3, align: 'right' });
+      const footY = pageH - 20;
+      doc.rect(0, footY, pageW, 20).fill('#1e293b');
+      doc.fillColor('#94a3b8').fontSize(6.5).font('Helvetica')
+        .text('TaskFlow CNC Production Planning System', leftM, footY + 6, { width: contentW / 3 })
+        .text(`Page ${pageNum} of ${totalPages}`, leftM + contentW / 3, footY + 6, { width: contentW / 3, align: 'center' })
+        .text('CONFIDENTIAL', leftM + 2 * contentW / 3, footY + 6, { width: contentW / 3, align: 'right' });
       doc.fillColor('#000000');
     }
 
-    // ── Generate pages ──
+    // ═══════════ Generate pages ═══════════
     const totalPages = dates.length || 1;
 
     dates.forEach((dateStr, pageIdx) => {
@@ -562,8 +691,9 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       const activeMachines = machines.filter(m => dayEntries.some(e => e.machine_id === m.id));
 
       if (activeMachines.length === 0) {
-        doc.fillColor('#94a3b8').fontSize(12).font('Helvetica')
-          .text('No jobs planned for this date', leftM, y + 30, { width: contentW, align: 'center' });
+        doc.fillColor('#94a3b8').fontSize(11).font('Helvetica')
+          .text('No jobs planned for this date', leftM, y + 40, { width: contentW, align: 'center' });
+        drawSignatures(y + 80);
       } else {
         activeMachines.forEach(machine => {
           const machineEntries = dayEntries
@@ -574,59 +704,44 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
               return at - bt;
             });
 
-          // Check if we need a new page for this machine section
-          const estimatedH = 30 + 16 + machineEntries.length * 14 + 10;
-          if (y + estimatedH > pageH - 110) {
+          // Check if we need a new page (machine header + table header + at least 2 rows + footer)
+          const minNeeded = 20 + 16 + 15 * Math.min(machineEntries.length, 2) + 130;
+          if (y + minNeeded > pageH - 30) {
             drawSignatures(y);
             drawFooter(pageIdx + 1, totalPages);
             doc.addPage();
             y = drawPageHeader(dateStr);
           }
 
-          // Machine header
-          doc.rect(leftM, y, contentW, 18).fill('#e0e7ff');
-          doc.fillColor('#1e293b').fontSize(9).font('Helvetica-Bold')
-            .text(`${machine.machine_name}`, leftM + 6, y + 4, { width: contentW / 2 });
-          doc.fillColor('#64748b').fontSize(7).font('Helvetica')
-            .text(`${machine.machine_code} · ${machine.machine_type} · ${machineEntries.length} job${machineEntries.length !== 1 ? 's' : ''}`,
-              leftM + contentW / 2, y + 5, { width: contentW / 2 - 6, align: 'right' });
-          y += 20;
+          y = drawMachineHeader(y, machine, machineEntries.length);
+          y = drawTableHeader(y);
 
-          // Table header & rows
-          const { y: tableY, cols } = drawTableHeader(y);
-          y = tableY;
           machineEntries.forEach((entry, idx) => {
-            if (y > pageH - 110) {
+            // Check row overflow
+            if (y + 15 > pageH - 130) {
               drawSignatures(y);
               drawFooter(pageIdx + 1, totalPages);
               doc.addPage();
               y = drawPageHeader(dateStr);
-              const th = drawTableHeader(y);
-              y = th.y;
+              y = drawMachineHeader(y, machine, machineEntries.length);
+              y = drawTableHeader(y);
             }
-            y = drawEntryRow(entry, idx, y, cols);
+            y = drawEntryRow(entry, idx, y);
           });
 
-          y += 8;
+          y += 10;
         });
 
-        // Day summary line
-        const planned = dayEntries.filter(e => e.status === 'planned').length;
-        const inProg = dayEntries.filter(e => e.status === 'in_progress').length;
-        const completed = dayEntries.filter(e => e.status === 'completed').length;
-        doc.fillColor('#475569').fontSize(8).font('Helvetica-Bold')
-          .text(`Summary: ${dayEntries.length} jobs · ${activeMachines.length} machines | Planned: ${planned} · In Progress: ${inProg} · Completed: ${completed}`,
-            leftM, y + 4, { width: contentW });
-        y += 16;
+        y = drawSummary(y, dayEntries, activeMachines.length);
+        drawSignatures(y);
       }
 
-      drawSignatures(y);
       drawFooter(pageIdx + 1, totalPages);
     });
 
     if (dates.length === 0) {
       let y = drawPageHeader(start_date);
-      doc.fillColor('#94a3b8').fontSize(12).font('Helvetica')
+      doc.fillColor('#94a3b8').fontSize(11).font('Helvetica')
         .text('No data found for selected date range', leftM, y + 40, { width: contentW, align: 'center' });
       drawFooter(1, 1);
     }
