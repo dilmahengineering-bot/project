@@ -613,7 +613,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                     <div className="attachment-icon">{getFileIcon(att.file_type)}</div>
                     <div className="attachment-info">
                       <a
-                        href={`http://localhost:5000/uploads/${att.file_name}`}
+                        href={`${(process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')}/uploads/${att.file_name}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="attachment-name"
