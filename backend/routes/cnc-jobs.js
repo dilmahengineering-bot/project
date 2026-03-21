@@ -795,26 +795,7 @@ router.post(
   }
 );
 
-// Get attachments for a job card
-router.get('/:id/attachments', authenticate, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await db.query(
-      `SELECT a.*, u.name as uploaded_by_name
-       FROM cnc_job_attachments a
-       LEFT JOIN users u ON a.uploaded_by = u.id
-       WHERE a.job_card_id = $1
-       ORDER BY a.created_at DESC`,
-      [id]
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching attachments:', error);
-    res.status(500).json({ error: 'Failed to fetch attachments' });
-  }
-});
-
-// Download attachment
+// Download attachment (must be before /:id/attachments to avoid route conflict)
 router.get('/attachments/:attachmentId/download', authenticate, async (req, res) => {
   try {
     const { attachmentId } = req.params;
@@ -836,6 +817,25 @@ router.get('/attachments/:attachmentId/download', authenticate, async (req, res)
   } catch (error) {
     console.error('Error downloading attachment:', error);
     res.status(500).json({ error: 'Failed to download attachment' });
+  }
+});
+
+// Get attachments for a job card
+router.get('/:id/attachments', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      `SELECT a.*, u.name as uploaded_by_name
+       FROM cnc_job_attachments a
+       LEFT JOIN users u ON a.uploaded_by = u.id
+       WHERE a.job_card_id = $1
+       ORDER BY a.created_at DESC`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching attachments:', error);
+    res.status(500).json({ error: 'Failed to fetch attachments' });
   }
 });
 
