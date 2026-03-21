@@ -85,42 +85,50 @@ export default function PlanningPage() {
   };
 
   // Calculate end time preview based on shift type
-  const calcEndTimePreview = () => {
-    if (!addForm.planned_start_time || !addForm.required_hours) return null;
-    const hours = parseFloat(addForm.required_hours);
-    if (isNaN(hours) || hours <= 0) return null;
-    const totalMin = hours * 60;
-    let remaining = totalMin;
-    let cursor = new Date(addForm.planned_start_time);
-    const st = addForm.shift_type;
+  const fmtLocal = (d) => {
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
 
-    if (st === 'both') {
-      return new Date(cursor.getTime() + remaining * 60000);
-    }
+  const buildShiftSegments = (startStr, totalMinutes, shiftType) => {
+    const segments = [];
+    let remaining = totalMinutes;
+    let cursor = new Date(startStr);
     let safety = 0;
+
     while (remaining > 0 && safety < 1000) {
       safety++;
       const h = cursor.getHours();
-      if (st === 'day') {
+
+      if (shiftType === 'both') {
+        const segStart = fmtLocal(cursor);
+        const end = new Date(cursor.getTime() + remaining * 60000);
+        segments.push({ start: segStart, end: fmtLocal(end) });
+        remaining = 0;
+      } else if (shiftType === 'day') {
         if (h >= 7 && h < 19) {
+          const segStart = fmtLocal(cursor);
           const dayEnd = new Date(cursor); dayEnd.setHours(19, 0, 0, 0);
           const avail = (dayEnd - cursor) / 60000;
           const use = Math.min(remaining, avail);
-          cursor = new Date(cursor.getTime() + use * 60000);
+          const end = new Date(cursor.getTime() + use * 60000);
+          segments.push({ start: segStart, end: fmtLocal(end) });
           remaining -= use;
           if (remaining > 0) { cursor.setDate(cursor.getDate() + 1); cursor.setHours(7, 0, 0, 0); }
         } else {
           if (h >= 19) cursor.setDate(cursor.getDate() + 1);
           cursor.setHours(7, 0, 0, 0);
         }
-      } else {
+      } else if (shiftType === 'night') {
         if (h >= 19 || h < 7) {
+          const segStart = fmtLocal(cursor);
           const nightEnd = new Date(cursor);
           if (h >= 19) nightEnd.setDate(nightEnd.getDate() + 1);
           nightEnd.setHours(7, 0, 0, 0);
           const avail = (nightEnd - cursor) / 60000;
           const use = Math.min(remaining, avail);
-          cursor = new Date(cursor.getTime() + use * 60000);
+          const end = new Date(cursor.getTime() + use * 60000);
+          segments.push({ start: segStart, end: fmtLocal(end) });
           remaining -= use;
           if (remaining > 0) cursor.setHours(19, 0, 0, 0);
         } else {
@@ -128,30 +136,47 @@ export default function PlanningPage() {
         }
       }
     }
-    return cursor;
+    return segments;
+  };
+
+  const calcEndTimePreview = () => {
+    if (!addForm.planned_start_time || !addForm.required_hours) return null;
+    const hours = parseFloat(addForm.required_hours);
+    if (isNaN(hours) || hours <= 0) return null;
+    const segs = buildShiftSegments(addForm.planned_start_time, hours * 60, addForm.shift_type);
+    if (segs.length === 0) return null;
+    return new Date(segs[segs.length - 1].end);
   };
 
   const endTimePreview = calcEndTimePreview();
 
-  // Add entry
+  // Add entry — compute segments on frontend, use proven POST /entries endpoint
   const handleAddEntry = async () => {
     if (!selectedJob || !addMachineId) { toast.error('Select a machine and job card'); return; }
     if (!addForm.planned_start_time || !addForm.required_hours) { toast.error('Start time and required hours are needed'); return; }
+    const hours = parseFloat(addForm.required_hours);
+    if (isNaN(hours) || hours <= 0) { toast.error('Invalid required hours'); return; }
+
+    const segments = buildShiftSegments(addForm.planned_start_time, hours * 60, addForm.shift_type);
+    if (segments.length === 0) { toast.error('Could not compute schedule'); return; }
+
     try {
-      const res = await api.post('/planning/entries/shift-plan', {
-        machine_id: addMachineId,
-        job_card_id: selectedJob.id,
-        planned_start_time: addForm.planned_start_time,
-        required_hours: addForm.required_hours,
-        shift_type: addForm.shift_type,
-        assigned_to: addForm.assigned_to,
-        notes: addForm.notes,
-      });
-      const count = res.data.count || 1;
-      toast.success(count > 1 ? `Job split into ${count} entries across shifts` : 'Job added to plan');
+      for (const seg of segments) {
+        await api.post('/planning/entries', {
+          machine_id: addMachineId,
+          job_card_id: selectedJob.id,
+          plan_date: seg.start.substring(0, 10),
+          planned_start_time: seg.start,
+          planned_end_time: seg.end,
+          assigned_to: addForm.assigned_to,
+          notes: addForm.notes,
+        });
+      }
+      toast.success(segments.length > 1 ? `Job split into ${segments.length} entries across shifts` : 'Job added to plan');
       setShowAddModal(false);
       resetAddForm();
-      loadData();
+      // Navigate to the date of the first entry
+      setSelectedDate(segments[0].start.substring(0, 10));
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to add job');
     }
