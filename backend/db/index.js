@@ -1,5 +1,8 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 require('dotenv').config();
+
+// Return TIMESTAMP (without timezone) as raw strings — prevents JS Date UTC conversion
+types.setTypeParser(1114, str => str);
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',

@@ -257,31 +257,37 @@ export default function PlanningPage() {
 
   const formatDateTime = (ts) => {
     if (!ts) return '—';
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return ts.substring(0, 5); // fallback for old TIME-only values
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    // Handle raw PostgreSQL timestamp strings like "2026-03-23 07:00:00"
+    const str = String(ts).replace(' ', 'T');
+    const parts = str.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!parts) return ts.substring(0, 5);
+    const [, y, mo, da, hh, mm] = parts;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[parseInt(mo,10)-1]} ${parseInt(da,10)} ${hh}:${mm}`;
   };
 
   const formatDateShort = (d) => {
     if (!d) return '';
-    const dt = new Date(d);
-    if (isNaN(dt.getTime())) return '';
-    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const str = String(d).replace(' ', 'T');
+    const parts = str.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!parts) return '';
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[parseInt(parts[2],10)-1]} ${parseInt(parts[3],10)}`;
   };
 
-  // Convert ISO timestamp to datetime-local input format
+  // Convert timestamp string to datetime-local input format
   const toLocalInput = (ts) => {
     if (!ts) return '';
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return '';
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const str = String(ts).replace(' ', 'T');
+    const parts = str.match(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    return parts ? `${parts[1]}T${parts[2]}` : '';
   };
 
   const calcDuration = (start, end) => {
     if (!start || !end) return null;
-    const s = new Date(start);
-    const e = new Date(end);
+    // Parse as raw strings to avoid timezone issues
+    const s = new Date(String(start).replace(' ', 'T'));
+    const e = new Date(String(end).replace(' ', 'T'));
     if (isNaN(s.getTime()) || isNaN(e.getTime())) return null;
     const mins = Math.round((e - s) / 60000);
     if (mins <= 0) return null;
