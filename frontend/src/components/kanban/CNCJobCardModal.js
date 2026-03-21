@@ -604,7 +604,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                 type="file"
                 onChange={handleFileUpload}
                 style={{ display: 'none' }}
-                accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.step,.stp,.iges,.stl"
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.step,.stp,.iges,.stl,.sldprt,.sldasm,.slddrw,.3dm,.sat,.x_t,.x_b,.prt,.asm"
               />
               <button
                 className="btn btn-primary upload-btn"
