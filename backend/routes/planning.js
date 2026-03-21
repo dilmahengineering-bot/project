@@ -103,10 +103,10 @@ router.get('/entries', authenticate, async (req, res) => {
 
     if (date) {
       params.push(date);
-      query += ` AND pe.plan_date = $${params.length}`;
+      query += ` AND (pe.plan_date = $${params.length} OR (pe.planned_start_time IS NOT NULL AND pe.planned_end_time IS NOT NULL AND pe.planned_start_time::date <= $${params.length}::date AND pe.planned_end_time::date >= $${params.length}::date))`;
     } else if (start_date && end_date) {
       params.push(start_date, end_date);
-      query += ` AND pe.plan_date BETWEEN $${params.length - 1} AND $${params.length}`;
+      query += ` AND (pe.plan_date BETWEEN $${params.length - 1} AND $${params.length} OR (pe.planned_start_time IS NOT NULL AND pe.planned_end_time IS NOT NULL AND pe.planned_start_time < ($${params.length}::date + interval '1 day') AND pe.planned_end_time >= $${params.length - 1}::date))`;
     }
 
     if (machine_id) {

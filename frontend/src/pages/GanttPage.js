@@ -198,19 +198,50 @@ export default function GanttPage() {
     if (viewMode === 'daily') {
       const startDT = parseTS(entry.planned_start_time);
       const endDT = parseTS(entry.planned_end_time);
+      const cellW = VIEW_MODES.daily.cellWidth;
+
+      if (startDT && endDT) {
+        // Find the first and last day columns this entry spans
+        const startDateStr = startDT.toISOString().split('T')[0];
+        const endDateStr = endDT.toISOString().split('T')[0];
+        let startColIdx = timeColumns.findIndex(c => c.key === startDateStr);
+        let endColIdx = timeColumns.findIndex(c => c.key === endDateStr);
+
+        // If entry starts before visible range, clamp to first column
+        if (startColIdx === -1) {
+          const firstColDate = timeColumns[0]?.key;
+          if (firstColDate && startDateStr < firstColDate) startColIdx = 0;
+          else return null;
+        }
+        // If entry ends after visible range, clamp to last column
+        if (endColIdx === -1) {
+          const lastColDate = timeColumns[timeColumns.length - 1]?.key;
+          if (lastColDate && endDateStr > lastColDate) endColIdx = timeColumns.length - 1;
+          else if (startColIdx >= 0) endColIdx = startColIdx; // single day
+          else return null;
+        }
+
+        if (startDateStr === endDateStr) {
+          // Single-day entry: position within the day cell
+          const dayStart = new Date(startDateStr + 'T00:00:00');
+          const startMin = Math.max(0, (startDT - dayStart) / 60000);
+          const endMin = Math.min(1440, (endDT - dayStart) / 60000);
+          const innerLeft = (startMin / 1440) * cellW;
+          const innerWidth = Math.max(((endMin - startMin) / 1440) * cellW, 30);
+          return { left: startColIdx * cellW + innerLeft, width: innerWidth };
+        } else {
+          // Multi-day entry: span from start column to end column
+          const left = startColIdx * cellW + 2;
+          const width = (endColIdx - startColIdx + 1) * cellW - 4;
+          return { left, width: Math.max(width, 30) };
+        }
+      }
+
+      // Fallback: use plan_date
       const entryDate = entry.plan_date?.split('T')[0];
       const colIndex = timeColumns.findIndex(c => c.key === entryDate);
       if (colIndex === -1) return null;
-      const cellW = VIEW_MODES.daily.cellWidth;
-      let innerLeft = 0, innerWidth = cellW - 4;
-      if (startDT && endDT) {
-        const dayStart = new Date(entryDate + 'T00:00:00');
-        const startMin = Math.max(0, (startDT - dayStart) / 60000);
-        const endMin = Math.min(1440, (endDT - dayStart) / 60000);
-        innerLeft = (startMin / 1440) * cellW;
-        innerWidth = Math.max(((endMin - startMin) / 1440) * cellW, 30);
-      }
-      return { left: colIndex * cellW + innerLeft, width: innerWidth };
+      return { left: colIndex * cellW + 2, width: cellW - 4 };
     }
     if (viewMode === 'weekly') {
       const entryDate = new Date(entry.plan_date + 'T00:00:00');
