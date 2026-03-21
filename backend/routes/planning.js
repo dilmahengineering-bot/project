@@ -450,52 +450,49 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       return text + '..';
     }
 
+    // Safe text helper — resets doc.y to prevent PDFKit auto-pagination
+    function safeText(str, x, y, opts) {
+      doc.y = 0;
+      doc.text(str, x, y, { ...opts, lineBreak: false });
+    }
+
     // ── Draw bordered table cell ──
     function drawCell(x, y, w, h, text, opts = {}) {
       const { fontSize = 7, bold = false, align = 'left', bg = null, textColor = '#1e293b', padding = 3 } = opts;
 
-      // Background
       if (bg) doc.rect(x, y, w, h).fill(bg);
-
-      // Borders
       doc.strokeColor('#cbd5e1').lineWidth(0.5);
       doc.rect(x, y, w, h).stroke();
 
-      // Text
       doc.fillColor(textColor).fontSize(fontSize).font(bold ? 'Helvetica-Bold' : 'Helvetica');
       const displayText = truncText(String(text || '-'), w - padding * 2, fontSize);
-      doc.text(displayText, x + padding, y + (h - fontSize) / 2, {
+      safeText(displayText, x + padding, y + (h - fontSize) / 2, {
         width: w - padding * 2,
         height: h,
-        lineBreak: false,
         align,
       });
     }
 
     // ── Page header ──
     function drawPageHeader(dateStr) {
-      // Top bar
       doc.rect(0, 0, pageW, 50).fill('#1e293b');
 
-      // Title left
-      doc.fillColor('#ffffff').fontSize(14).font('Helvetica-Bold')
-        .text('DAILY PRODUCTION SHEET', leftM, 10, { width: 250, lineBreak: false });
-      doc.fillColor('#94a3b8').fontSize(8).font('Helvetica')
-        .text('TaskFlow CNC Production Planning', leftM, 28, { lineBreak: false });
+      doc.fillColor('#ffffff').fontSize(14).font('Helvetica-Bold');
+      safeText('DAILY PRODUCTION SHEET', leftM, 10, { width: 250 });
+      doc.fillColor('#94a3b8').fontSize(8).font('Helvetica');
+      safeText('TaskFlow CNC Production Planning', leftM, 28, {});
 
-      // Date center
-      doc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold')
-        .text(formatDateFull(dateStr), 0, 14, { width: pageW, align: 'center', lineBreak: false });
+      doc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold');
+      safeText(formatDateFull(dateStr), 0, 14, { width: pageW, align: 'center' });
 
-      // Info right
-      doc.fillColor('#94a3b8').fontSize(7).font('Helvetica')
-        .text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`, rightM - 140, 12, { width: 140, align: 'right', lineBreak: false })
-        .text(`Report Date: ${dateStr}`, rightM - 140, 23, { width: 140, align: 'right', lineBreak: false });
+      doc.fillColor('#94a3b8').fontSize(7).font('Helvetica');
+      safeText(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`, rightM - 140, 12, { width: 140, align: 'right' });
+      safeText(`Report Date: ${dateStr}`, rightM - 140, 23, { width: 140, align: 'right' });
 
-      // Thin accent line
       doc.rect(0, 50, pageW, 2).fill('#6366f1');
 
       doc.fillColor('#000000');
+      doc.y = 0;
       return 60;
     }
 
@@ -504,13 +501,14 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       doc.rect(leftM, y, contentW, 18).fill('#e0e7ff');
       doc.strokeColor('#a5b4fc').lineWidth(0.5).rect(leftM, y, contentW, 18).stroke();
 
-      doc.fillColor('#312e81').fontSize(9).font('Helvetica-Bold')
-        .text(`${machine.machine_name}`, leftM + 8, y + 4, { width: contentW / 2, lineBreak: false });
-      doc.fillColor('#4338ca').fontSize(7).font('Helvetica')
-        .text(`Code: ${machine.machine_code}  |  Type: ${machine.machine_type}  |  ${jobCount} job${jobCount !== 1 ? 's' : ''}`,
-          leftM + contentW / 2, y + 5, { width: contentW / 2 - 8, align: 'right', lineBreak: false });
+      doc.fillColor('#312e81').fontSize(9).font('Helvetica-Bold');
+      safeText(machine.machine_name, leftM + 8, y + 4, { width: contentW / 2 });
+      doc.fillColor('#4338ca').fontSize(7).font('Helvetica');
+      safeText(`Code: ${machine.machine_code}  |  Type: ${machine.machine_type}  |  ${jobCount} job${jobCount !== 1 ? 's' : ''}`,
+        leftM + contentW / 2, y + 5, { width: contentW / 2 - 8, align: 'right' });
 
       doc.fillColor('#000000');
+      doc.y = 0;
       return y + 20;
     }
 
@@ -610,12 +608,10 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       const itemW = contentW / items.length;
       items.forEach((item, i) => {
         const ix = leftM + i * itemW;
-        doc.y = 0;
-        doc.fillColor(item.color).fontSize(12).font('Helvetica-Bold')
-          .text(String(item.value), ix, y + 4, { width: itemW, align: 'center', lineBreak: false });
-        doc.y = 0;
-        doc.fillColor('#64748b').fontSize(6).font('Helvetica')
-          .text(item.label.toUpperCase(), ix, y + 18, { width: itemW, align: 'center', lineBreak: false });
+        doc.fillColor(item.color).fontSize(12).font('Helvetica-Bold');
+        safeText(String(item.value), ix, y + 4, { width: itemW, align: 'center' });
+        doc.fillColor('#64748b').fontSize(6).font('Helvetica');
+        safeText(item.label.toUpperCase(), ix, y + 18, { width: itemW, align: 'center' });
       });
 
       // Vertical dividers
@@ -634,15 +630,11 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       const sigBlockH = 75;
       const sigY = Math.max(y + 10, pageH - 20 - sigBlockH);
 
-      // Reset internal cursor so PDFKit doesn't auto-paginate
-      doc.y = 0;
-
       doc.strokeColor('#e2e8f0').lineWidth(0.5)
         .moveTo(leftM, sigY).lineTo(rightM, sigY).stroke();
 
-      doc.y = 0;
-      doc.fillColor('#64748b').fontSize(7).font('Helvetica-Bold')
-        .text('APPROVALS', leftM, sigY + 3, { width: contentW, align: 'center', lineBreak: false });
+      doc.fillColor('#64748b').fontSize(7).font('Helvetica-Bold');
+      safeText('APPROVALS', leftM, sigY + 3, { width: contentW, align: 'center' });
 
       const sigStartY = sigY + 14;
       const sigW = (contentW - 40) / 3;
@@ -654,25 +646,22 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         doc.rect(sx, sigStartY, sigW, 50).fill('#fafbfc');
         doc.strokeColor('#cbd5e1').lineWidth(0.5).rect(sx, sigStartY, sigW, 50).stroke();
 
-        doc.y = 0;
-        doc.fillColor('#1e293b').fontSize(7.5).font('Helvetica-Bold')
-          .text(role, sx + 4, sigStartY + 3, { width: sigW - 8, align: 'center', lineBreak: false });
+        doc.fillColor('#1e293b').fontSize(7.5).font('Helvetica-Bold');
+        safeText(role, sx + 4, sigStartY + 3, { width: sigW - 8, align: 'center' });
 
         doc.strokeColor('#1e293b').lineWidth(0.8)
           .moveTo(sx + 15, sigStartY + 28).lineTo(sx + sigW - 15, sigStartY + 28).stroke();
 
-        doc.y = 0;
-        doc.fillColor('#94a3b8').fontSize(5.5).font('Helvetica')
-          .text('Signature', sx + 15, sigStartY + 30, { width: sigW - 30, align: 'center', lineBreak: false });
+        doc.fillColor('#94a3b8').fontSize(5.5).font('Helvetica');
+        safeText('Signature', sx + 15, sigStartY + 30, { width: sigW - 30, align: 'center' });
 
-        doc.y = 0;
-        doc.fillColor('#64748b').fontSize(6).font('Helvetica')
-          .text('Name: ..............................', sx + 8, sigStartY + 37, { lineBreak: false });
-        doc.y = 0;
-        doc.text('Date: ................................', sx + 8, sigStartY + 44, { lineBreak: false });
+        doc.fillColor('#64748b').fontSize(6).font('Helvetica');
+        safeText('Name: ..............................', sx + 8, sigStartY + 37, {});
+        safeText('Date: ................................', sx + 8, sigStartY + 44, {});
       });
 
       doc.fillColor('#000000');
+      doc.y = 0;
     }
 
     // ── Page footer (absolute position at page bottom) ──
@@ -680,15 +669,12 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       const footY = pageH - 18;
       doc.rect(0, footY, pageW, 18).fill('#1e293b');
 
-      // Reset Y cursor before each text to prevent auto-pagination
-      doc.y = 0;
-      doc.fillColor('#94a3b8').fontSize(6).font('Helvetica')
-        .text('TaskFlow CNC Production Planning System', leftM, footY + 5, { width: contentW / 3, lineBreak: false });
-      doc.y = 0;
-      doc.text(`Page ${pageNum} of ${totalPages}`, leftM + contentW / 3, footY + 5, { width: contentW / 3, align: 'center', lineBreak: false });
-      doc.y = 0;
-      doc.text('CONFIDENTIAL', leftM + 2 * contentW / 3, footY + 5, { width: contentW / 3, align: 'right', lineBreak: false });
+      doc.fillColor('#94a3b8').fontSize(6).font('Helvetica');
+      safeText('TaskFlow CNC Production Planning System', leftM, footY + 5, { width: contentW / 3 });
+      safeText(`Page ${pageNum} of ${totalPages}`, leftM + contentW / 3, footY + 5, { width: contentW / 3, align: 'center' });
+      safeText('CONFIDENTIAL', leftM + 2 * contentW / 3, footY + 5, { width: contentW / 3, align: 'right' });
       doc.fillColor('#000000');
+      doc.y = 0;
     }
 
     // ═══════════ Generate pages ═══════════
@@ -756,8 +742,8 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
     if (activeDates.length === 0) {
       let y = drawPageHeader(start_date);
-      doc.fillColor('#94a3b8').fontSize(11).font('Helvetica')
-          .text('No data found for selected date range', leftM, y + 40, { width: contentW, align: 'center', lineBreak: false });
+      doc.fillColor('#94a3b8').fontSize(11).font('Helvetica');
+      safeText('No data found for selected date range', leftM, y + 40, { width: contentW, align: 'center' });
       drawFooter(1, 1);
     }
 
