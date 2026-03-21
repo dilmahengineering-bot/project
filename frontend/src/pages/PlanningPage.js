@@ -33,7 +33,7 @@ export default function PlanningPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [addForm, setAddForm] = useState({ planned_start_time: '', planned_end_time: '', assigned_to: '', notes: '' });
+  const [addForm, setAddForm] = useState({ planned_start_time: '', required_hours: '', shift_type: 'both', assigned_to: '', notes: '' });
   const searchTimeoutRef = useRef(null);
 
   // Edit entry modal
@@ -84,20 +84,71 @@ export default function PlanningPage() {
     }, 300);
   };
 
+  // Calculate end time preview based on shift type
+  const calcEndTimePreview = () => {
+    if (!addForm.planned_start_time || !addForm.required_hours) return null;
+    const hours = parseFloat(addForm.required_hours);
+    if (isNaN(hours) || hours <= 0) return null;
+    const totalMin = hours * 60;
+    let remaining = totalMin;
+    let cursor = new Date(addForm.planned_start_time);
+    const st = addForm.shift_type;
+
+    if (st === 'both') {
+      return new Date(cursor.getTime() + remaining * 60000);
+    }
+    let safety = 0;
+    while (remaining > 0 && safety < 1000) {
+      safety++;
+      const h = cursor.getHours();
+      if (st === 'day') {
+        if (h >= 7 && h < 19) {
+          const dayEnd = new Date(cursor); dayEnd.setHours(19, 0, 0, 0);
+          const avail = (dayEnd - cursor) / 60000;
+          const use = Math.min(remaining, avail);
+          cursor = new Date(cursor.getTime() + use * 60000);
+          remaining -= use;
+          if (remaining > 0) { cursor.setDate(cursor.getDate() + 1); cursor.setHours(7, 0, 0, 0); }
+        } else {
+          if (h >= 19) cursor.setDate(cursor.getDate() + 1);
+          cursor.setHours(7, 0, 0, 0);
+        }
+      } else {
+        if (h >= 19 || h < 7) {
+          const nightEnd = new Date(cursor);
+          if (h >= 19) nightEnd.setDate(nightEnd.getDate() + 1);
+          nightEnd.setHours(7, 0, 0, 0);
+          const avail = (nightEnd - cursor) / 60000;
+          const use = Math.min(remaining, avail);
+          cursor = new Date(cursor.getTime() + use * 60000);
+          remaining -= use;
+          if (remaining > 0) cursor.setHours(19, 0, 0, 0);
+        } else {
+          cursor.setHours(19, 0, 0, 0);
+        }
+      }
+    }
+    return cursor;
+  };
+
+  const endTimePreview = calcEndTimePreview();
+
   // Add entry
   const handleAddEntry = async () => {
     if (!selectedJob || !addMachineId) { toast.error('Select a machine and job card'); return; }
+    if (!addForm.planned_start_time || !addForm.required_hours) { toast.error('Start time and required hours are needed'); return; }
     try {
-      await api.post('/planning/entries', {
+      const res = await api.post('/planning/entries/shift-plan', {
         machine_id: addMachineId,
         job_card_id: selectedJob.id,
-        plan_date: addForm.planned_start_time ? addForm.planned_start_time.substring(0, 10) : selectedDate,
-        planned_start_time: addForm.planned_start_time || null,
-        planned_end_time: addForm.planned_end_time || null,
+        planned_start_time: addForm.planned_start_time,
+        required_hours: addForm.required_hours,
+        shift_type: addForm.shift_type,
         assigned_to: addForm.assigned_to,
         notes: addForm.notes,
       });
-      toast.success('Job added to plan');
+      const count = res.data.count || 1;
+      toast.success(count > 1 ? `Job split into ${count} entries across shifts` : 'Job added to plan');
       setShowAddModal(false);
       resetAddForm();
       loadData();
@@ -108,7 +159,7 @@ export default function PlanningPage() {
 
   const resetAddForm = () => {
     setSearchQuery(''); setSearchResults([]); setSelectedJob(null);
-    setAddForm({ planned_start_time: '', planned_end_time: '', assigned_to: '', notes: '' });
+    setAddForm({ planned_start_time: '', required_hours: '', shift_type: 'both', assigned_to: '', notes: '' });
     setAddMachineId('');
   };
 
@@ -390,12 +441,32 @@ export default function PlanningPage() {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Planned Start (Date & Time)</label>
+                    <label>Start Date & Time</label>
                     <input type="datetime-local" className="form-control" value={addForm.planned_start_time} onChange={e => setAddForm(p => ({...p, planned_start_time: e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label>Planned End (Date & Time)</label>
-                    <input type="datetime-local" className="form-control" value={addForm.planned_end_time} onChange={e => setAddForm(p => ({...p, planned_end_time: e.target.value}))} />
+                    <label>Required Hours</label>
+                    <input type="number" className="form-control" min="0.5" step="0.5" placeholder="e.g. 8" value={addForm.required_hours} onChange={e => setAddForm(p => ({...p, required_hours: e.target.value}))} />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Shift Type</label>
+                    <select className="form-control" value={addForm.shift_type} onChange={e => setAddForm(p => ({...p, shift_type: e.target.value}))}>
+                      <option value="both">Both Shifts (Continuous 24h)</option>
+                      <option value="day">Day Shift Only (7 AM – 7 PM)</option>
+                      <option value="night">Night Shift Only (7 PM – 7 AM)</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Calculated End Time</label>
+                    <div className="calculated-end-time">
+                      {endTimePreview
+                        ? endTimePreview.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+                        : <span className="placeholder-text">Enter start time & hours</span>
+                      }
+                    </div>
                   </div>
                 </div>
 

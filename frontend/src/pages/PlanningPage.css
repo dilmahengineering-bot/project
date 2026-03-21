@@ -376,9 +376,26 @@
   font-weight: 600;
 }
 
-.edit-job-info {
+/* Calculated end time display */
+.calculated-end-time {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
   background: var(--bg);
   border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #10b981;
+}
+.calculated-end-time .placeholder-text {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.edit-job-info {
   border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 16px;

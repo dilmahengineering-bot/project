@@ -176,6 +176,134 @@ router.post('/entries', authenticate, async (req, res) => {
   }
 });
 
+// Create plan entry with shift-based splitting
+router.post('/entries/shift-plan', authenticate, async (req, res) => {
+  try {
+    const { machine_id, job_card_id, planned_start_time, required_hours, shift_type, assigned_to, notes } = req.body;
+
+    if (!machine_id || !job_card_id || !planned_start_time || !required_hours || !shift_type) {
+      return res.status(400).json({ error: 'Machine, job card, start time, required hours, and shift type are required' });
+    }
+
+    const hours = parseFloat(required_hours);
+    if (isNaN(hours) || hours <= 0 || hours > 720) {
+      return res.status(400).json({ error: 'Required hours must be between 0 and 720' });
+    }
+
+    // Verify job card and machine exist
+    const [jobCheck, machineCheck] = await Promise.all([
+      db.query('SELECT id FROM cnc_job_cards WHERE id = $1', [job_card_id]),
+      db.query('SELECT id FROM cnc_machines WHERE id = $1', [machine_id]),
+    ]);
+    if (jobCheck.rows.length === 0) return res.status(404).json({ error: 'Job card not found' });
+    if (machineCheck.rows.length === 0) return res.status(404).json({ error: 'Machine not found' });
+
+    // Helper: build time segments based on shift type
+    // Day shift: 7:00 - 19:00, Night shift: 19:00 - 07:00 (next day)
+    function buildSegments(startTime, totalMinutes, shiftType) {
+      const segments = [];
+      let remaining = totalMinutes;
+      let cursor = new Date(startTime);
+
+      while (remaining > 0) {
+        const h = cursor.getHours();
+        const m = cursor.getMinutes();
+        let segStart, segEnd, availableMinutes;
+
+        if (shiftType === 'both') {
+          // Continuous — use all remaining in one segment
+          segStart = new Date(cursor);
+          segEnd = new Date(cursor.getTime() + remaining * 60000);
+          segments.push({ start: segStart, end: segEnd });
+          remaining = 0;
+        } else if (shiftType === 'day') {
+          // Day shift: 7:00 - 19:00
+          if (h >= 7 && h < 19) {
+            // We're in day shift window
+            segStart = new Date(cursor);
+            const dayEnd = new Date(cursor);
+            dayEnd.setHours(19, 0, 0, 0);
+            availableMinutes = (dayEnd - cursor) / 60000;
+            const useMinutes = Math.min(remaining, availableMinutes);
+            segEnd = new Date(cursor.getTime() + useMinutes * 60000);
+            segments.push({ start: segStart, end: segEnd });
+            remaining -= useMinutes;
+            // Jump to next day 7am
+            cursor = new Date(cursor);
+            cursor.setDate(cursor.getDate() + 1);
+            cursor.setHours(7, 0, 0, 0);
+          } else {
+            // Outside day shift — jump to next 7am
+            if (h >= 19) {
+              cursor.setDate(cursor.getDate() + 1);
+            }
+            cursor.setHours(7, 0, 0, 0);
+          }
+        } else if (shiftType === 'night') {
+          // Night shift: 19:00 - 07:00 (next day)
+          if (h >= 19 || h < 7) {
+            // We're in night shift window
+            segStart = new Date(cursor);
+            const nightEnd = new Date(cursor);
+            if (h >= 19) {
+              nightEnd.setDate(nightEnd.getDate() + 1);
+            }
+            nightEnd.setHours(7, 0, 0, 0);
+            availableMinutes = (nightEnd - cursor) / 60000;
+            const useMinutes = Math.min(remaining, availableMinutes);
+            segEnd = new Date(cursor.getTime() + useMinutes * 60000);
+            segments.push({ start: segStart, end: segEnd });
+            remaining -= useMinutes;
+            // Jump to next night start 19:00
+            cursor = new Date(nightEnd);
+            cursor.setHours(19, 0, 0, 0);
+          } else {
+            // Outside night shift — jump to 19:00 today
+            cursor.setHours(19, 0, 0, 0);
+          }
+        }
+      }
+      return segments;
+    }
+
+    const totalMinutes = hours * 60;
+    const segments = buildSegments(new Date(planned_start_time), totalMinutes, shift_type);
+
+    // Create entries for each segment
+    const createdIds = [];
+    for (const seg of segments) {
+      const planDate = seg.start.toISOString().split('T')[0];
+      const result = await db.query(
+        `INSERT INTO cnc_plan_entries (machine_id, job_card_id, plan_date, planned_start_time, planned_end_time, assigned_to, notes, sort_order, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8) RETURNING id`,
+        [machine_id, job_card_id, planDate, seg.start.toISOString(), seg.end.toISOString(), assigned_to || null, notes || '', req.user.id]
+      );
+      createdIds.push(result.rows[0].id);
+    }
+
+    // Return all created entries with joined data
+    const entriesResult = await db.query(
+      `SELECT pe.*, 
+        m.machine_name, m.machine_code, m.machine_type,
+        jc.job_name, jc.job_card_number, jc.part_number, jc.client_name, jc.priority,
+        jc.quantity, jc.manufacturing_type,
+        u.name as assigned_to_name
+      FROM cnc_plan_entries pe
+      LEFT JOIN cnc_machines m ON pe.machine_id = m.id
+      LEFT JOIN cnc_job_cards jc ON pe.job_card_id = jc.id
+      LEFT JOIN users u ON pe.assigned_to = u.id
+      WHERE pe.id = ANY($1)
+      ORDER BY pe.planned_start_time ASC`,
+      [createdIds]
+    );
+
+    res.status(201).json({ entries: entriesResult.rows, count: createdIds.length });
+  } catch (error) {
+    console.error('Error creating shift-planned entries:', error);
+    res.status(500).json({ error: 'Failed to create plan entries' });
+  }
+});
+
 // Batch update sort order (for drag-drop reordering — must be before /:id)
 router.put('/entries/reorder/batch', authenticate, async (req, res) => {
   try {
