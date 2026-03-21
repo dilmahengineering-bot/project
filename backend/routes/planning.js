@@ -742,9 +742,9 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     function drawEntryRow(entry, idx, y) {
       const rowH = 15;
       const jc = jobColorMap[entry.job_card_id] || JOB_COLORS_PDF[0];
-      // Subtle tint from job-card colour for the row background
-      const tintBg = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.88)},${Math.round(jc.g + (255 - jc.g) * 0.88)},${Math.round(jc.b + (255 - jc.b) * 0.88)})`;
-      const bg = idx % 2 === 0 ? '#ffffff' : tintBg;
+      // Light tint from job-card colour for the entire row
+      const tintBg = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.90)},${Math.round(jc.g + (255 - jc.g) * 0.90)},${Math.round(jc.b + (255 - jc.b) * 0.90)})`;
+      const bg = tintBg;
 
       const values = [
         String(idx + 1),
@@ -769,6 +769,12 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         let cellBg = bg;
         let cellTextColor = '#1e293b';
         let cellAlign = 'left';
+
+        // Job Card column (i === 1): solid job-card colour background with white text
+        if (i === 1) {
+          cellBg = `rgb(${jc.r},${jc.g},${jc.b})`;
+          cellTextColor = '#ffffff';
+        }
 
         // Column-specific styling
         if (i === 0) cellAlign = 'center';                   // #
