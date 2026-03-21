@@ -411,7 +411,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       const dt = new Date(ts);
       if (isNaN(dt.getTime())) return '-';
       const h = dt.getHours();
-      return h >= 6 && h < 18 ? 'Day' : 'Night';
+      return h >= 7 && h < 19 ? 'Day' : 'Night';
     }
 
     function calcDuration(s, e) {
