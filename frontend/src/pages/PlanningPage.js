@@ -84,57 +84,63 @@ export default function PlanningPage() {
     }, 300);
   };
 
-  // Calculate end time preview based on shift type
+  // ── Shift segment calculation ──
+  // Day shift: 7:00–19:00, Night shift: 19:00–07:00 (next day)
+  const DAY_START = 7, DAY_END = 19; // hours
+
   const fmtLocal = (d) => {
     const pad = n => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
+  // Snap cursor to the next valid shift window start
+  const snapToShiftStart = (cursor, shiftType) => {
+    const d = new Date(cursor);
+    const h = d.getHours();
+    if (shiftType === 'day') {
+      if (h < DAY_START) { d.setHours(DAY_START, 0, 0, 0); }
+      else if (h >= DAY_END) { d.setDate(d.getDate() + 1); d.setHours(DAY_START, 0, 0, 0); }
+    } else if (shiftType === 'night') {
+      if (h >= DAY_START && h < DAY_END) { d.setHours(DAY_END, 0, 0, 0); }
+    }
+    return d;
+  };
+
+  // Get the end of current shift window from cursor position
+  const getShiftWindowEnd = (cursor, shiftType) => {
+    const d = new Date(cursor);
+    const h = d.getHours();
+    if (shiftType === 'day') {
+      d.setHours(DAY_END, 0, 0, 0);
+    } else if (shiftType === 'night') {
+      if (h >= DAY_END) {
+        d.setDate(d.getDate() + 1);
+      }
+      d.setHours(DAY_START, 0, 0, 0);
+    }
+    return d;
+  };
+
   const buildShiftSegments = (startStr, totalMinutes, shiftType) => {
+    if (shiftType === 'both') {
+      const start = new Date(startStr);
+      const end = new Date(start.getTime() + totalMinutes * 60000);
+      return [{ start: fmtLocal(start), end: fmtLocal(end) }];
+    }
+
     const segments = [];
     let remaining = totalMinutes;
-    let cursor = new Date(startStr);
-    let safety = 0;
+    let cursor = snapToShiftStart(new Date(startStr), shiftType);
 
-    while (remaining > 0 && safety < 1000) {
-      safety++;
-      const h = cursor.getHours();
-
-      if (shiftType === 'both') {
-        const segStart = fmtLocal(cursor);
-        const end = new Date(cursor.getTime() + remaining * 60000);
-        segments.push({ start: segStart, end: fmtLocal(end) });
-        remaining = 0;
-      } else if (shiftType === 'day') {
-        if (h >= 7 && h < 19) {
-          const segStart = fmtLocal(cursor);
-          const dayEnd = new Date(cursor); dayEnd.setHours(19, 0, 0, 0);
-          const avail = (dayEnd - cursor) / 60000;
-          const use = Math.min(remaining, avail);
-          const end = new Date(cursor.getTime() + use * 60000);
-          segments.push({ start: segStart, end: fmtLocal(end) });
-          remaining -= use;
-          if (remaining > 0) { cursor.setDate(cursor.getDate() + 1); cursor.setHours(7, 0, 0, 0); }
-        } else {
-          if (h >= 19) cursor.setDate(cursor.getDate() + 1);
-          cursor.setHours(7, 0, 0, 0);
-        }
-      } else if (shiftType === 'night') {
-        if (h >= 19 || h < 7) {
-          const segStart = fmtLocal(cursor);
-          const nightEnd = new Date(cursor);
-          if (h >= 19) nightEnd.setDate(nightEnd.getDate() + 1);
-          nightEnd.setHours(7, 0, 0, 0);
-          const avail = (nightEnd - cursor) / 60000;
-          const use = Math.min(remaining, avail);
-          const end = new Date(cursor.getTime() + use * 60000);
-          segments.push({ start: segStart, end: fmtLocal(end) });
-          remaining -= use;
-          if (remaining > 0) cursor.setHours(19, 0, 0, 0);
-        } else {
-          cursor.setHours(19, 0, 0, 0);
-        }
-      }
+    for (let i = 0; i < 200 && remaining > 0; i++) {
+      const windowEnd = getShiftWindowEnd(cursor, shiftType);
+      const availMin = (windowEnd - cursor) / 60000;
+      if (availMin <= 0) { cursor = snapToShiftStart(windowEnd, shiftType); continue; }
+      const useMin = Math.min(remaining, availMin);
+      const segEnd = new Date(cursor.getTime() + useMin * 60000);
+      segments.push({ start: fmtLocal(cursor), end: fmtLocal(segEnd) });
+      remaining -= useMin;
+      if (remaining > 0) cursor = snapToShiftStart(windowEnd, shiftType);
     }
     return segments;
   };
@@ -175,8 +181,12 @@ export default function PlanningPage() {
       toast.success(segments.length > 1 ? `Job split into ${segments.length} entries across shifts` : 'Job added to plan');
       setShowAddModal(false);
       resetAddForm();
-      // Navigate to the date of the first entry
-      setSelectedDate(segments[0].start.substring(0, 10));
+      const targetDate = segments[0].start.substring(0, 10);
+      if (targetDate === selectedDate) {
+        loadData();
+      } else {
+        setSelectedDate(targetDate);
+      }
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to add job');
     }
