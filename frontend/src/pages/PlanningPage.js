@@ -33,7 +33,7 @@ export default function PlanningPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [addForm, setAddForm] = useState({ planned_start_time: '', planned_end_time: '', assigned_to: '', notes: '' });
+  const [addForm, setAddForm] = useState({ plan_date: '', planned_start_time: '', planned_end_time: '', assigned_to: '', notes: '' });
   const searchTimeoutRef = useRef(null);
 
   // Edit entry modal
@@ -91,8 +91,11 @@ export default function PlanningPage() {
       await api.post('/planning/entries', {
         machine_id: addMachineId,
         job_card_id: selectedJob.id,
-        plan_date: selectedDate,
-        ...addForm,
+        plan_date: addForm.plan_date || selectedDate,
+        planned_start_time: addForm.planned_start_time,
+        planned_end_time: addForm.planned_end_time,
+        assigned_to: addForm.assigned_to,
+        notes: addForm.notes,
       });
       toast.success('Job added to plan');
       setShowAddModal(false);
@@ -105,7 +108,7 @@ export default function PlanningPage() {
 
   const resetAddForm = () => {
     setSearchQuery(''); setSearchResults([]); setSelectedJob(null);
-    setAddForm({ planned_start_time: '', planned_end_time: '', assigned_to: '', notes: '' });
+    setAddForm({ plan_date: '', planned_start_time: '', planned_end_time: '', assigned_to: '', notes: '' });
     setAddMachineId('');
   };
 
@@ -167,6 +170,12 @@ export default function PlanningPage() {
   };
 
   const formatTime = (t) => t ? t.substring(0, 5) : '—';
+
+  const formatDateShort = (d) => {
+    if (!d) return '';
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   const calcDuration = (start, end) => {
     if (!start || !end) return null;
@@ -268,6 +277,7 @@ export default function PlanningPage() {
                               </span>
                             )}
                           </div>
+                          <div className="plan-card-date">📅 {formatDateShort(entry.plan_date)}</div>
                           <div className="plan-card-times">
                             <div className="time-row">
                               <span className="time-label">Planned:</span>
@@ -290,6 +300,7 @@ export default function PlanningPage() {
                           {entry.notes && <div className="plan-card-notes">📝 {entry.notes}</div>}
                           <div className="plan-card-actions">
                             <button className="btn-edit" onClick={() => { setEditEntry(entry); setEditForm({
+                              plan_date: entry.plan_date ? entry.plan_date.split('T')[0] : selectedDate,
                               planned_start_time: entry.planned_start_time || '',
                               planned_end_time: entry.planned_end_time || '',
                               actual_start_time: entry.actual_start_time || '',
@@ -360,13 +371,18 @@ export default function PlanningPage() {
                   )}
                 </div>
 
+                <div className="form-group">
+                  <label>Plan Date</label>
+                  <input type="date" className="form-control" value={addForm.plan_date || selectedDate} onChange={e => setAddForm(p => ({...p, plan_date: e.target.value}))} />
+                </div>
+
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Planned Start</label>
+                    <label>Planned Start Time</label>
                     <input type="time" className="form-control" value={addForm.planned_start_time} onChange={e => setAddForm(p => ({...p, planned_start_time: e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label>Planned End</label>
+                    <label>Planned End Time</label>
                     <input type="time" className="form-control" value={addForm.planned_end_time} onChange={e => setAddForm(p => ({...p, planned_end_time: e.target.value}))} />
                   </div>
                 </div>
@@ -406,24 +422,29 @@ export default function PlanningPage() {
                   <div className="edit-machine-info">🖥️ {editEntry.machine_name}</div>
                 </div>
 
+                <div className="form-group">
+                  <label>Plan Date</label>
+                  <input type="date" className="form-control" value={editForm.plan_date} onChange={e => setEditForm(p => ({...p, plan_date: e.target.value}))} />
+                </div>
+
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Planned Start</label>
+                    <label>Planned Start Time</label>
                     <input type="time" className="form-control" value={editForm.planned_start_time} onChange={e => setEditForm(p => ({...p, planned_start_time: e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label>Planned End</label>
+                    <label>Planned End Time</label>
                     <input type="time" className="form-control" value={editForm.planned_end_time} onChange={e => setEditForm(p => ({...p, planned_end_time: e.target.value}))} />
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Actual Start</label>
+                    <label>Actual Start Time</label>
                     <input type="time" className="form-control" value={editForm.actual_start_time} onChange={e => setEditForm(p => ({...p, actual_start_time: e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label>Actual End</label>
+                    <label>Actual End Time</label>
                     <input type="time" className="form-control" value={editForm.actual_end_time} onChange={e => setEditForm(p => ({...p, actual_end_time: e.target.value}))} />
                   </div>
                 </div>
