@@ -610,8 +610,10 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       const itemW = contentW / items.length;
       items.forEach((item, i) => {
         const ix = leftM + i * itemW;
+        doc.y = 0;
         doc.fillColor(item.color).fontSize(12).font('Helvetica-Bold')
           .text(String(item.value), ix, y + 4, { width: itemW, align: 'center', lineBreak: false });
+        doc.y = 0;
         doc.fillColor('#64748b').fontSize(6).font('Helvetica')
           .text(item.label.toUpperCase(), ix, y + 18, { width: itemW, align: 'center', lineBreak: false });
       });
@@ -629,13 +631,16 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
     // ── Signature block ──
     function drawSignatures(y) {
-      // Ensure signatures fit on current page; sigBlock = approvals title + boxes
       const sigBlockH = 75;
       const sigY = Math.max(y + 10, pageH - 20 - sigBlockH);
 
-      // Title line
+      // Reset internal cursor so PDFKit doesn't auto-paginate
+      doc.y = 0;
+
       doc.strokeColor('#e2e8f0').lineWidth(0.5)
         .moveTo(leftM, sigY).lineTo(rightM, sigY).stroke();
+
+      doc.y = 0;
       doc.fillColor('#64748b').fontSize(7).font('Helvetica-Bold')
         .text('APPROVALS', leftM, sigY + 3, { width: contentW, align: 'center', lineBreak: false });
 
@@ -646,24 +651,25 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       roles.forEach((role, i) => {
         const sx = leftM + i * (sigW + 20);
 
-        // Signature box
         doc.rect(sx, sigStartY, sigW, 50).fill('#fafbfc');
         doc.strokeColor('#cbd5e1').lineWidth(0.5).rect(sx, sigStartY, sigW, 50).stroke();
 
-        // Role title
+        doc.y = 0;
         doc.fillColor('#1e293b').fontSize(7.5).font('Helvetica-Bold')
           .text(role, sx + 4, sigStartY + 3, { width: sigW - 8, align: 'center', lineBreak: false });
 
-        // Signature line
         doc.strokeColor('#1e293b').lineWidth(0.8)
           .moveTo(sx + 15, sigStartY + 28).lineTo(sx + sigW - 15, sigStartY + 28).stroke();
+
+        doc.y = 0;
         doc.fillColor('#94a3b8').fontSize(5.5).font('Helvetica')
           .text('Signature', sx + 15, sigStartY + 30, { width: sigW - 30, align: 'center', lineBreak: false });
 
-        // Name and Date
+        doc.y = 0;
         doc.fillColor('#64748b').fontSize(6).font('Helvetica')
-          .text('Name: ..............................', sx + 8, sigStartY + 37, { lineBreak: false })
-          .text('Date: ................................', sx + 8, sigStartY + 44, { lineBreak: false });
+          .text('Name: ..............................', sx + 8, sigStartY + 37, { lineBreak: false });
+        doc.y = 0;
+        doc.text('Date: ................................', sx + 8, sigStartY + 44, { lineBreak: false });
       });
 
       doc.fillColor('#000000');
@@ -673,10 +679,15 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     function drawFooter(pageNum, totalPages) {
       const footY = pageH - 18;
       doc.rect(0, footY, pageW, 18).fill('#1e293b');
+
+      // Reset Y cursor before each text to prevent auto-pagination
+      doc.y = 0;
       doc.fillColor('#94a3b8').fontSize(6).font('Helvetica')
-        .text('TaskFlow CNC Production Planning System', leftM, footY + 5, { width: contentW / 3, lineBreak: false })
-        .text(`Page ${pageNum} of ${totalPages}`, leftM + contentW / 3, footY + 5, { width: contentW / 3, align: 'center', lineBreak: false })
-        .text('CONFIDENTIAL', leftM + 2 * contentW / 3, footY + 5, { width: contentW / 3, align: 'right', lineBreak: false });
+        .text('TaskFlow CNC Production Planning System', leftM, footY + 5, { width: contentW / 3, lineBreak: false });
+      doc.y = 0;
+      doc.text(`Page ${pageNum} of ${totalPages}`, leftM + contentW / 3, footY + 5, { width: contentW / 3, align: 'center', lineBreak: false });
+      doc.y = 0;
+      doc.text('CONFIDENTIAL', leftM + 2 * contentW / 3, footY + 5, { width: contentW / 3, align: 'right', lineBreak: false });
       doc.fillColor('#000000');
     }
 
