@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import Layout from '../components/shared/Layout';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
@@ -30,7 +30,7 @@ export default function ProductionReportPage() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
-  const printRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
 
   const loadReport = useCallback(async () => {
     if (!startDate || !endDate) {
@@ -133,8 +133,28 @@ export default function ProductionReportPage() {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownload = async () => {
+    try {
+      setDownloading(true);
+      const response = await api.get('/planning/production-report-pdf', {
+        params: { start_date: startDate, end_date: endDate },
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Production-Report-${startDate}-to-${endDate}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Report downloaded');
+    } catch {
+      toast.error('Failed to download report');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // Get entries for a specific machine on a specific date
@@ -171,7 +191,7 @@ export default function ProductionReportPage() {
     <Layout>
       <div className="prod-report-page">
         {/* Controls - hidden when printing */}
-        <div className="prod-report-controls no-print">
+        <div className="prod-report-controls">
           <div className="prod-report-header">
             <h1>🖨️ Production Report</h1>
             <span className="prod-report-subtitle">Generate daily production sheets from Gantt planning</span>
@@ -192,7 +212,9 @@ export default function ProductionReportPage() {
                   {loading ? '⏳ Generating...' : '📊 Generate Report'}
                 </button>
                 {generated && entries.length > 0 && (
-                  <button className="btn btn-secondary" onClick={handlePrint}>🖨️ Print</button>
+                  <button className="btn btn-secondary" onClick={handleDownload} disabled={downloading}>
+                    {downloading ? '⏳ Downloading...' : '📥 Download PDF'}
+                  </button>
                 )}
               </div>
             </div>
@@ -208,7 +230,7 @@ export default function ProductionReportPage() {
 
         {/* Report Sheets */}
         {generated && (
-          <div className="report-sheets" ref={printRef}>
+          <div className="report-sheets">
             {dates.map(dateStr => {
               const dayEntries = getEntriesForDate(dateStr);
               const activeMachines = machines.filter(m =>
@@ -409,7 +431,7 @@ export default function ProductionReportPage() {
         )}
 
         {generated && entries.length === 0 && (
-          <div className="prod-report-empty no-print">
+          <div className="prod-report-empty">
             <p>📭 No planning entries found for the selected date range.</p>
           </div>
         )}
