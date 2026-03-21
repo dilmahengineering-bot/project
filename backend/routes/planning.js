@@ -681,21 +681,19 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     }
 
     // ═══════════ Generate pages ═══════════
-    const totalPages = dates.length || 1;
+    // Only include dates that have entries
+    const activeDates = dates.filter(dateStr => getEntriesForDate(dateStr).length > 0);
+    const totalPages = activeDates.length || 1;
+    let pageCount = 0;
 
-    dates.forEach((dateStr, pageIdx) => {
-      if (pageIdx > 0) doc.addPage();
+    activeDates.forEach((dateStr) => {
+      if (pageCount > 0) doc.addPage();
+      pageCount++;
 
       let y = drawPageHeader(dateStr);
       const dayEntries = getEntriesForDate(dateStr);
       const activeMachines = machines.filter(m => dayEntries.some(e => e.machine_id === m.id));
-
-      if (activeMachines.length === 0) {
-        doc.fillColor('#94a3b8').fontSize(11).font('Helvetica')
-          .text('No jobs planned for this date', leftM, y + 40, { width: contentW, align: 'center' });
-        drawSignatures(y + 80);
-      } else {
-        activeMachines.forEach(machine => {
+      activeMachines.forEach(machine => {
           const machineEntries = dayEntries
             .filter(e => e.machine_id === machine.id)
             .sort((a, b) => {
@@ -708,7 +706,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
           const minNeeded = 20 + 16 + 15 * Math.min(machineEntries.length, 2) + 130;
           if (y + minNeeded > pageH - 30) {
             drawSignatures(y);
-            drawFooter(pageIdx + 1, totalPages);
+            drawFooter(pageCount, totalPages);
             doc.addPage();
             y = drawPageHeader(dateStr);
           }
@@ -720,7 +718,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
             // Check row overflow
             if (y + 15 > pageH - 130) {
               drawSignatures(y);
-              drawFooter(pageIdx + 1, totalPages);
+              drawFooter(pageCount, totalPages);
               doc.addPage();
               y = drawPageHeader(dateStr);
               y = drawMachineHeader(y, machine, machineEntries.length);
@@ -732,14 +730,12 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
           y += 10;
         });
 
-        y = drawSummary(y, dayEntries, activeMachines.length);
-        drawSignatures(y);
-      }
-
-      drawFooter(pageIdx + 1, totalPages);
+      y = drawSummary(y, dayEntries, activeMachines.length);
+      drawSignatures(y);
+      drawFooter(pageCount, totalPages);
     });
 
-    if (dates.length === 0) {
+    if (activeDates.length === 0) {
       let y = drawPageHeader(start_date);
       doc.fillColor('#94a3b8').fontSize(11).font('Helvetica')
         .text('No data found for selected date range', leftM, y + 40, { width: contentW, align: 'center' });
