@@ -37,6 +37,7 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
             {!isGuest && <NavItem to="/tasks" icon="✅" label="My Tasks" />}
             {!isGuest && <NavItem to="/kanban" icon="📊" label="Kanban Board" />}
             <NavItem to="/cnc-kanban" icon="⚙️" label="CNC Kanban" />
+            {!isGuest && <NavItem to="/planning" icon="🗓️" label="Job Planning" />}
           </div>
 
           {isAdmin && (
@@ -46,6 +47,7 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
               <NavItem to="/admin/workflows" icon="🔧" label="Workflows" />
               <NavItem to="/admin/csv-import" icon="📊" label="CSV Import" />
               <NavItem to="/admin/extensions" icon="🕐" label="Extensions" badge={pendingExtensions} />
+              <NavItem to="/admin/machines" icon="🖥️" label="Machine Master" />
               <NavItem to="/admin/users" icon="👥" label="Users" />
               <NavItem to="/admin/reports" icon="📄" label="Reports" />
             </div>

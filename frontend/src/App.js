@@ -13,6 +13,8 @@ import ExtensionsPage from './pages/ExtensionsPage';
 import ReportsPage from './pages/ReportsPage';
 import ProfilePage from './pages/ProfilePage';
 import WorkflowManager from './components/admin/WorkflowManager';
+import PlanningPage from './pages/PlanningPage';
+import MachineMasterPage from './pages/MachineMasterPage';
 
 const PrivateRoute = ({ children, adminOnly = false, denyGuest = false }) => {
   const { user, loading, isAdmin, isGuest } = useAuth();
@@ -39,6 +41,7 @@ function AppRoutes() {
       <Route path="/tasks" element={<PrivateRoute denyGuest><TasksPage /></PrivateRoute>} />
       <Route path="/kanban" element={<PrivateRoute denyGuest><KanbanPage /></PrivateRoute>} />
       <Route path="/cnc-kanban" element={<PrivateRoute><CNCKanbanPage /></PrivateRoute>} />
+      <Route path="/planning" element={<PrivateRoute denyGuest><PlanningPage /></PrivateRoute>} />
       <Route path="/cnc-completed-records" element={<PrivateRoute denyGuest><CompletedRecordsPage /></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
       <Route path="/admin/tasks" element={<PrivateRoute adminOnly><TasksPage adminView /></PrivateRoute>} />
@@ -46,6 +49,7 @@ function AppRoutes() {
       <Route path="/admin/workflows" element={<PrivateRoute adminOnly><WorkflowManager /></PrivateRoute>} />
       <Route path="/admin/csv-import" element={<PrivateRoute adminOnly><CSVJobImportPage /></PrivateRoute>} />
       <Route path="/admin/extensions" element={<PrivateRoute adminOnly><ExtensionsPage /></PrivateRoute>} />
+      <Route path="/admin/machines" element={<PrivateRoute adminOnly><MachineMasterPage /></PrivateRoute>} />
       <Route path="/admin/reports" element={<PrivateRoute adminOnly><ReportsPage /></PrivateRoute>} />
       <Route path="*" element={<Navigate to={user?.role === 'guest' ? '/cnc-kanban' : '/dashboard'} replace />} />
     </Routes>

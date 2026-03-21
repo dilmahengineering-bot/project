@@ -142,6 +142,7 @@ app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/workflows', require('./routes/workflows'));
 app.use('/api/cnc-jobs', require('./routes/cnc-jobs'));
+app.use('/api/planning', require('./routes/planning'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
@@ -342,6 +343,46 @@ const initDB = async () => {
     // Add columns to cnc_job_card_history for field change tracking
     await db.query(`ALTER TABLE cnc_job_card_history ADD COLUMN IF NOT EXISTS old_value TEXT`).catch(() => {});
     await db.query(`ALTER TABLE cnc_job_card_history ADD COLUMN IF NOT EXISTS new_value TEXT`).catch(() => {});
+
+    // CNC Machines Master table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS cnc_machines (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        machine_name VARCHAR(255) NOT NULL,
+        machine_code VARCHAR(100) NOT NULL UNIQUE,
+        machine_type VARCHAR(100) DEFAULT 'cnc',
+        description TEXT DEFAULT '',
+        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'maintenance')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // CNC Plan Entries table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS cnc_plan_entries (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        machine_id UUID REFERENCES cnc_machines(id) ON DELETE CASCADE,
+        job_card_id UUID REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
+        plan_date DATE NOT NULL,
+        planned_start_time TIME,
+        planned_end_time TIME,
+        actual_start_time TIME,
+        actual_end_time TIME,
+        assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+        status VARCHAR(30) DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'completed', 'cancelled')),
+        notes TEXT DEFAULT '',
+        sort_order INTEGER DEFAULT 0,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Indexes for planning
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_plan_entries_date ON cnc_plan_entries(plan_date)`).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_plan_entries_machine ON cnc_plan_entries(machine_id)`).catch(() => {});
+    await db.query(`CREATE INDEX IF NOT EXISTS idx_machines_status ON cnc_machines(status)`).catch(() => {});
 
     // Create indexes
     await db.query(`
