@@ -664,13 +664,26 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       doc.y = 0;
     }
 
+    // ── Page footer ──
+    function drawFooter(pageNum, totalPages) {
+      const footY = pageH - 18;
+      doc.rect(0, footY, pageW, 18).fill('#1e293b');
+
+      doc.fillColor('#94a3b8').fontSize(6).font('Helvetica');
+      safeText('TaskFlow CNC Production Planning System', leftM, footY + 5, { width: contentW / 2 });
+      safeText(`Page ${pageNum} of ${totalPages}`, leftM + contentW / 2, footY + 5, { width: contentW / 2, align: 'right' });
+      doc.fillColor('#000000');
+      doc.y = 0;
+    }
+
     // ═══════════ Generate pages ═══════════
     // Only include dates that have entries
     const activeDates = dates.filter(dateStr => getEntriesForDate(dateStr).length > 0);
+    const totalPages = activeDates.length || 1;
     let pageCount = 0;
 
-    // Reserved space at bottom: signatures(~75) + summary(~38) + padding
-    const bottomReserve = 122;
+    // Reserved space at bottom: footer(18) + signatures(~75) + summary(~38) + padding
+    const bottomReserve = 140;
 
     activeDates.forEach((dateStr) => {
       if (pageCount > 0) doc.addPage();
@@ -691,6 +704,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
           // Check if we need a new page (machine header + table header + at least 1 row)
           const minNeeded = 20 + 16 + 15;
           if (y + minNeeded > pageH - bottomReserve) {
+            drawFooter(pageCount, totalPages);
             doc.addPage();
             y = drawPageHeader(dateStr);
           }
@@ -701,6 +715,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
           machineEntries.forEach((entry, idx) => {
             // Check row overflow
             if (y + 15 > pageH - bottomReserve) {
+              drawFooter(pageCount, totalPages);
               doc.addPage();
               y = drawPageHeader(dateStr);
               y = drawMachineHeader(y, machine, machineEntries.length);
@@ -714,18 +729,21 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
       // Summary + Signatures + Footer all on same page
       // Check if summary + signatures fit
-      if (y + 38 + 75 > pageH - bottomReserve) {
+      if (y + 38 + 75 > pageH - 18) {
+        drawFooter(pageCount, totalPages);
         doc.addPage();
         y = drawPageHeader(dateStr);
       }
       y = drawSummary(y, dayEntries, activeMachines.length);
       drawSignatures(y);
+      drawFooter(pageCount, totalPages);
     });
 
     if (activeDates.length === 0) {
       let y = drawPageHeader(start_date);
       doc.fillColor('#94a3b8').fontSize(11).font('Helvetica');
       safeText('No data found for selected date range', leftM, y + 40, { width: contentW, align: 'center' });
+      drawFooter(1, 1);
     }
 
     doc.end();
