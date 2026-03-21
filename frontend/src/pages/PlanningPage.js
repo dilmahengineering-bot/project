@@ -33,7 +33,7 @@ export default function PlanningPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [addForm, setAddForm] = useState({ planned_start_time: '', required_hours: '', shift_type: 'both', assigned_to: '', notes: '' });
+  const [addForm, setAddForm] = useState({ planned_start_time: '', required_hours: '', shift_type: 'day', assigned_to: '', notes: '' });
   const searchTimeoutRef = useRef(null);
 
   // Edit entry modal
@@ -194,7 +194,7 @@ export default function PlanningPage() {
 
   const resetAddForm = () => {
     setSearchQuery(''); setSearchResults([]); setSelectedJob(null);
-    setAddForm({ planned_start_time: '', required_hours: '', shift_type: 'both', assigned_to: '', notes: '' });
+    setAddForm({ planned_start_time: '', required_hours: '', shift_type: 'day', assigned_to: '', notes: '' });
     setAddMachineId('');
   };
 
@@ -488,10 +488,17 @@ export default function PlanningPage() {
                 <div className="form-row">
                   <div className="form-group">
                     <label>Shift Type</label>
-                    <select className="form-control" value={addForm.shift_type} onChange={e => setAddForm(p => ({...p, shift_type: e.target.value}))}>
-                      <option value="both">Both Shifts (Continuous 24h)</option>
+                    <select className="form-control" value={addForm.shift_type} onChange={e => {
+                      const st = e.target.value;
+                      const dateStr = addForm.planned_start_time ? addForm.planned_start_time.substring(0, 10) : selectedDate;
+                      let newStart = addForm.planned_start_time;
+                      if (st === 'day') newStart = `${dateStr}T07:00`;
+                      else if (st === 'night') newStart = `${dateStr}T19:00`;
+                      setAddForm(p => ({...p, shift_type: st, planned_start_time: newStart}));
+                    }}>
                       <option value="day">Day Shift Only (7 AM – 7 PM)</option>
                       <option value="night">Night Shift Only (7 PM – 7 AM)</option>
+                      <option value="both">Both Shifts (Continuous 24h)</option>
                     </select>
                   </div>
                   <div className="form-group">
