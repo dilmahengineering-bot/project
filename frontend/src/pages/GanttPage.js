@@ -27,6 +27,26 @@ const PRIORITY_INDICATORS = {
   high: '🔴', medium: '🟡', low: '🟢',
 };
 
+// Vibrant color palette for job cards — same job_card_id always gets the same color
+const JOB_COLORS = [
+  { bg: '#6366f1', text: '#fff', border: '#4f46e5' },  // indigo
+  { bg: '#f59e0b', text: '#78350f', border: '#d97706' }, // amber
+  { bg: '#10b981', text: '#fff', border: '#059669' },  // emerald
+  { bg: '#ef4444', text: '#fff', border: '#dc2626' },  // red
+  { bg: '#3b82f6', text: '#fff', border: '#2563eb' },  // blue
+  { bg: '#8b5cf6', text: '#fff', border: '#7c3aed' },  // violet
+  { bg: '#ec4899', text: '#fff', border: '#db2777' },  // pink
+  { bg: '#14b8a6', text: '#fff', border: '#0d9488' },  // teal
+  { bg: '#f97316', text: '#fff', border: '#ea580c' },  // orange
+  { bg: '#06b6d4', text: '#fff', border: '#0891b2' },  // cyan
+  { bg: '#84cc16', text: '#1a2e05', border: '#65a30d' }, // lime
+  { bg: '#a855f7', text: '#fff', border: '#9333ea' },  // purple
+  { bg: '#e11d48', text: '#fff', border: '#be123c' },  // rose
+  { bg: '#0ea5e9', text: '#fff', border: '#0284c7' },  // sky
+  { bg: '#d946ef', text: '#fff', border: '#c026d3' },  // fuchsia
+  { bg: '#22c55e', text: '#fff', border: '#16a34a' },  // green
+];
+
 export default function GanttPage() {
   const [viewMode, setViewMode] = useState('hourly');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -164,6 +184,16 @@ export default function GanttPage() {
   }, [dateRange]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Build a stable color map: same job_card_id → same color
+  const jobColorMap = useMemo(() => {
+    const map = {};
+    const uniqueJobIds = [...new Set(entries.map(e => e.job_card_id).filter(Boolean))];
+    uniqueJobIds.forEach((id, i) => {
+      map[id] = JOB_COLORS[i % JOB_COLORS.length];
+    });
+    return map;
+  }, [entries]);
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
@@ -611,7 +641,7 @@ export default function GanttPage() {
                         {machineEntries.map(entry => {
                           const pos = getEntryPosition(entry);
                           if (!pos) return null;
-                          const statusColor = STATUS_COLORS[entry.status] || STATUS_COLORS.planned;
+                          const jobColor = jobColorMap[entry.job_card_id] || JOB_COLORS[0];
                           const isDragging = dragState?.entry?.id === entry.id;
 
                           return (
@@ -621,9 +651,9 @@ export default function GanttPage() {
                               style={{
                                 left: pos.left,
                                 width: pos.width,
-                                background: statusColor.bg,
-                                borderColor: statusColor.border,
-                                color: statusColor.text,
+                                background: jobColor.bg,
+                                borderColor: jobColor.border,
+                                color: jobColor.text,
                               }}
                               onMouseDown={e => handleBlockMouseDown(e, entry)}
                               onDoubleClick={() => openEdit(entry)}
