@@ -146,6 +146,22 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
     }
   };
 
+  const handleDownloadAttachment = async (att) => {
+    try {
+      const response = await api.get(`/cnc-jobs/attachments/${att.id}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', att.original_name);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error('Failed to download file');
+    }
+  };
+
   const handleDownloadReport = async () => {
     if (!jobCard) return;
     try {
@@ -612,15 +628,14 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                   <div key={att.id} className="attachment-item">
                     <div className="attachment-icon">{getFileIcon(att.file_type)}</div>
                     <div className="attachment-info">
-                      <a
-                        href={`${api.defaults.baseURL.replace(/\/api\/?$/, '')}/uploads/${att.file_name}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download={att.original_name}
+                      <span
                         className="attachment-name"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => handleDownloadAttachment(att)}
+                        title="Click to download"
                       >
                         {att.original_name}
-                      </a>
+                      </span>
                       <span className="attachment-meta">
                         {formatFileSize(att.file_size)} · {att.uploaded_by_name} · {new Date(att.created_at).toLocaleDateString()}
                       </span>

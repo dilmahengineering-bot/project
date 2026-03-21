@@ -815,6 +815,31 @@ router.get('/:id/attachments', authenticate, async (req, res) => {
   }
 });
 
+// Download attachment
+router.get('/attachments/:attachmentId/download', authenticate, async (req, res) => {
+  try {
+    const { attachmentId } = req.params;
+    const result = await db.query(
+      'SELECT file_name, original_name, file_type FROM cnc_job_attachments WHERE id = $1',
+      [attachmentId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Attachment not found' });
+    }
+    const att = result.rows[0];
+    const filePath = path.join(__dirname, '..', 'uploads', att.file_name);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found on server' });
+    }
+    res.setHeader('Content-Disposition', `attachment; filename="${att.original_name}"`);
+    if (att.file_type) res.setHeader('Content-Type', att.file_type);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (error) {
+    console.error('Error downloading attachment:', error);
+    res.status(500).json({ error: 'Failed to download attachment' });
+  }
+});
+
 // Delete attachment
 router.delete('/attachments/:attachmentId', authenticate, denyGuest, async (req, res) => {
   try {
