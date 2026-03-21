@@ -506,6 +506,26 @@ router.get('/users', authenticate, async (req, res) => {
 const STATUS_LABELS = { planned: 'Planned', in_progress: 'In Progress', completed: 'Completed', cancelled: 'Cancelled' };
 const STATUS_COLORS_RGB = { planned: [99, 102, 241], in_progress: [245, 158, 11], completed: [16, 185, 129], cancelled: [239, 68, 68] };
 
+// Same palette as Gantt chart — same job_card_id always gets the same colour
+const JOB_COLORS_PDF = [
+  { r: 99,  g: 102, b: 241 }, // indigo
+  { r: 245, g: 158, b: 11  }, // amber
+  { r: 16,  g: 185, b: 129 }, // emerald
+  { r: 239, g: 68,  b: 68  }, // red
+  { r: 59,  g: 130, b: 246 }, // blue
+  { r: 139, g: 92,  b: 246 }, // violet
+  { r: 236, g: 72,  b: 153 }, // pink
+  { r: 20,  g: 184, b: 166 }, // teal
+  { r: 249, g: 115, b: 22  }, // orange
+  { r: 6,   g: 182, b: 212 }, // cyan
+  { r: 132, g: 204, b: 22  }, // lime
+  { r: 168, g: 85,  b: 247 }, // purple
+  { r: 225, g: 29,  b: 72  }, // rose
+  { r: 14,  g: 165, b: 233 }, // sky
+  { r: 217, g: 70,  b: 239 }, // fuchsia
+  { r: 34,  g: 197, b: 94  }, // green
+];
+
 router.get('/production-report-pdf', authenticate, async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
@@ -532,6 +552,13 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       ORDER BY pe.plan_date ASC, m.machine_name ASC, pe.sort_order ASC
     `, [start_date, end_date]);
     const entries = entriesResult.rows;
+
+    // Build job-card colour map (same job_card_id → same colour)
+    const jobColorMap = {};
+    const uniqueJobIds = [...new Set(entries.map(e => e.job_card_id).filter(Boolean))];
+    uniqueJobIds.forEach((id, i) => {
+      jobColorMap[id] = JOB_COLORS_PDF[i % JOB_COLORS_PDF.length];
+    });
 
     // Build date list
     const dates = [];
@@ -714,7 +741,10 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     // ── Table data row ──
     function drawEntryRow(entry, idx, y) {
       const rowH = 15;
-      const bg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+      const jc = jobColorMap[entry.job_card_id] || JOB_COLORS_PDF[0];
+      // Subtle tint from job-card colour for the row background
+      const tintBg = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.88)},${Math.round(jc.g + (255 - jc.g) * 0.88)},${Math.round(jc.b + (255 - jc.b) * 0.88)})`;
+      const bg = idx % 2 === 0 ? '#ffffff' : tintBg;
 
       const values = [
         String(idx + 1),
@@ -759,9 +789,8 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         x += COLS[i].w;
       });
 
-      // Status color accent on left edge
-      const sc = STATUS_COLORS_RGB[entry.status] || [99, 102, 241];
-      doc.rect(leftM, y, 2.5, rowH).fill(`rgb(${sc[0]},${sc[1]},${sc[2]})`);
+      // Job-card colour accent on left edge
+      doc.rect(leftM, y, 2.5, rowH).fill(`rgb(${jc.r},${jc.g},${jc.b})`);
 
       return y + rowH;
     }
