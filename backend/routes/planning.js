@@ -198,6 +198,12 @@ router.post('/entries/shift-plan', authenticate, async (req, res) => {
     if (jobCheck.rows.length === 0) return res.status(404).json({ error: 'Job card not found' });
     if (machineCheck.rows.length === 0) return res.status(404).json({ error: 'Machine not found' });
 
+    // Helper: format Date as local ISO string without timezone suffix
+    function fmtDT(d) {
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
     // Helper: build time segments based on shift type
     // Day shift: 7:00 - 19:00, Night shift: 19:00 - 07:00 (next day)
     function buildSegments(startTime, totalMinutes, shiftType) {
@@ -272,11 +278,13 @@ router.post('/entries/shift-plan', authenticate, async (req, res) => {
     // Create entries for each segment
     const createdIds = [];
     for (const seg of segments) {
-      const planDate = seg.start.toISOString().split('T')[0];
+      const startStr = fmtDT(seg.start);
+      const endStr = fmtDT(seg.end);
+      const planDate = startStr.substring(0, 10);
       const result = await db.query(
         `INSERT INTO cnc_plan_entries (machine_id, job_card_id, plan_date, planned_start_time, planned_end_time, assigned_to, notes, sort_order, created_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8) RETURNING id`,
-        [machine_id, job_card_id, planDate, seg.start.toISOString(), seg.end.toISOString(), assigned_to || null, notes || '', req.user.id]
+        [machine_id, job_card_id, planDate, startStr, endStr, assigned_to || null, notes || '', req.user.id]
       );
       createdIds.push(result.rows[0].id);
     }
