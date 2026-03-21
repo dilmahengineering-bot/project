@@ -763,7 +763,6 @@ router.put('/extensions/:extId', authenticate, requireAdmin, async (req, res) =>
 router.post(
   '/:id/attachments',
   authenticate,
-  denyGuest,
   upload.single('file'),
   async (req, res) => {
     try {

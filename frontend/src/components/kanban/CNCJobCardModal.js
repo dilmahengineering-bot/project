@@ -597,7 +597,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
 
         {activeTab === 'attachments' && (
           <div className="attachments-section">
-            {!isCompletedRecord && !isGuest && (
+            {!isCompletedRecord && (
             <div className="attachment-upload">
               <input
                 ref={fileInputRef}
