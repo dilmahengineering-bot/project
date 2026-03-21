@@ -39,6 +39,7 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
             <NavItem to="/cnc-kanban" icon="⚙️" label="CNC Kanban" />
             {!isGuest && <NavItem to="/planning" icon="🗓️" label="Job Planning" />}
             {!isGuest && <NavItem to="/gantt" icon="📊" label="Gantt Chart" />}
+            {!isGuest && <NavItem to="/production-report" icon="🖨️" label="Production Report" />}
           </div>
 
           {isAdmin && (

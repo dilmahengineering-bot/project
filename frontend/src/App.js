@@ -16,6 +16,7 @@ import WorkflowManager from './components/admin/WorkflowManager';
 import PlanningPage from './pages/PlanningPage';
 import MachineMasterPage from './pages/MachineMasterPage';
 import GanttPage from './pages/GanttPage';
+import ProductionReportPage from './pages/ProductionReportPage';
 
 const PrivateRoute = ({ children, adminOnly = false, denyGuest = false }) => {
   const { user, loading, isAdmin, isGuest } = useAuth();
@@ -44,6 +45,7 @@ function AppRoutes() {
       <Route path="/cnc-kanban" element={<PrivateRoute><CNCKanbanPage /></PrivateRoute>} />
       <Route path="/planning" element={<PrivateRoute denyGuest><PlanningPage /></PrivateRoute>} />
       <Route path="/gantt" element={<PrivateRoute denyGuest><GanttPage /></PrivateRoute>} />
+      <Route path="/production-report" element={<PrivateRoute denyGuest><ProductionReportPage /></PrivateRoute>} />
       <Route path="/cnc-completed-records" element={<PrivateRoute denyGuest><CompletedRecordsPage /></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
       <Route path="/admin/tasks" element={<PrivateRoute adminOnly><TasksPage adminView /></PrivateRoute>} />
