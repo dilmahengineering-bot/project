@@ -365,10 +365,10 @@ const initDB = async () => {
         machine_id UUID REFERENCES cnc_machines(id) ON DELETE CASCADE,
         job_card_id UUID REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
         plan_date DATE NOT NULL,
-        planned_start_time TIME,
-        planned_end_time TIME,
-        actual_start_time TIME,
-        actual_end_time TIME,
+        planned_start_time TIMESTAMP,
+        planned_end_time TIMESTAMP,
+        actual_start_time TIMESTAMP,
+        actual_end_time TIMESTAMP,
         assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
         status VARCHAR(30) DEFAULT 'planned' CHECK (status IN ('planned', 'in_progress', 'completed', 'cancelled')),
         notes TEXT DEFAULT '',
@@ -378,6 +378,22 @@ const initDB = async () => {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+
+    // Migrate TIME columns to TIMESTAMP if they are still TIME type
+    await db.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'cnc_plan_entries' AND column_name = 'planned_start_time' AND data_type = 'time without time zone'
+        ) THEN
+          ALTER TABLE cnc_plan_entries
+            ALTER COLUMN planned_start_time TYPE TIMESTAMP USING (plan_date + planned_start_time),
+            ALTER COLUMN planned_end_time TYPE TIMESTAMP USING (plan_date + planned_end_time),
+            ALTER COLUMN actual_start_time TYPE TIMESTAMP USING (plan_date + actual_start_time),
+            ALTER COLUMN actual_end_time TYPE TIMESTAMP USING (plan_date + actual_end_time);
+        END IF;
+      END $$;
+    `).catch(() => {});
 
     // Indexes for planning
     await db.query(`CREATE INDEX IF NOT EXISTS idx_plan_entries_date ON cnc_plan_entries(plan_date)`).catch(() => {});

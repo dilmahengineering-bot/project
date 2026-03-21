@@ -180,33 +180,35 @@ export default function GanttPage() {
 
   // Get position and width for an entry block (hourly view)
   const getEntryPosition = useCallback((entry) => {
+    const parseTS = (ts) => ts ? new Date(ts) : null;
+
     if (viewMode === 'hourly') {
-      const startTime = entry.planned_start_time;
-      const endTime = entry.planned_end_time;
-      if (!startTime || !endTime) return null;
-      const [sh, sm] = startTime.split(':').map(Number);
-      const [eh, em] = endTime.split(':').map(Number);
-      const startMinutes = sh * 60 + sm;
-      const endMinutes = eh * 60 + em;
+      const startDT = parseTS(entry.planned_start_time);
+      const endDT = parseTS(entry.planned_end_time);
+      if (!startDT || !endDT) return null;
+      const dayStart = new Date(selectedDate + 'T00:00:00');
+      const startMinutes = Math.max(0, (startDT - dayStart) / 60000);
+      const endMinutes = Math.min(1440, (endDT - dayStart) / 60000);
+      if (endMinutes <= 0 || startMinutes >= 1440) return null;
       const cellW = VIEW_MODES.hourly.cellWidth;
       const left = (startMinutes / 60) * cellW;
       const width = Math.max(((endMinutes - startMinutes) / 60) * cellW, 40);
       return { left, width };
     }
     if (viewMode === 'daily') {
+      const startDT = parseTS(entry.planned_start_time);
+      const endDT = parseTS(entry.planned_end_time);
       const entryDate = entry.plan_date?.split('T')[0];
       const colIndex = timeColumns.findIndex(c => c.key === entryDate);
       if (colIndex === -1) return null;
       const cellW = VIEW_MODES.daily.cellWidth;
-      // Use start/end times to position within the day cell
-      const startTime = entry.planned_start_time;
-      const endTime = entry.planned_end_time;
       let innerLeft = 0, innerWidth = cellW - 4;
-      if (startTime && endTime) {
-        const [sh, sm] = startTime.split(':').map(Number);
-        const [eh, em] = endTime.split(':').map(Number);
-        innerLeft = ((sh * 60 + sm) / 1440) * cellW;
-        innerWidth = Math.max(((eh * 60 + em - sh * 60 - sm) / 1440) * cellW, 30);
+      if (startDT && endDT) {
+        const dayStart = new Date(entryDate + 'T00:00:00');
+        const startMin = Math.max(0, (startDT - dayStart) / 60000);
+        const endMin = Math.min(1440, (endDT - dayStart) / 60000);
+        innerLeft = (startMin / 1440) * cellW;
+        innerWidth = Math.max(((endMin - startMin) / 1440) * cellW, 30);
       }
       return { left: colIndex * cellW + innerLeft, width: innerWidth };
     }
@@ -219,7 +221,12 @@ export default function GanttPage() {
       const cellW = VIEW_MODES.weekly.cellWidth;
       const dayInWeek = diffDays % 7;
       const left = weekIndex * cellW + (dayInWeek / 7) * cellW;
-      return { left, width: cellW / 7 };
+      // Multi-day span in weekly view
+      const startDT = parseTS(entry.planned_start_time);
+      const endDT = parseTS(entry.planned_end_time);
+      let spanDays = 1;
+      if (startDT && endDT) spanDays = Math.max(1, Math.ceil((endDT - startDT) / (1000 * 60 * 60 * 24)));
+      return { left, width: Math.max((spanDays / 7) * cellW, cellW / 7) };
     }
     if (viewMode === 'monthly') {
       const entryDate = new Date(entry.plan_date + 'T00:00:00');
@@ -229,10 +236,15 @@ export default function GanttPage() {
       const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
       const dayOfMonth = entryDate.getDate() - 1;
       const left = monthIndex * cellW + (dayOfMonth / daysInMonth) * cellW;
-      return { left, width: Math.max(cellW / daysInMonth, 8) };
+      // Multi-day span in monthly view
+      const startDT = parseTS(entry.planned_start_time);
+      const endDT = parseTS(entry.planned_end_time);
+      let spanDays = 1;
+      if (startDT && endDT) spanDays = Math.max(1, Math.ceil((endDT - startDT) / (1000 * 60 * 60 * 24)));
+      return { left, width: Math.max((spanDays / daysInMonth) * cellW, 8) };
     }
     return null;
-  }, [viewMode, timeColumns, dateRange]);
+  }, [viewMode, timeColumns, dateRange, selectedDate]);
 
   // Drag handlers for moving blocks
   const handleBlockMouseDown = (e, entry) => {
@@ -293,22 +305,22 @@ export default function GanttPage() {
           const snappedHour = Math.floor(hourFloat);
           const snappedMin = Math.round((hourFloat - snappedHour) * 4) * 15; // snap to 15-min
 
-          // Calculate duration from original times
+          // Calculate duration from original timestamps
           let durationMins = 60; // default 1 hour
           if (entry.planned_start_time && entry.planned_end_time) {
-            const [sh, sm] = entry.planned_start_time.split(':').map(Number);
-            const [eh, em] = entry.planned_end_time.split(':').map(Number);
-            durationMins = (eh * 60 + em) - (sh * 60 + sm);
+            const s = new Date(entry.planned_start_time);
+            const e2 = new Date(entry.planned_end_time);
+            durationMins = Math.round((e2 - s) / 60000);
+            if (durationMins <= 0) durationMins = 60;
           }
 
           const newStartH = Math.min(Math.max(snappedHour, 0), 23);
           const newStartM = snappedMin % 60;
-          const endTotalMin = newStartH * 60 + newStartM + durationMins;
-          const newEndH = Math.min(Math.floor(endTotalMin / 60), 23);
-          const newEndM = endTotalMin % 60;
-
-          const newStart = `${String(newStartH).padStart(2,'0')}:${String(newStartM).padStart(2,'0')}`;
-          const newEnd = `${String(newEndH).padStart(2,'0')}:${String(newEndM).padStart(2,'0')}`;
+          const pad = (n) => String(n).padStart(2, '0');
+          const newStart = `${selectedDate}T${pad(newStartH)}:${pad(newStartM)}:00`;
+          const endDate = new Date(newStart);
+          endDate.setMinutes(endDate.getMinutes() + durationMins);
+          const newEnd = `${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:00`;
 
           try {
             await api.put(`/planning/entries/${entry.id}`, {
@@ -337,36 +349,35 @@ export default function GanttPage() {
           const cellW = VIEW_MODES.hourly.cellWidth;
           const deltaHours = deltaX / cellW;
 
-          const [sh, sm] = (entry.planned_start_time || '08:00').split(':').map(Number);
-          const [eh, em] = (entry.planned_end_time || '09:00').split(':').map(Number);
+          const startDT = new Date(entry.planned_start_time || `${selectedDate}T08:00:00`);
+          const endDT = new Date(entry.planned_end_time || `${selectedDate}T09:00:00`);
+          const pad = (n) => String(n).padStart(2, '0');
 
-          let newSH = sh, newSM = sm, newEH = eh, newEM = em;
           if (direction === 'left') {
-            const newStartMins = Math.max(0, (sh * 60 + sm) + deltaHours * 60);
-            newSH = Math.floor(newStartMins / 60);
-            newSM = Math.round((newStartMins % 60) / 15) * 15;
-            if (newSM >= 60) { newSH++; newSM = 0; }
+            const newStartMs = startDT.getTime() + deltaHours * 3600000;
+            const newStart = new Date(Math.max(new Date(selectedDate + 'T00:00:00').getTime(), newStartMs));
+            // Snap to 15 min
+            newStart.setMinutes(Math.round(newStart.getMinutes() / 15) * 15, 0, 0);
+            const newStartStr = `${newStart.getFullYear()}-${pad(newStart.getMonth()+1)}-${pad(newStart.getDate())}T${pad(newStart.getHours())}:${pad(newStart.getMinutes())}:00`;
+            const endStr = `${endDT.getFullYear()}-${pad(endDT.getMonth()+1)}-${pad(endDT.getDate())}T${pad(endDT.getHours())}:${pad(endDT.getMinutes())}:00`;
+            try {
+              await api.put(`/planning/entries/${entry.id}`, { planned_start_time: newStartStr, planned_end_time: endStr });
+              toast.success('Time adjusted');
+              loadData();
+            } catch { toast.error('Failed to adjust'); }
           } else {
-            const newEndMins = Math.max((sh * 60 + sm + 15), (eh * 60 + em) + deltaHours * 60);
-            newEH = Math.floor(newEndMins / 60);
-            newEM = Math.round((newEndMins % 60) / 15) * 15;
-            if (newEM >= 60) { newEH++; newEM = 0; }
+            const newEndMs = endDT.getTime() + deltaHours * 3600000;
+            const minEnd = startDT.getTime() + 15 * 60000;
+            const newEnd = new Date(Math.max(minEnd, newEndMs));
+            newEnd.setMinutes(Math.round(newEnd.getMinutes() / 15) * 15, 0, 0);
+            const startStr = `${startDT.getFullYear()}-${pad(startDT.getMonth()+1)}-${pad(startDT.getDate())}T${pad(startDT.getHours())}:${pad(startDT.getMinutes())}:00`;
+            const newEndStr = `${newEnd.getFullYear()}-${pad(newEnd.getMonth()+1)}-${pad(newEnd.getDate())}T${pad(newEnd.getHours())}:${pad(newEnd.getMinutes())}:00`;
+            try {
+              await api.put(`/planning/entries/${entry.id}`, { planned_start_time: startStr, planned_end_time: newEndStr });
+              toast.success('Time adjusted');
+              loadData();
+            } catch { toast.error('Failed to adjust'); }
           }
-
-          newSH = Math.min(Math.max(newSH, 0), 23);
-          newEH = Math.min(Math.max(newEH, 0), 23);
-
-          const newStart = `${String(newSH).padStart(2,'0')}:${String(newSM).padStart(2,'0')}`;
-          const newEnd = `${String(newEH).padStart(2,'0')}:${String(newEM).padStart(2,'0')}`;
-
-          try {
-            await api.put(`/planning/entries/${entry.id}`, {
-              planned_start_time: newStart,
-              planned_end_time: newEnd,
-            });
-            toast.success('Time adjusted');
-            loadData();
-          } catch { toast.error('Failed to adjust'); }
         }
         setResizeState(null);
       }
@@ -382,12 +393,19 @@ export default function GanttPage() {
 
   // Edit modal
   const openEdit = (entry) => {
+    const toLocal = (ts) => {
+      if (!ts) return '';
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return '';
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
     setEditEntry(entry);
     setEditForm({
-      planned_start_time: entry.planned_start_time || '',
-      planned_end_time: entry.planned_end_time || '',
-      actual_start_time: entry.actual_start_time || '',
-      actual_end_time: entry.actual_end_time || '',
+      planned_start_time: toLocal(entry.planned_start_time),
+      planned_end_time: toLocal(entry.planned_end_time),
+      actual_start_time: toLocal(entry.actual_start_time),
+      actual_end_time: toLocal(entry.actual_end_time),
       status: entry.status,
       assigned_to: entry.assigned_to || '',
       notes: entry.notes || '',
@@ -437,7 +455,19 @@ export default function GanttPage() {
     }
   };
 
-  const formatTime = (t) => t ? t.substring(0, 5) : '—';
+  const formatTime = (t) => {
+    if (!t) return '—';
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return t.substring(0, 5);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  const formatTimeShort = (t) => {
+    if (!t) return '—';
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return t.substring(0, 5);
+    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
 
   const getEntriesForMachine = (machineId) => entries.filter(e => e.machine_id === machineId);
 
@@ -583,7 +613,7 @@ export default function GanttPage() {
                                 </span>
                                 {pos.width > 100 && (
                                   <span className="block-times">
-                                    {formatTime(entry.planned_start_time)}–{formatTime(entry.planned_end_time)}
+                                    {formatTimeShort(entry.planned_start_time)}–{formatTimeShort(entry.planned_end_time)}
                                   </span>
                                 )}
                                 {pos.width > 160 && entry.job_name && (
@@ -635,28 +665,28 @@ export default function GanttPage() {
               <div className="modal-body">
                 <div className="edit-job-info">
                   <strong>{editEntry.job_card_number}</strong> — {editEntry.job_name}
-                  <div className="edit-machine-info">🖥️ {editEntry.machine_name} · 📅 {editEntry.plan_date?.split('T')[0]}</div>
+                  <div className="edit-machine-info">🖥️ {editEntry.machine_name}</div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Planned Start</label>
-                    <input type="time" className="form-control" value={editForm.planned_start_time} onChange={e => setEditForm(p => ({...p, planned_start_time: e.target.value}))} />
+                    <label>Planned Start (Date & Time)</label>
+                    <input type="datetime-local" className="form-control" value={editForm.planned_start_time} onChange={e => setEditForm(p => ({...p, planned_start_time: e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label>Planned End</label>
-                    <input type="time" className="form-control" value={editForm.planned_end_time} onChange={e => setEditForm(p => ({...p, planned_end_time: e.target.value}))} />
+                    <label>Planned End (Date & Time)</label>
+                    <input type="datetime-local" className="form-control" value={editForm.planned_end_time} onChange={e => setEditForm(p => ({...p, planned_end_time: e.target.value}))} />
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Actual Start</label>
-                    <input type="time" className="form-control" value={editForm.actual_start_time} onChange={e => setEditForm(p => ({...p, actual_start_time: e.target.value}))} />
+                    <label>Actual Start (Date & Time)</label>
+                    <input type="datetime-local" className="form-control" value={editForm.actual_start_time} onChange={e => setEditForm(p => ({...p, actual_start_time: e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label>Actual End</label>
-                    <input type="time" className="form-control" value={editForm.actual_end_time} onChange={e => setEditForm(p => ({...p, actual_end_time: e.target.value}))} />
+                    <label>Actual End (Date & Time)</label>
+                    <input type="datetime-local" className="form-control" value={editForm.actual_end_time} onChange={e => setEditForm(p => ({...p, actual_end_time: e.target.value}))} />
                   </div>
                 </div>
 

@@ -129,9 +129,12 @@ router.post('/entries', authenticate, async (req, res) => {
   try {
     const { machine_id, job_card_id, plan_date, planned_start_time, planned_end_time, assigned_to, notes, sort_order } = req.body;
 
-    if (!machine_id || !job_card_id || !plan_date) {
-      return res.status(400).json({ error: 'Machine, job card, and plan date are required' });
+    if (!machine_id || !job_card_id) {
+      return res.status(400).json({ error: 'Machine and job card are required' });
     }
+
+    // Auto-derive plan_date from planned_start_time if not provided
+    const effectivePlanDate = plan_date || (planned_start_time ? planned_start_time.substring(0, 10) : new Date().toISOString().split('T')[0]);
 
     // Verify job card exists
     const jobCheck = await db.query('SELECT id, job_card_number FROM cnc_job_cards WHERE id = $1', [job_card_id]);
@@ -148,7 +151,7 @@ router.post('/entries', authenticate, async (req, res) => {
     const result = await db.query(
       `INSERT INTO cnc_plan_entries (machine_id, job_card_id, plan_date, planned_start_time, planned_end_time, assigned_to, notes, sort_order, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [machine_id, job_card_id, plan_date, planned_start_time || null, planned_end_time || null, assigned_to || null, notes || '', sort_order || 0, req.user.id]
+      [machine_id, job_card_id, effectivePlanDate, planned_start_time || null, planned_end_time || null, assigned_to || null, notes || '', sort_order || 0, req.user.id]
     );
 
     // Return with joined data
@@ -199,6 +202,9 @@ router.put('/entries/:id', authenticate, async (req, res) => {
   try {
     const { machine_id, plan_date, planned_start_time, planned_end_time, actual_start_time, actual_end_time, assigned_to, notes, status, sort_order } = req.body;
 
+    // Auto-derive plan_date from planned_start_time if start is being updated
+    const effectivePlanDate = plan_date || (planned_start_time ? planned_start_time.substring(0, 10) : undefined);
+
     const result = await db.query(
       `UPDATE cnc_plan_entries SET
         machine_id = COALESCE($1, machine_id),
@@ -213,7 +219,7 @@ router.put('/entries/:id', authenticate, async (req, res) => {
         sort_order = COALESCE($10, sort_order),
         updated_at = NOW()
        WHERE id = $11 RETURNING *`,
-      [machine_id, plan_date, planned_start_time, planned_end_time, actual_start_time, actual_end_time, assigned_to, notes, status, sort_order, req.params.id]
+      [machine_id, effectivePlanDate, planned_start_time, planned_end_time, actual_start_time, actual_end_time, assigned_to, notes, status, sort_order, req.params.id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Plan entry not found' });
