@@ -1,0 +1,138 @@
+.voice-status-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  white-space: nowrap;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.voice-status-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.voice-status-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.voice-status-btn.speaking {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+  animation: pulse-button 1.5s ease-in-out infinite;
+}
+
+.btn-spinner {
+  display: inline-block;
+  animation: spin 1.5s linear infinite;
+  font-size: 12px;
+}
+
+@keyframes spin {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-button {
+  0%, 100% {
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+  }
+  50% {
+    box-shadow: 0 8px 28px rgba(245, 87, 108, 0.6);
+  }
+}
+
+/* Floating Action Button (FAB) Style */
+.voice-status-fab {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  z-index: 999;
+  padding: 0;
+}
+
+.voice-status-fab:hover:not(:disabled) {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 8px 28px rgba(102, 126, 234, 0.5);
+}
+
+.voice-status-fab:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.voice-status-fab.speaking {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 8px 28px rgba(245, 87, 108, 0.5);
+  animation: fab-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes fab-pulse {
+  0%, 100% {
+    box-shadow: 0 8px 28px rgba(245, 87, 108, 0.5);
+  }
+  50% {
+    box-shadow: 0 8px 40px rgba(245, 87, 108, 0.8);
+  }
+}
+
+.fab-icon {
+  display: inline-block;
+  animation: fab-bounce 1.5s ease-in-out infinite;
+}
+
+@keyframes fab-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .voice-status-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+    gap: 6px;
+    min-width: 120px;
+  }
+
+  .voice-status-fab {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+    bottom: 20px;
+    right: 20px;
+  }
+}

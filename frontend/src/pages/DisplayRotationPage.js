@@ -4,6 +4,7 @@ import GanttPage from './GanttPage';
 import CNCKanbanPage from './CNCKanbanPage';
 import useHourlyAnnouncements from '../hooks/useHourlyAnnouncements';
 import voiceAnnouncer from '../utils/voiceAnnouncer';
+import VoiceStatusButton from '../components/shared/VoiceStatusButton';
 import './DisplayRotationPage.css';
 
 export default function DisplayRotationPage() {
@@ -163,6 +164,10 @@ export default function DisplayRotationPage() {
           </div>
 
           <div className="control-section">
+            <VoiceStatusButton entries={entries} machines={machines} />
+          </div>
+
+          <div className="control-section">
             <button
               className="btn-fullscreen"
               onClick={handleFullscreenToggle}
@@ -202,6 +207,11 @@ export default function DisplayRotationPage() {
         <div className="fullscreen-hint">
           <p>Press ESC to exit rotation | Switching to {currentView === 'gantt' ? 'CNC Kanban' : 'Gantt Chart'}</p>
         </div>
+      )}
+
+      {/* Voice Status FAB (Floating Action Button) - Fullscreen Mode */}
+      {isFullscreen && currentView === 'gantt' && (
+        <VoiceStatusButton entries={entries} machines={machines} variant="fab" />
       )}
     </div>
   );
