@@ -211,6 +211,19 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     return () => clearInterval(interval);
   }, [loadData]);
 
+  // Listen for timezone changes and reload data
+  useEffect(() => {
+    const handleSettingsChanged = (event) => {
+      if (event.detail.changed?.includes('timezone')) {
+        // Timezone changed, reload data to reflect new timezone
+        loadData();
+      }
+    };
+
+    window.addEventListener('settingsChanged', handleSettingsChanged);
+    return () => window.removeEventListener('settingsChanged', handleSettingsChanged);
+  }, [loadData]);
+
   // Sync scroll between header and body
   const handleBodyScroll = () => {
     if (timelineRef.current && ganttBodyRef.current) {

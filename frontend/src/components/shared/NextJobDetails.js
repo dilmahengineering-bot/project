@@ -13,6 +13,18 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Listen for timezone changes and refresh immediately
+  useEffect(() => {
+    const handleSettingsChanged = (event) => {
+      if (event.detail.changed?.includes('timezone')) {
+        setRefreshKey(k => k + 1);
+      }
+    };
+
+    window.addEventListener('settingsChanged', handleSettingsChanged);
+    return () => window.removeEventListener('settingsChanged', handleSettingsChanged);
+  }, []);
+
   const jobDetails = useMemo(() => {
     if (!entries || entries.length === 0) return null;
 

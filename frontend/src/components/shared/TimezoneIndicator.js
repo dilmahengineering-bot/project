@@ -20,6 +20,21 @@ export default function TimezoneIndicator() {
     return () => clearInterval(interval);
   }, []);
 
+  // Listen for timezone changes and update immediately
+  useEffect(() => {
+    const handleSettingsChanged = (event) => {
+      if (event.detail.changed?.includes('timezone')) {
+        const now = getNowInSLST();
+        setTimeStr(formatDateInSLST(now, 'HH:mm:ss'));
+        const info = getTimezoneInfo();
+        setTzInfo(info);
+      }
+    };
+
+    window.addEventListener('settingsChanged', handleSettingsChanged);
+    return () => window.removeEventListener('settingsChanged', handleSettingsChanged);
+  }, []);
+
   if (!tzInfo) return null;
 
   const tooltipText = `System Timezone: ${tzInfo.name} (${tzInfo.offset})\nCurrent Time: ${tzInfo.displayTime}`;
