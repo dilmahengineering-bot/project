@@ -10,9 +10,9 @@ export default function VoiceStatusButton({ entries = [], machines = [], variant
   const handleReadStatus = async () => {
     try {
       setIsSpeaking(true);
-      // Read summary first, then detailed status if in detailed mode
+      // Read summary first with bell sound and attention prefix
       const summaryText = generateStatusSummary(entries, machines);
-      await voiceAnnouncer.speak(summaryText, { rate: 0.9, pitch: 1, volume: 1 });
+      await voiceAnnouncer.announceWithBell(summaryText, { rate: 0.9, pitch: 1, volume: 1 });
       
       // If detailed mode and there are multiple machines with jobs, read detailed breakdown
       if (isDetailedMode) {
@@ -25,7 +25,9 @@ export default function VoiceStatusButton({ entries = [], machines = [], variant
 
         if (Object.keys(machineJobs).length > 1) {
           const detailedText = generateDetailedStatusByMachine(entries, machines);
-          await voiceAnnouncer.speak(detailedText, { rate: 0.9, pitch: 1, volume: 1 });
+          // Add small delay before detailed announcement
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await voiceAnnouncer.announceWithBell(detailedText, { rate: 0.9, pitch: 1, volume: 1 });
         }
       }
 

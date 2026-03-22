@@ -8,6 +8,39 @@ const voiceAnnouncer = {
   synth: typeof window !== 'undefined' ? window.speechSynthesis : null,
 
   /**
+   * Play a bell sound using Web Audio API
+   * @returns {Promise} - Resolves when bell sound completes
+   */
+  playBellSound() {
+    return new Promise((resolve) => {
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        
+        // Bell sound: quick pitch sweep
+        osc.frequency.setValueAtTime(800, audioContext.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1);
+        
+        gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        
+        osc.start(audioContext.currentTime);
+        osc.stop(audioContext.currentTime + 0.1);
+        
+        setTimeout(resolve, 150);
+      } catch (e) {
+        // If Web Audio API not available, resolve immediately
+        console.log('Bell sound not available:', e);
+        resolve();
+      }
+    });
+  },
+
+  /**
    * Speak text aloud
    * @param {string} text - Text to speak
    * @param {object} options - Voice options (rate, pitch, volume, lang)
@@ -48,6 +81,24 @@ const voiceAnnouncer = {
   },
 
   /**
+   * Announcement with bell sound prefix
+   * @param {string} text - Announcement text
+   * @param {object} options - Voice options
+   * @returns {Promise} - Resolves when complete
+   */
+  async announceWithBell(text, options = {}) {
+    try {
+      // Play bell sound first
+      await this.playBellSound();
+      // Then speak with attention prefix
+      const announcement = `Attention everyone. ${text}`;
+      await this.speak(announcement, options);
+    } catch (e) {
+      console.error('Announcement error:', e);
+    }
+  },
+
+  /**
    * Stop ongoing speech
    */
   stop() {
@@ -79,7 +130,7 @@ const voiceAnnouncer = {
         announcement += 'No next job scheduled.';
       }
 
-      await this.speak(announcement, options);
+      await this.announceWithBell(announcement, options);
     } catch (err) {
       console.error('Failed to announce jobs:', err);
     }
