@@ -645,7 +645,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
   // Current time indicator (for hourly view) - Using Sri Lanka time
   const nowSLST = getNowInSLST();
   const currentHourPos = viewMode === 'hourly' && selectedDate === getTodayInSLST()
-    ? (((nowSLST.getHours() - SHIFT_CONFIG.day.start + 24) % 24) * 60 + nowSLST.getMinutes()) / 60 * VIEW_MODES.hourly.cellWidth
+    ? (nowSLST.getHours() * 60 + nowSLST.getMinutes()) / 60 * VIEW_MODES.hourly.cellWidth
     : null;
 
   if (loading && machines.length === 0) {
