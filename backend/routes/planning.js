@@ -667,10 +667,10 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
     // ── Draw bordered table cell ──
     function drawCell(x, y, w, h, text, opts = {}) {
-      const { fontSize = 7, bold = false, align = 'left', bg = null, textColor = '#1e293b', padding = 3 } = opts;
+      const { fontSize = 7, bold = false, align = 'left', bg = '#ffffff', textColor = '#1e293b', padding = 3 } = opts;
 
-      if (bg) doc.rect(x, y, w, h).fill(bg);
-      doc.strokeColor('#cbd5e1').lineWidth(0.5);
+      doc.rect(x, y, w, h).fill(bg);
+      doc.strokeColor('#e2e8f0').lineWidth(0.5);
       doc.rect(x, y, w, h).stroke();
 
       doc.fillColor(textColor).fontSize(fontSize).font(bold ? 'Helvetica-Bold' : 'Helvetica');
@@ -684,7 +684,8 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
     // ── Page header ──
     function drawPageHeader(dateStr) {
-      doc.rect(0, 0, pageW, 50).fill('#f1f5f9');
+      doc.rect(0, 0, pageW, 50).fill('#ffffff');
+      doc.strokeColor('#e2e8f0').lineWidth(0.5).rect(0, 0, pageW, 50).stroke();
 
       doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold');
       safeText('DAILY PRODUCTION SHEET', leftM, 10, { width: 250 });
@@ -698,7 +699,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
       safeText(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`, rightM - 140, 12, { width: 140, align: 'right' });
       safeText(`Report Date: ${dateStr}`, rightM - 140, 23, { width: 140, align: 'right' });
 
-      doc.rect(0, 50, pageW, 2).fill('#6366f1');
+      doc.rect(0, 50, pageW, 1).fill('#cbd5e1');
 
       doc.fillColor('#000000');
       doc.y = 0;
@@ -729,7 +730,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         drawCell(x, y, col.w, rowH, col.label.toUpperCase(), {
           fontSize: 6.5,
           bold: true,
-          bg: '#f1f5f9',
+          bg: '#ffffff',
           textColor: '#1e293b',
           align: 'center',
         });
@@ -742,9 +743,8 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     function drawEntryRow(entry, idx, y) {
       const rowH = 15;
       const jc = jobColorMap[entry.job_card_id] || JOB_COLORS_PDF[0];
-      // Very light tint from job-card colour for the entire row (98% white)
-      const tintBg = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.98)},${Math.round(jc.g + (255 - jc.g) * 0.98)},${Math.round(jc.b + (255 - jc.b) * 0.98)})`;
-      const bg = tintBg;
+      // Use pure white for all rows to match screen view
+      const bg = '#ffffff';
 
       const values = [
         String(idx + 1),
@@ -770,9 +770,9 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         let cellTextColor = '#1e293b';
         let cellAlign = 'left';
 
-        // Job Card column (i === 1): light job-card colour tint with dark text
+        // Job Card column (i === 1): white background with dark text to match screen
         if (i === 1) {
-          cellBg = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.85)},${Math.round(jc.g + (255 - jc.g) * 0.85)},${Math.round(jc.b + (255 - jc.b) * 0.85)})`;
+          cellBg = '#ffffff';
           cellTextColor = '#1e293b';
         }
 
@@ -795,7 +795,9 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         x += COLS[i].w;
       });
 
-      // Job-card colour accent on left edge (light tint)\n      const accentColor = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.85)},${Math.round(jc.g + (255 - jc.g) * 0.85)},${Math.round(jc.b + (255 - jc.b) * 0.85)})`;\n      doc.rect(leftM, y, 2.5, rowH).fill(accentColor);
+      // Job-card colour accent on left edge
+      doc.strokeColor('#e2e8f0').lineWidth(0.5);
+      doc.rect(leftM, y, 2.5, rowH).stroke();
 
       return y + rowH;
     }
@@ -804,8 +806,8 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     function drawSummary(y, dayEntries, machineCount) {
       const boxH = 28;
       y += 6;
-      doc.rect(leftM, y, contentW, boxH).fill('#f1f5f9');
-      doc.strokeColor('#cbd5e1').lineWidth(0.5).rect(leftM, y, contentW, boxH).stroke();
+      doc.rect(leftM, y, contentW, boxH).fill('#ffffff');
+      doc.strokeColor('#e2e8f0').lineWidth(0.5).rect(leftM, y, contentW, boxH).stroke();
 
       const planned = dayEntries.filter(e => e.status === 'planned').length;
       const inProg = dayEntries.filter(e => e.status === 'in_progress').length;
