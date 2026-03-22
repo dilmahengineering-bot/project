@@ -1,6 +1,6 @@
 /* ==================== Gantt Chart Page ==================== */
 .gantt-page {
-  padding: 12px 16px;
+  padding: 16px 20px;
   max-width: 100%;
   overflow: hidden;
   height: 100vh;
@@ -13,9 +13,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
 }
 
 .gantt-title h1 {
@@ -97,19 +97,19 @@
 .btn-today { font-size: 12px; padding: 6px 12px; }
 
 .gantt-date-display {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 /* Shift Legend */
 .shift-legend {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 6px;
-  font-size: 11px;
+  gap: 18px;
+  margin-bottom: 8px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 .shift-item {
@@ -152,12 +152,12 @@
   background: var(--card);
 }
 .gantt-y-header {
-  height: 42px;
+  height: 52px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 14px;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -165,11 +165,11 @@
   background: var(--bg);
 }
 .gantt-y-label {
-  height: 56px;
+  height: 68px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 0 12px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--border);
 }
 .y-machine-name {
@@ -201,7 +201,7 @@
 }
 .gantt-x-row {
   display: flex;
-  height: 42px;
+  height: 52px;
 }
 .gantt-x-cell {
   display: flex;
@@ -210,20 +210,20 @@
   justify-content: center;
   border-right: 1px solid var(--border);
   flex-shrink: 0;
-  padding: 2px;
+  padding: 3px;
 }
 .gantt-x-cell.off-shift {
   background: #f1f5f9;
 }
 .x-label {
   font-weight: 600;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text);
 }
 .x-sublabel {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-muted);
-  margin-top: 0;
+  margin-top: 1px;
 }
 
 /* Gantt body */
@@ -282,7 +282,7 @@
 
 /* Machine rows */
 .gantt-row {
-  height: 56px;
+  height: 68px;
   position: relative;
   border-bottom: 1px solid var(--border);
 }
@@ -290,8 +290,8 @@
 /* ==================== Gantt Blocks ==================== */
 .gantt-block {
   position: absolute;
-  top: 4px;
-  height: 48px;
+  top: 3px;
+  height: 62px;
   border-radius: 6px;
   border: 2px solid;
   cursor: grab;
@@ -323,27 +323,27 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 3px 8px;
+  padding: 4px 10px;
   overflow: hidden;
   flex: 1;
   min-width: 0;
 }
 .block-job-number {
   font-weight: 700;
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
 }
 .block-times {
-  font-size: 9px;
+  font-size: 10px;
   opacity: 0.85;
   white-space: nowrap;
   line-height: 1.1;
 }
 .block-job-name {
-  font-size: 9px;
+  font-size: 10px;
   opacity: 0.7;
   white-space: nowrap;
   overflow: hidden;
