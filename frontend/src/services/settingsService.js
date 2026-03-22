@@ -25,7 +25,7 @@ export const COMMON_TIMEZONES = [
 ];
 
 // Default settings
-const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS = {
   timezone: 'Asia/Colombo',
   dateFormat: 'DD/MM/YYYY',
   timeFormat: '24h',
