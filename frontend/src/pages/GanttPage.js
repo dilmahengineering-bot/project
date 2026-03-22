@@ -239,14 +239,23 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
       const startDT = parseTS(entry.planned_start_time);
       const endDT = parseTS(entry.planned_end_time);
       if (!startDT || !endDT) return null;
+      
+      // Timeline starts at 7 AM (SHIFT_CONFIG.day.start) and goes 24 hours
       const dayStart = new Date(selectedDate + 'T00:00:00');
-      const startMinutes = Math.max(0, (startDT - dayStart) / 60000);
-      const endMinutes = Math.min(1440, (endDT - dayStart) / 60000);
+      const timelineStart = new Date(selectedDate + `T${SHIFT_CONFIG.day.start.toString().padStart(2, '0')}:00:00`);
+      
+      const startMinutes = (startDT - timelineStart) / 60000;
+      const endMinutes = (endDT - timelineStart) / 60000;
+      
+      // If entry is completely outside the 24-hour window, return null
       if (endMinutes <= 0 || startMinutes >= 1440) return null;
+      
       const cellW = VIEW_MODES.hourly.cellWidth;
-      const left = (startMinutes / 60) * cellW;
-      const width = Math.max(((endMinutes - startMinutes) / 60) * cellW, 40);
-      return { left, width };
+      const left = Math.max(0, (startMinutes / 60) * cellW);
+      const width = Math.max(Math.min(1440, endMinutes) - Math.max(0, startMinutes), 0) / 60 * cellW;
+      
+      if (width <= 0) return null;
+      return { left, width: Math.max(width, 40) };
     }
     if (viewMode === 'daily') {
       const startDT = parseTS(entry.planned_start_time);
@@ -558,7 +567,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
   // Current time indicator (for hourly view) - Using Sri Lanka time
   const nowSLST = getNowInSLST();
   const currentHourPos = viewMode === 'hourly' && selectedDate === getTodayInSLST()
-    ? (nowSLST.getHours() * 60 + nowSLST.getMinutes()) / 60 * VIEW_MODES.hourly.cellWidth
+    ? (((nowSLST.getHours() - SHIFT_CONFIG.day.start + 24) % 24) * 60 + nowSLST.getMinutes()) / 60 * VIEW_MODES.hourly.cellWidth
     : null;
 
   if (loading && machines.length === 0) {
