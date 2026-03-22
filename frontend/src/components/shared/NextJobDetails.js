@@ -51,7 +51,8 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     sortedEntries.forEach(entry => {
       const start = new Date(entry.planned_start_time);
       // Show ALL jobs starting within next 2 hours
-      if (start > now && start <= twoHoursFromNow) {
+      // Compare using millisecond timestamps for accuracy
+      if (start.getTime() > now.getTime() && start.getTime() <= twoHoursFromNow.getTime()) {
         const machineId = entry.machine_id || entry.machine_name;
         if (!upcomingByMachine[machineId]) {
           upcomingByMachine[machineId] = [];
