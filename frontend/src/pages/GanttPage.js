@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Layout from '../components/shared/Layout';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
-import { getTodayInSLST, getNowInSLST, formatTimeInSLST } from '../utils/timezoneHelper';
+import { getTodayInSLST, getNowInSLST, formatTimeInSLST, isTimeInRange } from '../utils/timezoneHelper';
 import './GanttPage.css';
 
 const VIEW_MODES = {
@@ -61,6 +61,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
   const [editForm, setEditForm] = useState({});
   const [hoveredEntry, setHoveredEntry] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [jobDetailsRefresh, setJobDetailsRefresh] = useState(0);
   const timelineRef = useRef(null);
   const ganttBodyRef = useRef(null);
 
@@ -205,6 +206,28 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     return map;
   }, [entries]);
 
+  // Calculate ongoing and upcoming job details
+  const jobDetails = useMemo(() => {
+    const now = getNowInSLST();
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+    const ongoingJobs = [];
+    const upcomingJobs = [];
+
+    entries.forEach(entry => {
+      if (isTimeInRange(entry.planned_start_time, entry.planned_end_time)) {
+        ongoingJobs.push(entry);
+      } else if (new Date(entry.planned_start_time) > now && new Date(entry.planned_start_time) <= twoHoursFromNow) {
+        upcomingJobs.push(entry);
+      }
+    });
+
+    return {
+      ongoing: ongoingJobs.sort((a, b) => new Date(a.planned_start_time) - new Date(b.planned_start_time)),
+      upcoming: upcomingJobs.sort((a, b) => new Date(a.planned_start_time) - new Date(b.planned_start_time)),
+    };
+  }, [entries, jobDetailsRefresh]);
+
   // Auto-refresh every 5 minutes
   useEffect(() => {
     const interval = setInterval(loadData, 5 * 60 * 1000);
@@ -223,6 +246,14 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     window.addEventListener('settingsChanged', handleSettingsChanged);
     return () => window.removeEventListener('settingsChanged', handleSettingsChanged);
   }, [loadData]);
+
+  // Refresh job details every 30 seconds to update timestamps
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setJobDetailsRefresh(k => k + 1);
+    }, 30 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Sync scroll between header and body
   const handleBodyScroll = () => {
@@ -749,6 +780,68 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
             <div className="tooltip-hint">Double-click to edit • Drag to move</div>
           </div>
         )}
+
+        {/* Job Card Details Section - Ongoing & Upcoming */}
+        <div className="job-details-section">
+          <h3>📋 Job Card Details</h3>
+          
+          {jobDetails.ongoing.length === 0 && jobDetails.upcoming.length === 0 ? (
+            <div className="job-details-empty">No ongoing or upcoming jobs in next 2 hours</div>
+          ) : (
+            <div className="job-details-grid">
+              {/* Ongoing Jobs */}
+              {jobDetails.ongoing.length > 0 && (
+                <div className="job-details-column">
+                  <div className="column-title">🟢 ONGOING NOW</div>
+                  <div className="job-cards-list">
+                    {jobDetails.ongoing.map(entry => {
+                      const jobColor = jobColorMap[entry.job_card_id] || JOB_COLORS[0];
+                      return (
+                        <div key={entry.id} className="job-card-item" style={{ borderLeftColor: jobColor.bg }}>
+                          <div className="job-card-number">{entry.job_card_number}</div>
+                          <div className="job-card-name">{entry.job_name}</div>
+                          <div className="job-card-meta">
+                            <span>🖥️ {entry.machine_name}</span>
+                            <span>{formatTimeInSLST(entry.planned_start_time)} - {formatTimeInSLST(entry.planned_end_time)}</span>
+                          </div>
+                          {entry.assigned_to_name && <div className="job-card-operator">👤 {entry.assigned_to_name}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Upcoming Jobs */}
+              {jobDetails.upcoming.length > 0 && (
+                <div className="job-details-column">
+                  <div className="column-title">🔵 UPCOMING (Next 2 hrs)</div>
+                  <div className="job-cards-list">
+                    {jobDetails.upcoming.map(entry => {
+                      const jobColor = jobColorMap[entry.job_card_id] || JOB_COLORS[0];
+                      const startTime = new Date(entry.planned_start_time);
+                      const now = getNowInSLST();
+                      const minutesUntil = Math.round((startTime - now) / 60000);
+                      const timeStr = minutesUntil < 60 ? `in ${minutesUntil}m` : `in ${Math.floor(minutesUntil / 60)}h ${minutesUntil % 60}m`;
+                      
+                      return (
+                        <div key={entry.id} className="job-card-item" style={{ borderLeftColor: jobColor.bg }}>
+                          <div className="job-card-number">{entry.job_card_number}</div>
+                          <div className="job-card-name">{entry.job_name}</div>
+                          <div className="job-card-meta">
+                            <span>🖥️ {entry.machine_name}</span>
+                            <span>{formatTimeInSLST(entry.planned_start_time)} ({timeStr})</span>
+                          </div>
+                          {entry.assigned_to_name && <div className="job-card-operator">👤 {entry.assigned_to_name}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Edit Modal */}
         {editEntry && (
