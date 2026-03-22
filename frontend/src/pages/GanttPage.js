@@ -26,7 +26,21 @@ const formatTimeDisplay = (t) => {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 };
 
-const formatDateHeader = (dateStr, viewMode) => {
+// ============================================
+// HASH FUNCTION FOR DETERMINISTIC COLOR MAPPING
+// ============================================
+
+const hashJobCardId = (id) => {
+  if (!id) return 0;
+  let hash = 0;
+  const str = String(id);
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+};
   const d = new Date(dateStr + 'T00:00:00');
   switch (viewMode) {
     case 'hourly': 
@@ -242,12 +256,13 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     }
   }, [entries, machines, onEntriesLoad]);
 
-  // Build a stable color map: same job_card_id → same color
+  // Build a stable color map: same job_card_id → same color (using deterministic hash)
   const jobColorMap = useMemo(() => {
     const map = {};
     const uniqueJobIds = [...new Set(entries.map(e => e.job_card_id).filter(Boolean))];
-    uniqueJobIds.forEach((id, i) => {
-      map[id] = JOB_COLORS[i % JOB_COLORS.length];
+    uniqueJobIds.forEach((id) => {
+      const colorIndex = hashJobCardId(id) % JOB_COLORS.length;
+      map[id] = JOB_COLORS[colorIndex];
     });
     return map;
   }, [entries]);
