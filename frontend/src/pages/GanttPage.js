@@ -567,6 +567,33 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
 
   const getEntriesForMachine = (machineId) => entries.filter(e => e.machine_id === machineId);
 
+  // Get upcoming jobs grouped by machine for Kanban view
+  const upcomingJobsByMachine = useMemo(() => {
+    const now = getNowInSLST();
+    const grouped = {};
+    
+    machines.forEach(machine => {
+      grouped[machine.id] = [];
+    });
+
+    entries.forEach(entry => {
+      const start = new Date(entry.planned_start_time);
+      const machineId = entry.machine_id;
+      
+      // Show jobs starting in the future (not currently running) up to end of visible range
+      if (start > now && machineId && grouped[machineId]) {
+        grouped[machineId].push(entry);
+      }
+    });
+
+    // Sort each machine's jobs by start time
+    Object.keys(grouped).forEach(machineId => {
+      grouped[machineId].sort((a, b) => new Date(a.planned_start_time) - new Date(b.planned_start_time));
+    });
+
+    return grouped;
+  }, [entries, machines]);
+
   // Current time indicator (for hourly view) - Using Sri Lanka time
   const nowSLST = getNowInSLST();
   const currentHourPos = viewMode === 'hourly' && selectedDate === getTodayInSLST()
@@ -727,6 +754,80 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
             </div>
           </div>
         )}
+
+        {/* Kanban View - Upcoming Jobs by Machine */}
+        <div className="gantt-kanban-section">
+          <div className="kanban-header">
+            <h2>📋 Upcoming Jobs Kanban</h2>
+            <span className="kanban-subtitle">Jobs scheduled for the future, organized by machine</span>
+          </div>
+          <div className="kanban-board">
+            {machines.map(machine => {
+              const upcomingJobs = upcomingJobsByMachine[machine.id] || [];
+              return (
+                <div key={machine.id} className="kanban-column">
+                  <div className="kanban-column-header">
+                    <span className="machine-label">🖥️ {machine.machine_name}</span>
+                    <span className="job-count">{upcomingJobs.length}</span>
+                  </div>
+                  <div className="kanban-cards">
+                    {upcomingJobs.length === 0 ? (
+                      <div className="kanban-empty">No upcoming jobs</div>
+                    ) : (
+                      upcomingJobs.map((job, index) => {
+                        const jobColor = jobColorMap[job.job_card_id] || JOB_COLORS[index % JOB_COLORS.length];
+                        const startTime = new Date(job.planned_start_time);
+                        const endTime = new Date(job.planned_end_time);
+                        const durationMins = Math.round((endTime - startTime) / 60000);
+                        const durationHours = Math.floor(durationMins / 60);
+                        const mins = durationMins % 60;
+                        const durationStr = durationHours > 0 ? `${durationHours}h ${mins}m` : `${mins}m`;
+
+                        return (
+                          <div
+                            key={job.id}
+                            className="kanban-card"
+                            style={{
+                              borderLeftColor: jobColor.border,
+                              background: `linear-gradient(135deg, ${jobColor.bg}15 0%, ${jobColor.bg}05 100%)`
+                            }}
+                            onDoubleClick={() => openEdit(job)}
+                            title="Double-click to edit"
+                          >
+                            <div className="card-priority">
+                              {PRIORITY_INDICATORS[job.priority] || ''} {job.priority}
+                            </div>
+                            <div className="card-title">{job.job_card_number}</div>
+                            <div className="card-name">{job.job_name}</div>
+                            <div className="card-details">
+                              <div className="detail-row">
+                                <span className="detail-label">🕐 Start:</span>
+                                <span className="detail-value">{formatTimeInSLST(job.planned_start_time)}</span>
+                              </div>
+                              <div className="detail-row">
+                                <span className="detail-label">⏱️ Duration:</span>
+                                <span className="detail-value">{durationStr}</span>
+                              </div>
+                              {job.part_number && (
+                                <div className="detail-row">
+                                  <span className="detail-label">🔩 Part:</span>
+                                  <span className="detail-value">{job.part_number}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="card-status" style={{ background: STATUS_COLORS[job.status]?.bg, color: STATUS_COLORS[job.status]?.text }}>
+                              {job.status?.replace('_', ' ')}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Tooltip */}
         {hoveredEntry && !dragState && !resizeState && (
