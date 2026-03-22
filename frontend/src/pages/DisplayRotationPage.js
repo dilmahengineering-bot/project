@@ -5,7 +5,6 @@ import CNCKanbanPage from './CNCKanbanPage';
 import useHourlyAnnouncements from '../hooks/useHourlyAnnouncements';
 import voiceAnnouncer from '../utils/voiceAnnouncer';
 import VoiceStatusButton from '../components/shared/VoiceStatusButton';
-import NextJobDetails from '../components/shared/NextJobDetails';
 import './DisplayRotationPage.css';
 
 export default function DisplayRotationPage() {
@@ -204,11 +203,6 @@ export default function DisplayRotationPage() {
             </div>
           )}
         </div>
-
-        {/* Next Job Details - Fullscreen Bottom Panel */}
-        {isFullscreen && currentView === 'gantt' && (
-          <NextJobDetails entries={entries} machines={machines} />
-        )}
       </div>
 
       {/* Fullscreen Exit Hint */}
