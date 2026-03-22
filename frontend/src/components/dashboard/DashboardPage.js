@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { formatDate, getDeadlineStatus, timeAgo } from '../../utils/helpers';
 import Layout from '../shared/Layout';
 import TaskModal from '../shared/TaskModal';
+import SystemStatusCard from './SystemStatusCard';
 
 const COLORS = ['#f59e0b','#3b82f6','#10b981','#6b7280','#ef4444'];
 const CNC_COLORS = ['#0891b2','#10b981','#ef4444','#f59e0b'];
@@ -261,6 +262,8 @@ export default function DashboardPage() {
 
         {/* Right Column - Charts & Team */}
         <div>
+          {/* System Status Card */}
+          <SystemStatusCard />
           {/* Task Distribution */}
           <div className="card" style={{marginBottom:'16px'}}>
             <div className="card-header" style={{padding:'16px 20px'}}>
