@@ -17,7 +17,7 @@ html, body {
 }
 
 .gantt-page {
-  padding: max(10px, 1.5vw) max(16px, 2vw);
+  padding: max(6px, 0.8vw) max(10px, 1.2vw);
   max-width: 100%;
   overflow: hidden;
   height: 100vh;
@@ -32,9 +32,9 @@ html, body {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 
 .gantt-title h1 {
@@ -116,19 +116,19 @@ html, body {
 .btn-today { font-size: 12px; padding: 6px 12px; }
 
 .gantt-date-display {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 /* Shift Legend */
 .shift-legend {
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-bottom: 10px;
-  font-size: 13px;
+  gap: 16px;
+  margin-bottom: 6px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 .shift-item {
@@ -166,8 +166,8 @@ html, body {
 
 /* Y-axis (machine labels) */
 .gantt-y-axis {
-  min-width: clamp(140px, 18vw, 200px);
-  max-width: clamp(140px, 18vw, 200px);
+  min-width: clamp(110px, 16vw, 160px);
+  max-width: clamp(110px, 16vw, 160px);
   border-right: 2px solid var(--border);
   flex-shrink: 0;
   z-index: 10;
@@ -233,20 +233,22 @@ html, body {
   justify-content: center;
   border-right: 1px solid var(--border);
   flex-shrink: 0;
-  padding: 4px;
+  padding: 2px 1px;
 }
 .gantt-x-cell.off-shift {
   background: #f1f5f9;
 }
 .x-label {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text);
+  line-height: 1.1;
 }
 .x-sublabel {
-  font-size: 11px;
+  font-size: 9px;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 0;
+  line-height: 1;
 }
 
 /* Gantt body */

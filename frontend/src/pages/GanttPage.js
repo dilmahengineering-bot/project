@@ -6,10 +6,10 @@ import toast from 'react-hot-toast';
 import './GanttPage.css';
 
 const VIEW_MODES = {
-  hourly: { label: 'Hourly', hours: 24, cellWidth: 80, format: 'HH:00' },
-  daily: { label: 'Daily', days: 7, cellWidth: 120, format: 'ddd DD' },
-  weekly: { label: 'Weekly', weeks: 4, cellWidth: 180, format: 'Week WW' },
-  monthly: { label: 'Monthly', months: 6, cellWidth: 200, format: 'MMM YYYY' },
+  hourly: { label: 'Hourly', hours: 24, cellWidth: 50, format: 'HH:00' },
+  daily: { label: 'Daily', days: 7, cellWidth: 70, format: 'ddd DD' },
+  weekly: { label: 'Weekly', weeks: 4, cellWidth: 100, format: 'Week WW' },
+  monthly: { label: 'Monthly', months: 6, cellWidth: 120, format: 'MMM YYYY' },
 };
 
 const SHIFT_CONFIG = {
