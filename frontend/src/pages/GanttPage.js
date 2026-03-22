@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Layout from '../components/shared/Layout';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+import { getTodayInSLST, getNowInSLST, formatTimeInSLST } from '../utils/timezoneHelper';
 import './GanttPage.css';
 
 const VIEW_MODES = {
@@ -49,7 +50,7 @@ const JOB_COLORS = [
 
 export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) {
   const [viewMode, setViewMode] = useState('hourly');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getTodayInSLST());
   const [machines, setMachines] = useState([]);
   const [entries, setEntries] = useState([]);
   const [users, setUsers] = useState([]);
@@ -541,10 +542,10 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
 
   const getEntriesForMachine = (machineId) => entries.filter(e => e.machine_id === machineId);
 
-  // Current time indicator (for hourly view)
-  const now = new Date();
-  const currentHourPos = viewMode === 'hourly' && selectedDate === now.toISOString().split('T')[0]
-    ? (now.getHours() * 60 + now.getMinutes()) / 60 * VIEW_MODES.hourly.cellWidth
+  // Current time indicator (for hourly view) - Using Sri Lanka time
+  const nowSLST = getNowInSLST();
+  const currentHourPos = viewMode === 'hourly' && selectedDate === getTodayInSLST()
+    ? (nowSLST.getHours() * 60 + nowSLST.getMinutes()) / 60 * VIEW_MODES.hourly.cellWidth
     : null;
 
   if (loading && machines.length === 0) {
@@ -574,7 +575,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
               <button className="btn btn-icon" onClick={() => navigateDate(-1)}>◀</button>
               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="date-picker" />
               <button className="btn btn-icon" onClick={() => navigateDate(1)}>▶</button>
-              <button className="btn btn-secondary btn-today" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>Today</button>
+              <button className="btn btn-secondary btn-today" onClick={() => setSelectedDate(getTodayInSLST())}>Today</button>
             </div>
           </div>
         </div>

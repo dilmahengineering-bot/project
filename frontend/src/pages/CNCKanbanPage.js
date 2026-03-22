@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getNowInSLST } from '../utils/timezoneHelper';
 import cncJobService from '../services/cncJobService';
 import workflowService from '../services/workflowService';
 import CNCJobCardModal from '../components/kanban/CNCJobCardModal';
@@ -9,7 +10,7 @@ import './CNCKanbanPage.css';
 const getCardAge = (card) => {
   const start = card.job_date ? new Date(card.job_date) : null;
   if (!start) return null;
-  const now = new Date();
+  const now = getNowInSLST();
   const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
   if (days < 0) return null;
   if (days === 0) return '< 1 day';
@@ -21,7 +22,7 @@ const getDaysToComplete = (card) => {
   const extDate = card.approved_extension_date;
   const deadline = extDate ? new Date(extDate) : (card.estimate_end_date ? new Date(card.estimate_end_date) : null);
   if (!deadline) return null;
-  const now = new Date();
+  const now = getNowInSLST();
   const days = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
   return { days, isExtended: !!extDate };
 };
@@ -31,7 +32,7 @@ const getDaysRemaining = (card) => {
   const deadlineStr = extDate || card.estimate_end_date;
   if (!deadlineStr || card.status === 'completed') return null;
   const deadline = new Date(deadlineStr);
-  const now = new Date();
+  const now = getNowInSLST();
   return Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
 };
 

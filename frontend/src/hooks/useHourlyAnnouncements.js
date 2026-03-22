@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import voiceAnnouncer from '../utils/voiceAnnouncer';
+import { getNowInSLST, getCurrentHourInSLST } from '../utils/timezoneHelper';
 
 /**
  * Hook to handle hourly job announcements in Gantt Chart
@@ -23,7 +24,7 @@ export const useHourlyAnnouncements = (entries, machines, isActive = true, optio
     }
 
     const checkAndAnnounce = () => {
-      const now = new Date();
+      const now = getNowInSLST();
       const currentHour = now.getHours();
 
       // Only announce once per hour, at the top of the hour or after
@@ -34,7 +35,7 @@ export const useHourlyAnnouncements = (entries, machines, isActive = true, optio
       lastAnnouncedHourRef.current = currentHour;
 
       // Find current and next jobs
-      const currentTime = new Date();
+      const currentTime = getNowInSLST();
       const sortedEntries = [...entries].sort((a, b) => {
         const aStart = new Date(a.planned_start_time);
         const bStart = new Date(b.planned_start_time);

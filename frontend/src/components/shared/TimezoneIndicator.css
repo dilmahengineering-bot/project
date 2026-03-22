@@ -1,0 +1,52 @@
+.timezone-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+}
+
+.timezone-indicator:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.tz-icon {
+  font-size: 14px;
+}
+
+.tz-text {
+  fontweight: 700;
+  letter-spacing: 0.5px;
+}
+
+.tz-time {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  opacity: 0.9;
+  letter-spacing: 1px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .timezone-indicator {
+    gap: 4px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .tz-icon {
+    font-size: 12px;
+  }
+
+  .tz-time {
+    display: none;
+  }
+}
