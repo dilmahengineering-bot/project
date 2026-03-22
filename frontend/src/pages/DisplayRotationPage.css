@@ -197,6 +197,37 @@
   background: var(--border-dark, #9ca3af);
 }
 
+.btn-voice {
+  background: var(--secondary, #8b5cf6);
+  color: white;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.btn-voice:hover {
+  background: var(--secondary-dark, #7c3aed);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.btn-voice.active {
+  background: var(--success, #10b981);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-voice.active:hover {
+  background: var(--success-dark, #059669);
+}
+
 .rotation-status {
   display: flex;
   align-items: center;

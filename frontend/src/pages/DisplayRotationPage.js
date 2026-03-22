@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GanttPage from './GanttPage';
 import CNCKanbanPage from './CNCKanbanPage';
+import useHourlyAnnouncements from '../hooks/useHourlyAnnouncements';
+import voiceAnnouncer from '../utils/voiceAnnouncer';
 import './DisplayRotationPage.css';
 
 export default function DisplayRotationPage() {
@@ -10,8 +12,24 @@ export default function DisplayRotationPage() {
   const [interval, setInterval] = useState(2); // minutes (default 2)
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [entries, setEntries] = useState([]);
+  const [machines, setMachines] = useState([]);
   const rotationTimeoutRef = useRef(null);
   const fullscreenRef = useRef(null);
+
+  // Setup hourly voice announcements
+  const { voiceEnabled, setVoiceEnabled } = useHourlyAnnouncements(
+    entries,
+    machines,
+    isFullscreen && currentView === 'gantt' && isRunning,
+    { rate: 1, pitch: 1, volume: 1 }
+  );
+
+  // Handle entries loaded from Gantt Chart
+  const handleEntriesLoad = (data) => {
+    setEntries(data.entries);
+    setMachines(data.machines);
+  };
 
   // Handle automatic rotation
   useEffect(() => {
@@ -133,6 +151,18 @@ export default function DisplayRotationPage() {
           </div>
 
           <div className="control-section">
+            {currentView === 'gantt' && (
+              <button
+                className={`btn-voice ${voiceEnabled ? 'active' : ''}`}
+                onClick={() => setVoiceEnabled(!voiceEnabled)}
+                title={voiceEnabled ? 'Voice announcements ON' : 'Voice announcements OFF'}
+              >
+                {voiceEnabled ? '🔊 Voice ON' : '🔇 Voice OFF'}
+              </button>
+            )}
+          </div>
+
+          <div className="control-section">
             <button
               className="btn-fullscreen"
               onClick={handleFullscreenToggle}
@@ -158,7 +188,7 @@ export default function DisplayRotationPage() {
       <div className={`display-area ${isFullscreen ? 'fullscreen' : ''}`}>
         {currentView === 'gantt' ? (
           <div className="view-wrapper gantt-wrapper">
-            <GanttPage hideLayout={true} />
+            <GanttPage hideLayout={true} onEntriesLoad={handleEntriesLoad} />
           </div>
         ) : (
           <div className="view-wrapper cnc-kanban-wrapper">

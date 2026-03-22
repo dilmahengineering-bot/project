@@ -47,7 +47,7 @@ const JOB_COLORS = [
   { bg: '#22c55e', text: '#fff', border: '#16a34a' },  // green
 ];
 
-export default function GanttPage({ hideLayout = false }) {
+export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) {
   const [viewMode, setViewMode] = useState('hourly');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [machines, setMachines] = useState([]);
@@ -186,6 +186,13 @@ export default function GanttPage({ hideLayout = false }) {
   }, [dateRange]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Notify parent of entries updates
+  useEffect(() => {
+    if (onEntriesLoad) {
+      onEntriesLoad({ entries, machines });
+    }
+  }, [entries, machines, onEntriesLoad]);
 
   // Build a stable color map: same job_card_id → same color
   const jobColorMap = useMemo(() => {
