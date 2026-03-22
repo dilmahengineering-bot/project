@@ -783,7 +783,6 @@ export default function GanttPage({ hideLayout = false }) {
           </div>
         )}
       </div>
-    </div>
   );
 
   return hideLayout ? content : <Layout>{content}</Layout>;
