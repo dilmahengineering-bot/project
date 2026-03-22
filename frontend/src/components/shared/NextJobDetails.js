@@ -1,13 +1,22 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { getNowInSLST, formatTimeInSLST, isTimeInRange } from '../../utils/timezoneHelper';
 import './NextJobDetails.css';
 
 export default function NextJobDetails({ entries = [], machines = [] }) {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Refresh every 30 seconds to update countdown timers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey(k => k + 1);
+    }, 30 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const jobDetails = useMemo(() => {
     if (!entries || entries.length === 0) return null;
 
     const now = getNowInSLST();
-    const oneHourFromNow = new Date(now.getTime() + 1 * 60 * 60 * 1000);
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     
     // Find current jobs (one per machine) - using precise time range check
@@ -21,7 +30,7 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
       }
     });
 
-    // Find upcoming jobs within 1-2 hours grouped by machine
+    // Find ALL upcoming jobs within 2 hours grouped by machine
     const upcomingByMachine = {};
     const sortedEntries = [...entries].sort((a, b) => 
       new Date(a.planned_start_time) - new Date(b.planned_start_time)
@@ -29,11 +38,8 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     
     sortedEntries.forEach(entry => {
       const start = new Date(entry.planned_start_time);
-      // Only show jobs that start within the next 1-2 hours
-      if (start > twoHoursFromNow) {
-        return; // Skip jobs starting after 2 hours
-      }
-      if (start >= oneHourFromNow && start <= twoHoursFromNow) {
+      // Show ALL jobs starting within next 2 hours
+      if (start > now && start <= twoHoursFromNow) {
         const machineId = entry.machine_id || entry.machine_name;
         if (!upcomingByMachine[machineId]) {
           upcomingByMachine[machineId] = [];
@@ -47,7 +53,7 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
       upcomingByMachine,
       now,
     };
-  }, [entries]);
+  }, [entries, refreshKey]);
 
   if (!jobDetails) {
     return (
@@ -141,31 +147,48 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
                 </div>
               )}
               
-              {/* Upcoming jobs within 1-2 hours for this machine */}
-              {upcomingJobs.map((job, index) => (
-                <div key={job.id} className={`job-block next-job next-job-urgent`}>
-                  <div className="job-header">
-                    <span className="job-label">⏰ Starting Soon</span>
-                    <span className="job-status-badge urgent">IN {getTimeUntilStart(job.planned_start_time)}</span>
-                  </div>
-                  <div className="job-content">
-                    <h3 className="job-number">{job.job_card_number}</h3>
-                    <p className="job-name">{job.job_name}</p>
-                    <div className="job-grid">
-                      <div className="job-item">
-                        <span className="label">Starts At</span>
-                        <span className="value">{formatTimeInSLST(job.planned_start_time)}</span>
-                      </div>
-                      <div className="job-item">
-                        <span className="label">Duration</span>
-                        <span className="value">
-                          {formatTimeDiff(new Date(job.planned_start_time), new Date(job.planned_end_time))}
-                        </span>
+              {/* Upcoming jobs within 2 hours for this machine */}
+              {upcomingJobs.map((job, index) => {
+                const minutesUntil = (new Date(job.planned_start_time).getTime() - jobDetails.now.getTime()) / (1000 * 60);
+                let urgencyClass = 'next-job-upcoming';
+                let urgencyLabel = '📋 Upcoming';
+                let urgencyBadgeClass = 'upcoming';
+
+                if (minutesUntil <= 30) {
+                  urgencyClass = 'next-job-critical';
+                  urgencyLabel = '🔴 URGENT';
+                  urgencyBadgeClass = 'critical';
+                } else if (minutesUntil <= 60) {
+                  urgencyClass = 'next-job-soon';
+                  urgencyLabel = '🟠 Very Soon';
+                  urgencyBadgeClass = 'soon';
+                }
+
+                return (
+                  <div key={job.id} className={`job-block next-job ${urgencyClass}`}>
+                    <div className="job-header">
+                      <span className="job-label">{urgencyLabel}</span>
+                      <span className={`job-status-badge ${urgencyBadgeClass}`}>IN {getTimeUntilStart(job.planned_start_time)}</span>
+                    </div>
+                    <div className="job-content">
+                      <h3 className="job-number">{job.job_card_number}</h3>
+                      <p className="job-name">{job.job_name}</p>
+                      <div className="job-grid">
+                        <div className="job-item">
+                          <span className="label">Starts At</span>
+                          <span className="value">{formatTimeInSLST(job.planned_start_time)}</span>
+                        </div>
+                        <div className="job-item">
+                          <span className="label">Duration</span>
+                          <span className="value">
+                            {formatTimeDiff(new Date(job.planned_start_time), new Date(job.planned_end_time))}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           );
         })}
