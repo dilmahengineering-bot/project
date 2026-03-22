@@ -9,7 +9,7 @@
  * Timezone is configurable via settingsService
  */
 
-import { getTimezone, getBusinessHours } from '../services/settingsService.js';
+import { getTimezone, getBusinessHours } from '../services/settingsService';
 
 // Helper to get current timezone - allows dynamic timezone configuration
 function getConfiguredTimezone() {

@@ -8,7 +8,7 @@ import {
   setBusinessHours,
   COMMON_TIMEZONES,
   DEFAULT_SETTINGS,
-} from '../../services/settingsService';
+} from '../services/settingsService';
 
 const AdminSettingsPage = () => {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
