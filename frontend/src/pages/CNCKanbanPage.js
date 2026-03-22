@@ -248,6 +248,15 @@ export default function CNCKanbanPage() {
             + New Job Card
           </button>
           )}
+          {isGuest && (
+          <button 
+            className="btn btn-primary"
+            onClick={() => navigate('/display-rotation')}
+            title="Open fullscreen display rotation mode"
+          >
+            🖥️ Display Rotation
+          </button>
+          )}
         </div>
       </div>
 

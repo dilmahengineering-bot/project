@@ -17,6 +17,7 @@ import PlanningPage from './pages/PlanningPage';
 import MachineMasterPage from './pages/MachineMasterPage';
 import GanttPage from './pages/GanttPage';
 import ProductionReportPage from './pages/ProductionReportPage';
+import DisplayRotationPage from './pages/DisplayRotationPage';
 
 const PrivateRoute = ({ children, adminOnly = false, denyGuest = false }) => {
   const { user, loading, isAdmin, isGuest } = useAuth();
@@ -43,6 +44,7 @@ function AppRoutes() {
       <Route path="/tasks" element={<PrivateRoute denyGuest><TasksPage /></PrivateRoute>} />
       <Route path="/kanban" element={<PrivateRoute denyGuest><KanbanPage /></PrivateRoute>} />
       <Route path="/cnc-kanban" element={<PrivateRoute><CNCKanbanPage /></PrivateRoute>} />
+      <Route path="/display-rotation" element={<PrivateRoute denyGuest={false}><DisplayRotationPage /></PrivateRoute>} />
       <Route path="/planning" element={<PrivateRoute denyGuest><PlanningPage /></PrivateRoute>} />
       <Route path="/gantt" element={<PrivateRoute denyGuest><GanttPage /></PrivateRoute>} />
       <Route path="/production-report" element={<PrivateRoute denyGuest><ProductionReportPage /></PrivateRoute>} />
