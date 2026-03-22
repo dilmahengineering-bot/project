@@ -372,11 +372,13 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     if (!dragState && !resizeState) return;
 
     const handleMouseMove = (e) => {
+      // Continuous updates trigger re-render to show dragging state
+      // This ensures smooth visual feedback during drag operations
       if (dragState) {
-        // Visual feedback handled by CSS transform
+        e.preventDefault(); // Prevent text selection during drag
       }
       if (resizeState) {
-        // Visual feedback handled by CSS
+        e.preventDefault(); // Prevent text selection during resize
       }
     };
 
@@ -394,9 +396,10 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
 
         if (viewMode === 'hourly' && targetMachine) {
           const cellW = VIEW_MODES.hourly.cellWidth;
-          const hourFloat = x / cellW;
-          const snappedHour = Math.floor(hourFloat);
-          const snappedMin = Math.round((hourFloat - snappedHour) * 4) * 15; // snap to 15-min
+          // Timeline starts at 7 AM (SHIFT_CONFIG.day.start), so account for this offset
+          const hourFloat = (x / cellW) + SHIFT_CONFIG.day.start;
+          const snappedHour = Math.floor(hourFloat) % 24; // Wrap to 0-23 range
+          const snappedMin = Math.round((hourFloat - Math.floor(hourFloat)) * 4) * 15; // snap to 15-min
 
           // Calculate duration from original timestamps
           let durationMins = 60; // default 1 hour
