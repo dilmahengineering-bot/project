@@ -8,25 +8,39 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
 
     const now = getNowInSLST();
     
-    // Find current job
-    const currentJob = entries.find(entry => {
+    // Find current jobs (one per machine)
+    const currentJobs = {};
+    entries.forEach(entry => {
       const start = new Date(entry.planned_start_time);
       const end = new Date(entry.planned_end_time);
-      return start <= now && end > now;
+      if (start <= now && end > now) {
+        const machineId = entry.machine_id || entry.machine_name;
+        if (!currentJobs[machineId]) {
+          currentJobs[machineId] = entry;
+        }
+      }
     });
 
-    // Find next job(s) - top 2 upcoming jobs
+    // Find upcoming jobs grouped by machine
+    const upcomingByMachine = {};
     const sortedEntries = [...entries].sort((a, b) => 
       new Date(a.planned_start_time) - new Date(b.planned_start_time)
     );
     
-    const upcomingJobs = sortedEntries.filter(entry => 
-      new Date(entry.planned_start_time) > now
-    ).slice(0, 2);
+    sortedEntries.forEach(entry => {
+      const start = new Date(entry.planned_start_time);
+      if (start > now) {
+        const machineId = entry.machine_id || entry.machine_name;
+        if (!upcomingByMachine[machineId]) {
+          upcomingByMachine[machineId] = [];
+        }
+        upcomingByMachine[machineId].push(entry);
+      }
+    });
 
     return {
-      current: currentJob,
-      upcoming: upcomingJobs,
+      currentJobs,
+      upcomingByMachine,
     };
   }, [entries]);
 
@@ -50,73 +64,82 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     return `${hours}h ${mins}m`;
   };
 
+  // Get all machines with jobs
+  const activeMachines = Object.keys({
+    ...jobDetails.currentJobs,
+    ...jobDetails.upcomingByMachine,
+  });
+
   return (
     <div className="next-job-details">
-      {/* Current Job */}
-      {jobDetails.current && (
-        <div className="job-block current-job">
-          <div className="job-header">
-            <span className="job-label">● Now Playing</span>
-            <span className="job-status-badge">IN PROGRESS</span>
-          </div>
-          <div className="job-content">
-            <div className="job-main-info">
-              <h3 className="job-number">{jobDetails.current.job_card_number}</h3>
-              <p className="job-name">{jobDetails.current.job_name}</p>
+      <div className="machines-container">
+        {activeMachines.map(machineId => {
+          const currentJob = jobDetails.currentJobs[machineId];
+          const upcomingJobs = jobDetails.upcomingByMachine[machineId] || [];
+          
+          return (
+            <div key={machineId} className="machine-section">
+              <div className="machine-header">
+                <span className="machine-name">🖥️ {machineId}</span>
+                <span className="jobs-count">{(currentJob ? 1 : 0) + upcomingJobs.length} Job(s)</span>
+              </div>
+              
+              {/* Current Job for this machine */}
+              {currentJob && (
+                <div className="job-block current-job">
+                  <div className="job-header">
+                    <span className="job-status-badge">RUNNING NOW</span>
+                  </div>
+                  <div className="job-content">
+                    <h3 className="job-number">{currentJob.job_card_number}</h3>
+                    <p className="job-name">{currentJob.job_name}</p>
+                    <div className="job-grid">
+                      <div className="job-item">
+                        <span className="label">Time</span>
+                        <span className="value">
+                          {formatTimeInSLST(currentJob.planned_start_time)} - {formatTimeInSLST(currentJob.planned_end_time)}
+                        </span>
+                      </div>
+                      <div className="job-item">
+                        <span className="label">Duration</span>
+                        <span className="value">
+                          {formatTimeDiff(new Date(currentJob.planned_start_time), new Date(currentJob.planned_end_time))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Upcoming jobs for this machine */}
+              {upcomingJobs.slice(0, 3).map((job, index) => (
+                <div key={job.id} className={`job-block next-job next-job-${index + 1}`}>
+                  <div className="job-header">
+                    <span className="job-label">Next {index === 0 ? '(1)' : index === 1 ? '(2)' : '(3)'}</span>
+                    <span className="job-status-badge planned">PLANNED</span>
+                  </div>
+                  <div className="job-content">
+                    <h3 className="job-number">{job.job_card_number}</h3>
+                    <p className="job-name">{job.job_name}</p>
+                    <div className="job-grid">
+                      <div className="job-item">
+                        <span className="label">Starts</span>
+                        <span className="value">{formatTimeInSLST(job.planned_start_time)}</span>
+                      </div>
+                      <div className="job-item">
+                        <span className="label">Duration</span>
+                        <span className="value">
+                          {formatTimeDiff(new Date(job.planned_start_time), new Date(job.planned_end_time))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="job-grid">
-              <div className="job-item">
-                <span className="label">Machine</span>
-                <span className="value">🖥️ {jobDetails.current.machine_name}</span>
-              </div>
-              <div className="job-item">
-                <span className="label">Time</span>
-                <span className="value">
-                  {formatTimeInSLST(jobDetails.current.planned_start_time)} - {formatTimeInSLST(jobDetails.current.planned_end_time)}
-                </span>
-              </div>
-              <div className="job-item">
-                <span className="label">Duration</span>
-                <span className="value">
-                  {formatTimeDiff(new Date(jobDetails.current.planned_start_time), new Date(jobDetails.current.planned_end_time))}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Next Jobs */}
-      {jobDetails.upcoming.map((job, index) => (
-        <div key={job.id} className={`job-block next-job next-job-${index + 1}`}>
-          <div className="job-header">
-            <span className="job-label">◯ Next {index === 0 ? '(1)' : '(2)'}</span>
-            <span className="job-status-badge planned">PLANNED</span>
-          </div>
-          <div className="job-content">
-            <div className="job-main-info">
-              <h3 className="job-number">{job.job_card_number}</h3>
-              <p className="job-name">{job.job_name}</p>
-            </div>
-            <div className="job-grid">
-              <div className="job-item">
-                <span className="label">Machine</span>
-                <span className="value">🖥️ {job.machine_name}</span>
-              </div>
-              <div className="job-item">
-                <span className="label">Starts</span>
-                <span className="value">{formatTimeInSLST(job.planned_start_time)}</span>
-              </div>
-              <div className="job-item">
-                <span className="label">Duration</span>
-                <span className="value">
-                  {formatTimeDiff(new Date(job.planned_start_time), new Date(job.planned_end_time))}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }
