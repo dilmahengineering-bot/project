@@ -593,6 +593,7 @@
   .shift-legend { flex-wrap: wrap; gap: 10px; }
   .job-details-grid { grid-template-columns: 1fr; gap: 16px; }
   .job-card-item { padding: 10px; }
+  .job-details-section { display: none; }
 }
 
 @media (max-width: 480px) {
@@ -608,4 +609,5 @@
   .job-card-number { font-size: 12px; }
   .job-card-name { font-size: 11px; }
   .job-card-meta { font-size: 10px; }
+  .job-details-section { display: none; }
 }
