@@ -12,8 +12,8 @@ const VIEW_MODES = {
 };
 
 const SHIFT_CONFIG = {
-  day: { start: 6, end: 18, label: 'Day Shift', color: '#fef3c7' },
-  night: { start: 18, end: 6, label: 'Night Shift', color: '#e0e7ff' },
+  day: { start: 7, end: 19, label: 'Day Shift', color: '#fef3c7' },
+  night: { start: 19, end: 7, label: 'Night Shift', color: '#e0e7ff' },
 };
 
 const STATUS_COLORS = {
@@ -96,8 +96,10 @@ export default function GanttPage({ hideLayout = false }) {
 
     switch (viewMode) {
       case 'hourly':
-        for (let h = 0; h < 24; h++) {
-          const isDay = h >= SHIFT_CONFIG.day.start && h < SHIFT_CONFIG.day.end;
+        // Display 24 hours starting from 7 AM (shift start time)
+        for (let i = 0; i < 24; i++) {
+          const h = (SHIFT_CONFIG.day.start + i) % 24;
+          const isDay = h >= SHIFT_CONFIG.day.start || h < SHIFT_CONFIG.day.end;
           cols.push({
             key: h,
             label: `${String(h).padStart(2, '0')}:00`,
