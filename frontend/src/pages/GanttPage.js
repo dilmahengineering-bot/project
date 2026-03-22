@@ -1,10 +1,53 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import Layout from '../components/shared/Layout';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { getTodayInSLST, getNowInSLST, formatTimeInSLST, isTimeInRange } from '../utils/timezoneHelper';
 import { useAuth } from '../context/AuthContext';
 import './GanttPage.css';
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+const pad = (n) => String(n).padStart(2, '0');
+
+const formatFullTime = (t) => {
+  if (!t) return '—';
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return t.substring(0, 5);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+};
+
+const formatTimeDisplay = (t) => {
+  if (!t) return '—';
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return t.substring(0, 5);
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+};
+
+const formatDateHeader = (dateStr, viewMode) => {
+  const d = new Date(dateStr + 'T00:00:00');
+  switch (viewMode) {
+    case 'hourly': 
+      return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    case 'daily': {
+      const end = new Date(d); 
+      end.setDate(end.getDate() + 6);
+      return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+    case 'weekly': {
+      const end = new Date(d); 
+      end.setDate(end.getDate() + 27);
+      return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+    case 'monthly': {
+      const end = new Date(d.getFullYear(), d.getMonth() + 5, 1);
+      return `${d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+    }
+    default: return '';
+  }
+};
 
 const VIEW_MODES = {
   hourly: { label: 'Hourly', hours: 24, cellWidth: 80, format: 'HH:00' },
@@ -531,26 +574,26 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     };
   }, [dragState, resizeState, machines, viewMode, loadData, getEntryPosition]);
 
-  // Edit modal
-  const openEdit = (entry) => {
-    const toLocal = (ts) => {
-      if (!ts) return '';
-      const d = new Date(ts);
-      if (isNaN(d.getTime())) return '';
-      const pad = (n) => String(n).padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    };
+  // Edit modal helpers
+  const toLocalDateTime = useCallback((ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }, []);
+
+  const openEdit = useCallback((entry) => {
     setEditEntry(entry);
     setEditForm({
-      planned_start_time: toLocal(entry.planned_start_time),
-      planned_end_time: toLocal(entry.planned_end_time),
-      actual_start_time: toLocal(entry.actual_start_time),
-      actual_end_time: toLocal(entry.actual_end_time),
+      planned_start_time: toLocalDateTime(entry.planned_start_time),
+      planned_end_time: toLocalDateTime(entry.planned_end_time),
+      actual_start_time: toLocalDateTime(entry.actual_start_time),
+      actual_end_time: toLocalDateTime(entry.actual_end_time),
       status: entry.status,
       assigned_to: entry.assigned_to || '',
       notes: entry.notes || '',
     });
-  };
+  }, [toLocalDateTime]);
 
   const handleSaveEdit = async () => {
     try {
@@ -563,7 +606,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     }
   };
 
-  const navigateDate = (offset) => {
+  const navigateDate = useCallback((offset) => {
     const d = new Date(selectedDate);
     switch (viewMode) {
       case 'hourly': d.setDate(d.getDate() + offset); break;
@@ -573,43 +616,15 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
       default: d.setDate(d.getDate() + offset);
     }
     setSelectedDate(d.toISOString().split('T')[0]);
-  };
+  }, [selectedDate, viewMode]);
 
-  const formatDateHeader = () => {
-    const d = new Date(selectedDate + 'T00:00:00');
-    switch (viewMode) {
-      case 'hourly': return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      case 'daily': {
-        const end = new Date(d); end.setDate(end.getDate() + 6);
-        return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-      }
-      case 'weekly': {
-        const end = new Date(d); end.setDate(end.getDate() + 27);
-        return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-      }
-      case 'monthly': {
-        const end = new Date(d.getFullYear(), d.getMonth() + 5, 1);
-        return `${d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
-      }
-      default: return '';
-    }
-  };
-
-  const formatTime = (t) => {
-    if (!t) return '—';
-    const d = new Date(t);
-    if (isNaN(d.getTime())) return t.substring(0, 5);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-  };
-
-  const formatTimeShort = (t) => {
-    if (!t) return '—';
-    const d = new Date(t);
-    if (isNaN(d.getTime())) return t.substring(0, 5);
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-  };
-
-  const getEntriesForMachine = (machineId) => entries.filter(e => e.machine_id === machineId);
+  const getEntriesForMachine = useMemo(() => {
+    const entriesMap = {};
+    machines.forEach(machine => {
+      entriesMap[machine.id] = entries.filter(e => e.machine_id === machine.id);
+    });
+    return entriesMap;
+  }, [entries, machines]);
 
   // Current time indicator (for hourly view) - Using Sri Lanka time
   const nowSLST = getNowInSLST();
@@ -654,7 +669,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
           </div>
         </div>
 
-        <div className="gantt-date-display">{formatDateHeader()}</div>
+        <div className="gantt-date-display">{formatDateHeader(selectedDate, viewMode)}</div>
 
         {/* Shift Legend (hourly view) */}
         {viewMode === 'hourly' && (
@@ -719,7 +734,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
 
                   {/* Machine rows */}
                   {machines.map(machine => {
-                    const machineEntries = getEntriesForMachine(machine.id);
+                    const machineEntries = getEntriesForMachine[machine.id] || [];
                     return (
                       <div key={machine.id} className="gantt-row">
                         {machineEntries.map(entry => {
@@ -749,7 +764,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
                                 </span>
                                 {pos.width > 100 && (
                                   <span className="block-times">
-                                    {formatTimeShort(entry.planned_start_time)}–{formatTimeShort(entry.planned_end_time)}
+                                    {formatTimeDisplay(entry.planned_start_time)}–{formatTimeDisplay(entry.planned_end_time)}
                                   </span>
                                 )}
                                 {pos.width > 160 && entry.job_name && (
@@ -780,9 +795,9 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
             <div className="tooltip-title">{hoveredEntry.job_name}</div>
             {hoveredEntry.part_number && <div className="tooltip-detail">🔩 Part: {hoveredEntry.part_number}</div>}
             {hoveredEntry.client_name && <div className="tooltip-detail">🏢 Client: {hoveredEntry.client_name}</div>}
-            <div className="tooltip-detail">🕐 Planned: {formatTime(hoveredEntry.planned_start_time)} – {formatTime(hoveredEntry.planned_end_time)}</div>
+            <div className="tooltip-detail">🕐 Planned: {formatFullTime(hoveredEntry.planned_start_time)} – {formatFullTime(hoveredEntry.planned_end_time)}</div>
             {(hoveredEntry.actual_start_time || hoveredEntry.actual_end_time) && (
-              <div className="tooltip-detail">✅ Actual: {formatTime(hoveredEntry.actual_start_time)} – {formatTime(hoveredEntry.actual_end_time)}</div>
+              <div className="tooltip-detail">✅ Actual: {formatFullTime(hoveredEntry.actual_start_time)} – {formatFullTime(hoveredEntry.actual_end_time)}</div>
             )}
             {hoveredEntry.assigned_to_name && <div className="tooltip-detail">👤 {hoveredEntry.assigned_to_name}</div>}
             {hoveredEntry.machine_name && <div className="tooltip-detail">🖥️ {hoveredEntry.machine_name}</div>}
