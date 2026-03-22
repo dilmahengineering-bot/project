@@ -146,6 +146,16 @@ app.use('/api/planning', require('./routes/planning'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
+// Get current server time for timezone synchronization
+app.get('/api/time', (req, res) => {
+  const now = new Date();
+  res.json({
+    timestamp: now.getTime(), // milliseconds since epoch
+    iso: now.toISOString(),
+    unix: Math.floor(now.getTime() / 1000) // seconds since epoch
+  });
+});
+
 // Initialize DB and seed admin
 const initDB = async () => {
   try {

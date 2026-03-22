@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { initializeTimeSync } from './services/timeSyncService';
 import LoginPage from './components/auth/LoginPage';
 import DashboardPage from './components/dashboard/DashboardPage';
 import TasksPage from './pages/TasksPage';
@@ -65,6 +66,13 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // Initialize time sync with server on app startup
+  React.useEffect(() => {
+    initializeTimeSync().catch(err => {
+      console.warn('Failed to initialize time sync:', err);
+    });
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>

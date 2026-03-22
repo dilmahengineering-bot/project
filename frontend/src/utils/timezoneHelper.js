@@ -7,9 +7,11 @@
  * formatted strings or Date objects adjusted to the configured timezone for calculations.
  * 
  * Timezone is configurable via settingsService
+ * Server time is synchronized via timeSyncService
  */
 
 import { getTimezone, getBusinessHours, getManualTimeSettings } from '../services/settingsService';
+import { getSyncedTime } from '../services/timeSyncService';
 
 // Helper to get current timezone - allows dynamic timezone configuration
 function getConfiguredTimezone() {
@@ -36,7 +38,8 @@ export function getNowInSLST() {
   if (manual.enabled && manual.value) {
     now = new Date(manual.value);
   } else {
-    now = new Date();
+    // Use server-synced time for consistency across all users
+    now = getSyncedTime();
   }
   const tz = getConfiguredTimezone();
   // Format the current time in configured timezone
