@@ -12,13 +12,13 @@ const SLST_OFFSET = 5.5 * 60 * 60 * 1000; // UTC+5:30 in milliseconds
 
 /**
  * Get current date/time in Sri Lanka time
- * Returns a pseudo-date object adjusted to SLST for time calculations
- * @returns {Date} - Current time adjusted to SLST
+ * Returns an object with SLST time values extracted via Intl API
+ * @returns {Object} - Object with SLST year, month, day, hour, minute, second as strings
  */
 export function getNowInSLST() {
   const now = new Date();
   
-  // Use Intl API to properly format in SLST timezone
+  // Format the current time in SLST timezone
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: TIMEZONE,
     year: 'numeric',
@@ -36,26 +36,41 @@ export function getNowInSLST() {
     partsMap[part.type] = part.value;
   });
   
-  // Create a Date adjusted to SLST (not UTC)
-  // This is used for local calculations only
-  const slstDate = new Date(
-    parseInt(partsMap.year),
-    parseInt(partsMap.month) - 1,
-    parseInt(partsMap.day),
-    parseInt(partsMap.hour),
-    parseInt(partsMap.minute),
-    parseInt(partsMap.second)
-  );
+  // Create a Date-like object with SLST values
+  const slstDate = {
+    year: parseInt(partsMap.year),
+    month: parseInt(partsMap.month),
+    day: parseInt(partsMap.day),
+    hour: parseInt(partsMap.hour),
+    minute: parseInt(partsMap.minute),
+    second: parseInt(partsMap.second),
+    _isSLST: true,
+    _originalUTC: now,
+    // Date-like methods for compatibility
+    getFullYear() { return this.year; },
+    getMonth() { return this.month - 1; },
+    getDate() { return this.day; },
+    getHours() { return this.hour; },
+    getMinutes() { return this.minute; },
+    getSeconds() { return this.second; },
+    getTime() { return this._originalUTC.getTime(); },
+  };
   
-  // Store the original UTC time as metadata for conversions
-  slstDate._utcDate = now;
+  if (typeof window !== 'undefined' && window.__DEBUG_TZ) {
+    console.log('getNowInSLST Debug:', {
+      browserLocal: now.toLocaleString(),
+      utcZulu: now.toUTCString(),
+      slstExtracted: `${partsMap.year}-${partsMap.month}-${partsMap.day} ${partsMap.hour}:${partsMap.minute}:${partsMap.second}`,
+    });
+  }
+  
   return slstDate;
 }
 
 /**
- * Convert a given date to Sri Lanka time adjusted date
+ * Convert a given date to Sri Lanka time
  * @param {Date|string|number} date - Date to convert
- * @returns {Date} - Date adjusted to SLST
+ * @returns {Object} - Object with SLST values
  */
 export function convertToSLST(date) {
   if (!date) return getNowInSLST();
@@ -79,17 +94,24 @@ export function convertToSLST(date) {
     partsMap[part.type] = part.value;
   });
   
-  const slstDate = new Date(
-    parseInt(partsMap.year),
-    parseInt(partsMap.month) - 1,
-    parseInt(partsMap.day),
-    parseInt(partsMap.hour),
-    parseInt(partsMap.minute),
-    parseInt(partsMap.second)
-  );
-  
-  slstDate._utcDate = d;
-  return slstDate;
+  // Return object with SLST values - similar structure to getNowInSLST
+  return {
+    year: parseInt(partsMap.year),
+    month: parseInt(partsMap.month),
+    day: parseInt(partsMap.day),
+    hour: parseInt(partsMap.hour),
+    minute: parseInt(partsMap.minute),
+    second: parseInt(partsMap.second),
+    _isSLST: true,
+    _originalUTC: d,
+    getFullYear() { return this.year; },
+    getMonth() { return this.month - 1; },
+    getDate() { return this.day; },
+    getHours() { return this.hour; },
+    getMinutes() { return this.minute; },
+    getSeconds() { return this.second; },
+    getTime() { return this._originalUTC.getTime(); },
+  };
 }
 
 /**
@@ -97,32 +119,47 @@ export function convertToSLST(date) {
  * @returns {number} - Hour (0-23)
  */
 export function getCurrentHourInSLST() {
-  return getNowInSLST().getHours();
+  const now = getNowInSLST();
+  return now.hour;
 }
 
 /**
  * Get current date string in SLST (YYYY-MM-DD format)
- * @returns {string} - Date string
+ * @returns {string} - Date string in SLST
  */
 export function getTodayInSLST() {
-  const now = getNowInSLST();
-  return now.toISOString().split('T')[0];
+  const now = new Date();
+  
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  
+  const parts = formatter.formatToParts(now);
+  const partsMap = {};
+  parts.forEach(part => {
+    partsMap[part.type] = part.value;
+  });
+  
+  return `${partsMap.year}-${partsMap.month}-${partsMap.day}`;
 }
 
 /**
  * Format date with SLST timezone
- * @param {Date|string} date - Date to format
+ * @param {Date|string|Object} date - Date to format (can be SLST object or regular Date)
  * @param {string} format - Format string (e.g., 'YYYY-MM-DD HH:mm:ss')
  * @returns {string} - Formatted date
  */
 export function formatDateInSLST(date, format = 'DD/MM/YYYY HH:mm') {
-  const d = convertToSLST(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  const seconds = String(d.getSeconds()).padStart(2, '0');
+  const d = date && date._isSLST ? date : convertToSLST(date);
+  const year = String(d.year).padStart(4, '0');
+  const month = String(d.month).padStart(2, '0');
+  const day = String(d.day).padStart(2, '0');
+  const hours = String(d.hour).padStart(2, '0');
+  const minutes = String(d.minute).padStart(2, '0');
+  const seconds = String(d.second).padStart(2, '0');
 
   return format
     .replace(/YYYY/g, year)
@@ -135,12 +172,12 @@ export function formatDateInSLST(date, format = 'DD/MM/YYYY HH:mm') {
 
 /**
  * Format time in SLST (HH:mm format)
- * @param {Date|string} date - Date to format
+ * @param {Date|string|Object} date - Date to format (can be SLST object or regular Date)
  * @returns {string} - Time string (HH:mm)
  */
 export function formatTimeInSLST(date) {
-  const d = convertToSLST(date);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const d = date && date._isSLST ? date : convertToSLST(date);
+  return `${String(d.hour).padStart(2, '0')}:${String(d.minute).padStart(2, '0')}`;
 }
 
 /**
@@ -181,13 +218,12 @@ export function getTimezoneInfo() {
 
 /**
  * Check if time is within business hours (7 AM - 7 PM SLST)
- * @param {Date} date - Date to check
+ * @param {Date|Object} date - Date to check (can be SLST object or regular Date)
  * @returns {boolean} - True if within business hours
  */
 export function isBusinessHours(date) {
-  const d = convertToSLST(date);
-  const hour = d.getHours();
-  return hour >= 7 && hour < 19; // 7 AM to 7 PM
+  const d = date && date._isSLST ? date : convertToSLST(date);
+  return d.hour >= 7 && d.hour < 19; // 7 AM to 7 PM
 }
 
 /**
@@ -197,10 +233,16 @@ export function isBusinessHours(date) {
  * @returns {boolean} - True if current time is within range
  */
 export function isTimeInRange(startTime, endTime) {
-  const now = getNowInSLST().getTime();
-  const start = convertToSLST(startTime).getTime();
-  const end = convertToSLST(endTime).getTime();
-  return now >= start && now <= end;
+  const now = getNowInSLST();
+  const start = convertToSLST(startTime);
+  const end = convertToSLST(endTime);
+  
+  // Compare using timestamps for accuracy
+  const nowTime = now.getTime();
+  const startTime_ms = start.getTime();
+  const endTime_ms = end.getTime();
+  
+  return nowTime >= startTime_ms && nowTime <= endTime_ms;
 }
 
 export default {
