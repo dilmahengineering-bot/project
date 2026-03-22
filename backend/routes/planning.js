@@ -684,17 +684,17 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
     // ── Page header ──
     function drawPageHeader(dateStr) {
-      doc.rect(0, 0, pageW, 50).fill('#1e293b');
+      doc.rect(0, 0, pageW, 50).fill('#f1f5f9');
 
-      doc.fillColor('#ffffff').fontSize(14).font('Helvetica-Bold');
+      doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold');
       safeText('DAILY PRODUCTION SHEET', leftM, 10, { width: 250 });
-      doc.fillColor('#94a3b8').fontSize(8).font('Helvetica');
+      doc.fillColor('#64748b').fontSize(8).font('Helvetica');
       safeText('TaskFlow CNC Production Planning', leftM, 28, {});
 
-      doc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold');
+      doc.fillColor('#1e293b').fontSize(11).font('Helvetica-Bold');
       safeText(formatDateFull(dateStr), 0, 14, { width: pageW, align: 'center' });
 
-      doc.fillColor('#94a3b8').fontSize(7).font('Helvetica');
+      doc.fillColor('#64748b').fontSize(7).font('Helvetica');
       safeText(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}`, rightM - 140, 12, { width: 140, align: 'right' });
       safeText(`Report Date: ${dateStr}`, rightM - 140, 23, { width: 140, align: 'right' });
 
@@ -707,12 +707,12 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
     // ── Machine section header ──
     function drawMachineHeader(y, machine, jobCount) {
-      doc.rect(leftM, y, contentW, 18).fill('#e0e7ff');
-      doc.strokeColor('#a5b4fc').lineWidth(0.5).rect(leftM, y, contentW, 18).stroke();
+      doc.rect(leftM, y, contentW, 18).fill('#ffffff');
+      doc.strokeColor('#cbd5e1').lineWidth(0.5).rect(leftM, y, contentW, 18).stroke();
 
-      doc.fillColor('#312e81').fontSize(9).font('Helvetica-Bold');
+      doc.fillColor('#1e293b').fontSize(9).font('Helvetica-Bold');
       safeText(machine.machine_name, leftM + 8, y + 4, { width: contentW / 2 });
-      doc.fillColor('#4338ca').fontSize(7).font('Helvetica');
+      doc.fillColor('#475569').fontSize(7).font('Helvetica');
       safeText(`Code: ${machine.machine_code}  |  Type: ${machine.machine_type}  |  ${jobCount} job${jobCount !== 1 ? 's' : ''}`,
         leftM + contentW / 2, y + 5, { width: contentW / 2 - 8, align: 'right' });
 
@@ -729,8 +729,8 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         drawCell(x, y, col.w, rowH, col.label.toUpperCase(), {
           fontSize: 6.5,
           bold: true,
-          bg: '#334155',
-          textColor: '#ffffff',
+          bg: '#f1f5f9',
+          textColor: '#1e293b',
           align: 'center',
         });
         x += col.w;
@@ -742,8 +742,8 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     function drawEntryRow(entry, idx, y) {
       const rowH = 15;
       const jc = jobColorMap[entry.job_card_id] || JOB_COLORS_PDF[0];
-      // Light tint from job-card colour for the entire row
-      const tintBg = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.90)},${Math.round(jc.g + (255 - jc.g) * 0.90)},${Math.round(jc.b + (255 - jc.b) * 0.90)})`;
+      // Very light tint from job-card colour for the entire row (98% white)
+      const tintBg = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.98)},${Math.round(jc.g + (255 - jc.g) * 0.98)},${Math.round(jc.b + (255 - jc.b) * 0.98)})`;
       const bg = tintBg;
 
       const values = [
@@ -770,10 +770,10 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         let cellTextColor = '#1e293b';
         let cellAlign = 'left';
 
-        // Job Card column (i === 1): solid job-card colour background with white text
+        // Job Card column (i === 1): light job-card colour tint with dark text
         if (i === 1) {
-          cellBg = `rgb(${jc.r},${jc.g},${jc.b})`;
-          cellTextColor = '#ffffff';
+          cellBg = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.85)},${Math.round(jc.g + (255 - jc.g) * 0.85)},${Math.round(jc.b + (255 - jc.b) * 0.85)})`;
+          cellTextColor = '#1e293b';
         }
 
         // Column-specific styling
@@ -795,8 +795,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
         x += COLS[i].w;
       });
 
-      // Job-card colour accent on left edge
-      doc.rect(leftM, y, 2.5, rowH).fill(`rgb(${jc.r},${jc.g},${jc.b})`);
+      // Job-card colour accent on left edge (light tint)\n      const accentColor = `rgb(${Math.round(jc.r + (255 - jc.r) * 0.85)},${Math.round(jc.g + (255 - jc.g) * 0.85)},${Math.round(jc.b + (255 - jc.b) * 0.85)})`;\n      doc.rect(leftM, y, 2.5, rowH).fill(accentColor);
 
       return y + rowH;
     }
