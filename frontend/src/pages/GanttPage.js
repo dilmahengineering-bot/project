@@ -158,10 +158,9 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
 
     switch (viewMode) {
       case 'hourly':
-        // Display 24 hours starting from 7 AM (shift start time)
-        for (let i = 0; i < 24; i++) {
-          const h = (SHIFT_CONFIG.day.start + i) % 24;
-          const isDay = h >= SHIFT_CONFIG.day.start || h < SHIFT_CONFIG.day.end;
+        // Display 24 hours from 00:00 to 23:00, with shift highlighting (7 AM - 7 PM Day, 7 PM - 7 AM Night)
+        for (let h = 0; h < 24; h++) {
+          const isDay = h >= SHIFT_CONFIG.day.start && h < SHIFT_CONFIG.day.end;
           cols.push({
             key: h,
             label: `${String(h).padStart(2, '0')}:00`,
