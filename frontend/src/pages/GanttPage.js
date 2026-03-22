@@ -3,6 +3,7 @@ import Layout from '../components/shared/Layout';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { getTodayInSLST, getNowInSLST, formatTimeInSLST, isTimeInRange } from '../utils/timezoneHelper';
+import { useAuth } from '../context/AuthContext';
 import './GanttPage.css';
 
 const VIEW_MODES = {
@@ -62,8 +63,10 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
   const [hoveredEntry, setHoveredEntry] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [jobDetailsRefresh, setJobDetailsRefresh] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const timelineRef = useRef(null);
   const ganttBodyRef = useRef(null);
+  const { isGuest } = useAuth();
 
   // Calculate date range based on view mode
   const dateRange = useMemo(() => {
@@ -610,7 +613,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
   }
 
   const content = (
-    <div className="gantt-page">
+    <div className={`gantt-page${isFullscreen ? ' fullscreen' : ''}`}>
         {/* Header */}
         <div className="gantt-header">
           <div className="gantt-title">
@@ -632,6 +635,11 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
               <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="date-picker" />
               <button className="btn btn-icon" onClick={() => navigateDate(1)}>▶</button>
               <button className="btn btn-secondary btn-today" onClick={() => setSelectedDate(getTodayInSLST())}>Today</button>
+              {isGuest && (
+                <button className="btn btn-secondary" onClick={() => setIsFullscreen(!isFullscreen)} title="Toggle fullscreen mode">
+                  {isFullscreen ? '⛔ Exit Fullscreen' : '⛶ Fullscreen'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -777,7 +785,8 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
           </div>
         )}
 
-        {/* Job Card Details Section - Ongoing & Upcoming */}
+        {/* Job Card Details Section - Ongoing & Upcoming (Guest users only in fullscreen) */}
+        {isGuest && isFullscreen && (
         <div className="job-details-section">
           <h3>📋 Job Card Details</h3>
           
@@ -838,6 +847,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
             </div>
           )}
         </div>
+        )}
 
         {/* Edit Modal */}
         {editEntry && (
