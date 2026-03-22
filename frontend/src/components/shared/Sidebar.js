@@ -53,6 +53,7 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
               <NavItem to="/admin/machines" icon="🖥️" label="Machine Master" />
               <NavItem to="/admin/users" icon="👥" label="Users" />
               <NavItem to="/admin/reports" icon="📄" label="Reports" />
+              <NavItem to="/admin/settings" icon="⚙️" label="Settings" />
             </div>
           )}
 

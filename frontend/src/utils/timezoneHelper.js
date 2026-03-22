@@ -1,26 +1,41 @@
 /**
  * Timezone Helper Utility
- * Handles all time conversions for Sri Lanka Standard Time (SLST - UTC+5:30)
+ * Handles all time conversions using configured timezone (Intl API)
  * Uses Intl API for reliable timezone conversion
  * 
  * IMPORTANT: Date objects are always stored in UTC. Conversion methods return
- * formatted strings or Date objects adjusted to SLST for calculations.
+ * formatted strings or Date objects adjusted to the configured timezone for calculations.
+ * 
+ * Timezone is configurable via settingsService
  */
 
-const TIMEZONE = 'Asia/Colombo'; // Sri Lanka Standard Time (UTC+5:30)
-const SLST_OFFSET = 5.5 * 60 * 60 * 1000; // UTC+5:30 in milliseconds
+import { getTimezone, getBusinessHours } from '../services/settingsService.js';
+
+// Helper to get current timezone - allows dynamic timezone configuration
+function getConfiguredTimezone() {
+  try {
+    return getTimezone();
+  } catch {
+    return 'Asia/Colombo'; // Fallback to default
+  }
+}
+
+// Legacy constant for backward compatibility - now uses dynamic timezone
+const TIMEZONE = 'Asia/Colombo'; // Default timezone (can be overridden via settings)
+const SLST_OFFSET = 5.5 * 60 * 60 * 1000; // UTC+5:30 in milliseconds (default)
 
 /**
- * Get current date/time in Sri Lanka time
- * Returns an object with SLST time values extracted via Intl API
- * @returns {Object} - Object with SLST year, month, day, hour, minute, second as strings
+ * Get current date/time in configured timezone
+ * Returns an object with timezone-specific time values extracted via Intl API
+ * @returns {Object} - Object with year, month, day, hour, minute, second as strings
  */
 export function getNowInSLST() {
   const now = new Date();
+  const tz = getConfiguredTimezone();
   
-  // Format the current time in SLST timezone
+  // Format the current time in configured timezone
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIMEZONE,
+    timeZone: tz,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -68,17 +83,18 @@ export function getNowInSLST() {
 }
 
 /**
- * Convert a given date to Sri Lanka time
+ * Convert a given date to configured timezone
  * @param {Date|string|number} date - Date to convert
- * @returns {Object} - Object with SLST values
+ * @returns {Object} - Object with timezone values
  */
 export function convertToSLST(date) {
   if (!date) return getNowInSLST();
   
   const d = new Date(date);
+  const tz = getConfiguredTimezone();
   
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIMEZONE,
+    timeZone: tz,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -124,14 +140,15 @@ export function getCurrentHourInSLST() {
 }
 
 /**
- * Get current date string in SLST (YYYY-MM-DD format)
- * @returns {string} - Date string in SLST
+ * Get current date string in configured timezone (YYYY-MM-DD format)
+ * @returns {string} - Date string in configured timezone
  */
 export function getTodayInSLST() {
   const now = new Date();
+  const tz = getConfiguredTimezone();
   
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIMEZONE,
+    timeZone: tz,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -186,11 +203,12 @@ export function formatTimeInSLST(date) {
  */
 export function getTimezoneInfo() {
   const now = new Date();
+  const tz = getConfiguredTimezone();
   const slstNow = getNowInSLST();
   
   // Formatter for debugging
   const debugFormatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIMEZONE,
+    timeZone: tz,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -203,11 +221,8 @@ export function getTimezoneInfo() {
   const debugStr = debugFormatter.format(now);
   
   return {
-    name: 'Sri Lanka Standard Time (SLST)',
-    abbreviation: 'SLST',
-    offset: 'UTC+5:30',
-    offsetMs: SLST_OFFSET,
-    timezone: TIMEZONE,
+    name: `Configured Timezone (${tz})`,
+    timezone: tz,
     currentTime: slstNow,
     displayTime: formatDateInSLST(now, 'DD/MM/YYYY HH:mm:ss'),
     debugTime: debugStr,
@@ -217,13 +232,20 @@ export function getTimezoneInfo() {
 }
 
 /**
- * Check if time is within business hours (7 AM - 7 PM SLST)
+ * Check if time is within business hours (configurable via settings)
  * @param {Date|Object} date - Date to check (can be SLST object or regular Date)
  * @returns {boolean} - True if within business hours
  */
 export function isBusinessHours(date) {
   const d = date && date._isSLST ? date : convertToSLST(date);
-  return d.hour >= 7 && d.hour < 19; // 7 AM to 7 PM
+  
+  try {
+    const { start, end } = getBusinessHours();
+    return d.hour >= start && d.hour < end;
+  } catch {
+    // Fallback to default business hours if settings can't be loaded
+    return d.hour >= 7 && d.hour < 19; // 7 AM to 7 PM
+  }
 }
 
 /**
