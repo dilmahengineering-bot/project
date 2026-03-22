@@ -31,7 +31,35 @@ export const DEFAULT_SETTINGS = {
   timeFormat: '24h',
   businessHoursStart: 7,
   businessHoursEnd: 19,
+  manualTimeEnabled: false,
+  manualTimeValue: '', // ISO string, e.g. '2026-03-22T12:00:00Z'
 };
+/**
+ * Enable or disable manual time
+ * @param {boolean} enabled
+ */
+export function setManualTimeEnabled(enabled) {
+  return updateSettings({ manualTimeEnabled: !!enabled });
+}
+
+/**
+ * Set manual time value (ISO string)
+ * @param {string} isoString
+ */
+export function setManualTimeValue(isoString) {
+  return updateSettings({ manualTimeValue: isoString });
+}
+
+/**
+ * Get manual time settings
+ */
+export function getManualTimeSettings() {
+  const settings = getSettings();
+  return {
+    enabled: !!settings.manualTimeEnabled,
+    value: settings.manualTimeValue,
+  };
+}
 
 /**
  * Get all settings
@@ -159,6 +187,9 @@ export default {
   getTimezone,
   getBusinessHours,
   setBusinessHours,
+  setManualTimeEnabled,
+  setManualTimeValue,
+  getManualTimeSettings,
   COMMON_TIMEZONES,
   DEFAULT_SETTINGS,
 };

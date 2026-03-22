@@ -9,7 +9,7 @@
  * Timezone is configurable via settingsService
  */
 
-import { getTimezone, getBusinessHours } from '../services/settingsService';
+import { getTimezone, getBusinessHours, getManualTimeSettings } from '../services/settingsService';
 
 // Helper to get current timezone - allows dynamic timezone configuration
 function getConfiguredTimezone() {
@@ -30,9 +30,15 @@ const SLST_OFFSET = 5.5 * 60 * 60 * 1000; // UTC+5:30 in milliseconds (default)
  * @returns {Object} - Object with year, month, day, hour, minute, second as strings
  */
 export function getNowInSLST() {
-  const now = new Date();
+  // Use manual time if enabled
+  let now;
+  const manual = getManualTimeSettings();
+  if (manual.enabled && manual.value) {
+    now = new Date(manual.value);
+  } else {
+    now = new Date();
+  }
   const tz = getConfiguredTimezone();
-  
   // Format the current time in configured timezone
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,

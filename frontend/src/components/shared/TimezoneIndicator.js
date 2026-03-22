@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getTimezoneInfo, formatDateInSLST, getNowInSLST } from '../../utils/timezoneHelper';
+import { getManualTimeSettings } from '../../services/settingsService';
 import './TimezoneIndicator.css';
 
 export default function TimezoneIndicator() {
@@ -37,13 +38,19 @@ export default function TimezoneIndicator() {
 
   if (!tzInfo) return null;
 
-  const tooltipText = `System Timezone: ${tzInfo.name}\nCurrent Time: ${tzInfo.displayTime}`;
+  const manual = getManualTimeSettings();
+  const tooltipText = `System Timezone: ${tzInfo.name}\nCurrent Time: ${tzInfo.displayTime}` + (manual.enabled ? `\n\n⚠️ Manual Time Override Active!\nManual Time: ${manual.value}` : '');
 
   return (
     <div className="timezone-indicator" title={tooltipText}>
       <span className="tz-icon">🌏</span>
       <span className="tz-text">{tzInfo.timezone}</span>
       <span className="tz-time">{timeStr}</span>
+      {manual.enabled && (
+        <span className="tz-manual-warning" style={{ color: '#d32f2f', marginLeft: 8, fontWeight: 'bold' }}>
+          ⚠️ Manual Time
+        </span>
+      )}
     </div>
   );
 }

@@ -6,9 +6,22 @@ import {
   resetSettings,
   setTimezone,
   setBusinessHours,
+  setManualTimeEnabled,
+  setManualTimeValue,
   COMMON_TIMEZONES,
   DEFAULT_SETTINGS,
 } from '../services/settingsService';
+  const handleManualTimeToggle = (e) => {
+    const enabled = e.target.checked;
+    handleSettingChange('manualTimeEnabled', enabled);
+    if (!enabled) {
+      handleSettingChange('manualTimeValue', '');
+    }
+  };
+
+  const handleManualTimeValueChange = (e) => {
+    handleSettingChange('manualTimeValue', e.target.value);
+  };
 
 const AdminSettingsPage = () => {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -86,13 +99,50 @@ const AdminSettingsPage = () => {
         return;
       }
 
+
       const updatedSettings = updateSettings({
         timezone: settings.timezone,
         dateFormat: settings.dateFormat,
         timeFormat: settings.timeFormat,
         businessHoursStart: settings.businessHoursStart,
         businessHoursEnd: settings.businessHoursEnd,
+        manualTimeEnabled: settings.manualTimeEnabled,
+        manualTimeValue: settings.manualTimeValue,
       });
+        {/* Manual Time Settings */}
+        <div className="settings-section">
+          <h2>Manual Time (Override)</h2>
+          <div className="setting-group">
+            <label htmlFor="manualTimeEnabled">
+              <input
+                type="checkbox"
+                id="manualTimeEnabled"
+                checked={!!settings.manualTimeEnabled}
+                onChange={handleManualTimeToggle}
+                style={{ marginRight: '0.5em' }}
+              />
+              Enable Manual Time
+            </label>
+            <p className="help-text">
+              When enabled, the system will use the specified date and time below instead of the real current time. This affects all users and all time calculations.
+            </p>
+          </div>
+          <div className="setting-group">
+            <label htmlFor="manualTimeValue">Manual Date & Time</label>
+            <input
+              type="datetime-local"
+              id="manualTimeValue"
+              className="select-field"
+              value={settings.manualTimeValue || ''}
+              onChange={handleManualTimeValueChange}
+              disabled={!settings.manualTimeEnabled}
+            />
+            <p className="help-text">
+              Example: 2026-03-22T12:00 (local time).<br />
+              <b>Warning:</b> This will override the system time for all users until disabled.
+            </p>
+          </div>
+        </div>
 
       setSettings(updatedSettings);
       setHasChanges(false);
