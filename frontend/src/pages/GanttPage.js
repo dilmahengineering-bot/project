@@ -655,11 +655,6 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
           </div>
         )}
 
-        {/* Read-Only Banner */}
-        <div className="gantt-readonly-banner">
-          <span>🔒 Read-Only Mode</span> — This Gantt Chart is in view-only mode. No changes can be made.
-        </div>
-
         {machines.length === 0 ? (
           <div className="gantt-empty"><p>🔧 No machines configured. Add machines in Machine Master first.</p></div>
         ) : (
