@@ -259,6 +259,20 @@
   }
 }
 
+/* Display Area Wrapper */
+.display-area-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg, #ffffff);
+}
+
+.display-area-wrapper.fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
 /* Display Area */
 .display-area {
   flex: 1;
@@ -269,7 +283,8 @@
 
 .display-area.fullscreen {
   width: 100vw;
-  height: 100vh;
+  height: calc(100vh - 180px);
+  flex: 0 1 auto;
 }
 
 .view-wrapper {
@@ -287,7 +302,7 @@
 /* Fullscreen Hint */
 .fullscreen-hint {
   position: fixed;
-  bottom: 20px;
+  bottom: 200px;
   left: 50%;
   transform: translateX(-50%);
   padding: 12px 20px;

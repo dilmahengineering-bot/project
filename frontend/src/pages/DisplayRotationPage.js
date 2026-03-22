@@ -5,6 +5,7 @@ import CNCKanbanPage from './CNCKanbanPage';
 import useHourlyAnnouncements from '../hooks/useHourlyAnnouncements';
 import voiceAnnouncer from '../utils/voiceAnnouncer';
 import VoiceStatusButton from '../components/shared/VoiceStatusButton';
+import NextJobDetails from '../components/shared/NextJobDetails';
 import './DisplayRotationPage.css';
 
 export default function DisplayRotationPage() {
@@ -189,16 +190,24 @@ export default function DisplayRotationPage() {
         </div>
       )}
 
-      {/* Display Area */}
-      <div className={`display-area ${isFullscreen ? 'fullscreen' : ''}`}>
-        {currentView === 'gantt' ? (
-          <div className="view-wrapper gantt-wrapper">
-            <GanttPage hideLayout={true} onEntriesLoad={handleEntriesLoad} />
-          </div>
-        ) : (
-          <div className="view-wrapper cnc-kanban-wrapper">
-            <CNCKanbanPage />
-          </div>
+      {/* Display Area with Layout */}
+      <div className={`display-area-wrapper ${isFullscreen ? 'fullscreen' : ''}`}>
+        {/* Main Display Area */}
+        <div className={`display-area ${isFullscreen ? 'fullscreen' : ''}`}>
+          {currentView === 'gantt' ? (
+            <div className="view-wrapper gantt-wrapper">
+              <GanttPage hideLayout={true} onEntriesLoad={handleEntriesLoad} />
+            </div>
+          ) : (
+            <div className="view-wrapper cnc-kanban-wrapper">
+              <CNCKanbanPage />
+            </div>
+          )}
+        </div>
+
+        {/* Next Job Details - Fullscreen Bottom Panel */}
+        {isFullscreen && currentView === 'gantt' && (
+          <NextJobDetails entries={entries} machines={machines} />
         )}
       </div>
 

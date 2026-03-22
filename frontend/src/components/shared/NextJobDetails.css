@@ -1,0 +1,265 @@
+.next-job-details {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.04) 100%);
+  border-top: 2px solid var(--border, #e5e7eb);
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.job-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  min-width: 320px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.job-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Current Job - Green Theme */
+.job-block.current-job {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f3fdeb 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+
+.job-block.current-job:hover {
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
+}
+
+/* Next Job - Blue Theme */
+.job-block.next-job {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #f0f9ff 0%, #f3f8ff 100%);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.job-block.next-job:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+}
+
+/* Second Next Job - Lighter */
+.job-block.next-job-2 {
+  opacity: 0.85;
+}
+
+.job-block.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  color: var(--text-muted, #9ca3af);
+  font-style: italic;
+  border: 2px dashed var(--border, #d1d5db);
+}
+
+/* Job Header */
+.job-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.job-label {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text, #111827);
+}
+
+.job-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #10b981;
+  color: white;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.job-status-badge.planned {
+  background: #3b82f6;
+}
+
+/* Job Content */
+.job-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Main Info */
+.job-main-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.job-number {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text, #111827);
+  letter-spacing: -0.5px;
+}
+
+.job-name {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted, #6b7280);
+  font-weight: 500;
+}
+
+/* Job Grid */
+.job-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.job-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.job-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.job-item .label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted, #9ca3af);
+  letter-spacing: 0.3px;
+}
+
+.job-item .value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #111827);
+  word-break: break-word;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .job-block {
+    min-width: 280px;
+  }
+
+  .job-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .next-job-details {
+    padding: 12px;
+    gap: 10px;
+    margin-bottom: 50px;
+  }
+
+  .job-block {
+    min-width: 240px;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .job-number {
+    font-size: 16px;
+  }
+
+  .job-name {
+    font-size: 12px;
+  }
+
+  .job-grid {
+    gap: 8px;
+  }
+
+  .job-item {
+    padding: 6px;
+  }
+
+  .job-item .label {
+    font-size: 9px;
+  }
+
+  .job-item .value {
+    font-size: 12px;
+  }
+}
+
+/* Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.job-block {
+  animation: slideIn 0.3s ease-out;
+}
+
+.job-block.current-job {
+  animation-delay: 0s;
+}
+
+.job-block.next-job-1 {
+  animation-delay: 0.1s;
+}
+
+.job-block.next-job-2 {
+  animation-delay: 0.2s;
+}
+
+/* Fullscreen Considerations */
+@media (max-height: 600px) {
+  .next-job-details {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .job-block {
+    min-width: 220px;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .job-number {
+    font-size: 14px;
+  }
+
+  .job-item .value {
+    font-size: 11px;
+  }
+}
