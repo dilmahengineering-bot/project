@@ -211,11 +211,11 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // Listen for timezone changes and reload data
+  // Listen for timezone changes — update selected date and reload data
   useEffect(() => {
     const handleSettingsChanged = (event) => {
       if (event.detail.changed?.includes('timezone')) {
-        // Timezone changed, reload data to reflect new timezone
+        setSelectedDate(getTodayInSLST());
         loadData();
       }
     };

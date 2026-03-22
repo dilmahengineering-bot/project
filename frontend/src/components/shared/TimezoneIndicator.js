@@ -37,12 +37,12 @@ export default function TimezoneIndicator() {
 
   if (!tzInfo) return null;
 
-  const tooltipText = `System Timezone: ${tzInfo.name} (${tzInfo.offset})\nCurrent Time: ${tzInfo.displayTime}`;
+  const tooltipText = `System Timezone: ${tzInfo.name}\nCurrent Time: ${tzInfo.displayTime}`;
 
   return (
     <div className="timezone-indicator" title={tooltipText}>
       <span className="tz-icon">🌏</span>
-      <span className="tz-text">{tzInfo.abbreviation}</span>
+      <span className="tz-text">{tzInfo.timezone}</span>
       <span className="tz-time">{timeStr}</span>
     </div>
   );

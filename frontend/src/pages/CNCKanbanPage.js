@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getNowInSLST } from '../utils/timezoneHelper';
@@ -56,6 +56,21 @@ export default function CNCKanbanPage() {
   const [selectedJobCard, setSelectedJobCard] = useState(null);
   const [draggedCard, setDraggedCard] = useState(null);
   const [viewMode, setViewMode] = useState('active'); // 'active' or 'completed'
+  const [, setTzRefreshKey] = useState(0);
+
+  // Listen for timezone changes and force re-render so date helpers recalculate
+  useEffect(() => {
+    const handleSettingsChanged = (event) => {
+      if (event.detail.changed?.includes('timezone')) {
+        setTzRefreshKey(k => k + 1);
+        if (selectedWorkflow) {
+          loadJobCards(selectedWorkflow.id);
+        }
+      }
+    };
+    window.addEventListener('settingsChanged', handleSettingsChanged);
+    return () => window.removeEventListener('settingsChanged', handleSettingsChanged);
+  }, [selectedWorkflow]);
 
   // Load workflows and job cards
   useEffect(() => {

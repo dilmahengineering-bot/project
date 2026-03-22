@@ -99,6 +99,17 @@ export const useHourlyAnnouncements = (entries, machines, isActive = true, optio
     };
   }, [entries, isActive, voiceEnabled, options]);
 
+  // Reset announced jobs when timezone changes
+  useEffect(() => {
+    const handleSettingsChanged = (event) => {
+      if (event.detail.changed?.includes('timezone')) {
+        announcedJobsRef.current.clear();
+      }
+    };
+    window.addEventListener('settingsChanged', handleSettingsChanged);
+    return () => window.removeEventListener('settingsChanged', handleSettingsChanged);
+  }, []);
+
   return { voiceEnabled, setVoiceEnabled };
 };
 
