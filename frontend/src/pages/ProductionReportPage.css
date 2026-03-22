@@ -281,12 +281,13 @@
 }
 
 .machine-section-header {
-  background: #f1f5f9;
+  background: #ffffff;
   padding: 12px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid #cbd5e1;
+  border-top: 1px solid #e2e8f0;
 }
 
 .machine-title {
@@ -372,7 +373,8 @@
 }
 
 .production-table thead {
-  background: #f8fafc;
+  background: #ffffff;
+  border-top: 2px solid #1e293b;
 }
 
 .production-table th {
@@ -381,21 +383,22 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #475569;
-  border-bottom: 2px solid #e2e8f0;
+  color: #1e293b;
+  border-bottom: 1px solid #cbd5e1;
   text-align: left;
   white-space: nowrap;
 }
 
 .production-table td {
   padding: 6px 10px;
-  color: #334155;
-  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
   vertical-align: middle;
+  background: #ffffff;
 }
 
 .production-table tbody tr:hover {
-  background: #f8fafc;
+  background: #ffffff;
 }
 
 .col-seq { width: 30px; text-align: center; }
@@ -441,8 +444,8 @@
   display: flex;
   gap: 24px;
   padding: 16px 24px;
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-top: 1px solid #cbd5e1;
   flex-wrap: wrap;
 }
 
@@ -561,5 +564,123 @@
 
   .sheet-summary {
     justify-content: center;
+  }
+}
+
+/* ── Print Styles (PDF Export) ── */
+
+@media print {
+  .prod-report-controls {
+    display: none;
+  }
+
+  .prod-report-page {
+    padding: 0;
+    margin: 0;
+    background: #ffffff;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .production-table {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .production-table thead {
+    background: #ffffff;
+  }
+
+  .production-table th {
+    background: #ffffff;
+    color: #000000;
+    border-bottom: 2px solid #000000;
+    font-weight: 700;
+    padding: 8px 10px;
+  }
+
+  .production-table td {
+    background: #ffffff;
+    color: #000000;
+    border-bottom: 1px solid #cccccc;
+    padding: 6px 10px;
+  }
+
+  .production-table tbody tr {
+    page-break-inside: avoid;
+  }
+
+  .production-table tbody tr:hover {
+    background: #ffffff;
+  }
+
+  .machine-section-header {
+    background: #ffffff;
+    border-bottom: 2px solid #000000;
+    page-break-inside: avoid;
+  }
+
+  .machine-title {
+    color: #000000;
+    font-weight: 700;
+  }
+
+  .machine-meta {
+    color: #333333;
+  }
+
+  .sheet-summary {
+    background: #ffffff;
+    border-top: 2px solid #000000;
+    color: #000000;
+    page-break-inside: avoid;
+  }
+
+  .summary-value {
+    color: #000000;
+    font-weight: 700;
+  }
+
+  .shift-badge.day {
+    background: #ffffff;
+    border: 1px solid #999999;
+    color: #000000;
+  }
+
+  .shift-badge.night {
+    background: #ffffff;
+    border: 1px solid #999999;
+    color: #000000;
+  }
+
+  .timeline-hour.day {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+  }
+
+  .timeline-hour.night {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+  }
+
+  .daily-sheet {
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+
+  .sheet-header {
+    background: #ffffff;
+    border-bottom: 2px solid #000000;
+  }
+
+  .sheet-footer {
+    color: #000000;
+    border-top: 1px solid #cccccc;
+  }
+
+  .status-dot {
+    border: 1px solid #000000;
   }
 }
