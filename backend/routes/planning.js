@@ -585,7 +585,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     // ── Column definitions (proportional) ──
     const COL_DEFS = [
       { label: '#',              weight: 2.5 },
-      { label: 'Job Card',      weight: 6.5 },
+      { label: 'Job Card',      weight: 10  },
       { label: 'Job Name',      weight: 10  },
       { label: 'Part No.',      weight: 6   },
       { label: 'Client',        weight: 8   },
@@ -667,14 +667,14 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
 
     // ── Draw bordered table cell ──
     function drawCell(x, y, w, h, text, opts = {}) {
-      const { fontSize = 7, bold = false, align = 'left', bg = '#ffffff', textColor = '#1e293b', padding = 3 } = opts;
+      const { fontSize = 7, bold = false, align = 'left', bg = '#ffffff', textColor = '#1e293b', padding = 3, noTrunc = false } = opts;
 
       doc.rect(x, y, w, h).fill(bg);
       doc.strokeColor('#e2e8f0').lineWidth(0.5);
       doc.rect(x, y, w, h).stroke();
 
       doc.fillColor(textColor).fontSize(fontSize).font(bold ? 'Helvetica-Bold' : 'Helvetica');
-      const displayText = truncText(String(text || '-'), w - padding * 2, fontSize);
+      const displayText = noTrunc ? String(text || '-') : truncText(String(text || '-'), w - padding * 2, fontSize);
       safeText(displayText, x + padding, y + (h - fontSize) / 2, {
         width: w - padding * 2,
         height: h,
@@ -726,13 +726,14 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
     function drawTableHeader(y) {
       const rowH = 16;
       let x = leftM;
-      COLS.forEach(col => {
+      COLS.forEach((col, idx) => {
         drawCell(x, y, col.w, rowH, col.label.toUpperCase(), {
           fontSize: 6.5,
           bold: true,
           bg: '#ffffff',
           textColor: '#1e293b',
           align: 'center',
+          noTrunc: idx === 1,  // Don't truncate Job Card header
         });
         x += col.w;
       });
@@ -791,6 +792,7 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
           bg: cellBg,
           textColor: cellTextColor,
           align: cellAlign,
+          noTrunc: i === 1,  // Don't truncate Job Card column
         });
         x += COLS[i].w;
       });
