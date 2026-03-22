@@ -272,7 +272,17 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
     if (viewMode === 'hourly') {
       const startDT = parseTS(entry.planned_start_time);
       const endDT = parseTS(entry.planned_end_time);
-      if (!startDT || !endDT) return null;
+      
+      // If no planned times, fall back to showing during the entire shift based on plan_date
+      if (!startDT || !endDT) {
+        const planDate = entry.plan_date?.split('T')[0];
+        if (planDate !== selectedDate) return null;
+        // Show entry covering the entire visible shift (7 AM to 7 AM next day)
+        const cellW = VIEW_MODES.hourly.cellWidth;
+        const timelineStart = new Date(selectedDate + `T${SHIFT_CONFIG.day.start.toString().padStart(2, '0')}:00:00`);
+        const timelineEnd = new Date(selectedDate + `T${(SHIFT_CONFIG.day.start + 24).toString().padStart(2, '0') % 24}:00:00`);
+        return { left: 0, width: timelineEnd > timelineStart ? (1440 / 60) * cellW : cellW };
+      }
       
       // Timeline starts at 7 AM (SHIFT_CONFIG.day.start) and goes 24 hours
       const dayStart = new Date(selectedDate + 'T00:00:00');
