@@ -787,5 +787,3 @@ export default function GanttPage({ hideLayout = false }) {
 
   return hideLayout ? ganttContent : <Layout>{ganttContent}</Layout>;
 }
-  );
-}
