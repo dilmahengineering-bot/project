@@ -102,6 +102,28 @@
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
+/* Urgent/Starting Soon - Orange/Red Theme */
+.job-block.next-job-urgent {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+  animation: urgentPulse 2s ease-in-out infinite;
+}
+
+.job-block.next-job-urgent:hover {
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35);
+  border-color: #ea580c;
+}
+
+@keyframes urgentPulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+  }
+}
+
 /* Next jobs - Progressive opacity */
 .job-block.next-job-2 {
   opacity: 0.9;
@@ -153,6 +175,21 @@
 
 .job-status-badge.planned {
   background: #3b82f6;
+}
+
+.job-status-badge.urgent {
+  background: #f59e0b;
+  font-weight: 800;
+  animation: urgentBlink 1s ease-in-out infinite;
+}
+
+@keyframes urgentBlink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 /* Job Content */

@@ -7,6 +7,8 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     if (!entries || entries.length === 0) return null;
 
     const now = getNowInSLST();
+    const oneHourFromNow = new Date(now.getTime() + 1 * 60 * 60 * 1000);
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     
     // Find current jobs (one per machine) - using precise time range check
     const currentJobs = {};
@@ -19,7 +21,7 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
       }
     });
 
-    // Find upcoming jobs grouped by machine
+    // Find upcoming jobs within 1-2 hours grouped by machine
     const upcomingByMachine = {};
     const sortedEntries = [...entries].sort((a, b) => 
       new Date(a.planned_start_time) - new Date(b.planned_start_time)
@@ -27,8 +29,11 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     
     sortedEntries.forEach(entry => {
       const start = new Date(entry.planned_start_time);
-      // Only show jobs that haven't started yet
-      if (start > now) {
+      // Only show jobs that start within the next 1-2 hours
+      if (start > twoHoursFromNow) {
+        return; // Skip jobs starting after 2 hours
+      }
+      if (start >= oneHourFromNow && start <= twoHoursFromNow) {
         const machineId = entry.machine_id || entry.machine_name;
         if (!upcomingByMachine[machineId]) {
           upcomingByMachine[machineId] = [];
@@ -40,6 +45,7 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     return {
       currentJobs,
       upcomingByMachine,
+      now,
     };
   }, [entries]);
 
@@ -63,11 +69,36 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     return `${hours}h ${mins}m`;
   };
 
-  // Get all machines with jobs
+  // Calculate time until job starts
+  const getTimeUntilStart = (startTime) => {
+    const jobStartTime = new Date(startTime);
+    const now = jobDetails.now;
+    const minutesUntilStart = (jobStartTime - now) / (1000 * 60);
+    
+    if (minutesUntilStart < 60) {
+      return `${Math.round(minutesUntilStart)}m`;
+    }
+    const hours = Math.floor(minutesUntilStart / 60);
+    const mins = Math.round(minutesUntilStart % 60);
+    return `${hours}h ${mins}m`;
+  };
+
+  // Get all machines with upcoming jobs
   const activeMachines = Object.keys({
     ...jobDetails.currentJobs,
     ...jobDetails.upcomingByMachine,
   });
+
+  // If no current jobs and no upcoming jobs within 1-2 hours
+  if (activeMachines.length === 0 || Object.keys(jobDetails.upcomingByMachine).every(m => jobDetails.upcomingByMachine[m].length === 0)) {
+    return (
+      <div className="next-job-details">
+        <div className="job-block empty">
+          <p>No jobs starting within the next 2 hours</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="next-job-details">
@@ -110,19 +141,19 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
                 </div>
               )}
               
-              {/* Upcoming jobs for this machine */}
-              {upcomingJobs.slice(0, 3).map((job, index) => (
-                <div key={job.id} className={`job-block next-job next-job-${index + 1}`}>
+              {/* Upcoming jobs within 1-2 hours for this machine */}
+              {upcomingJobs.map((job, index) => (
+                <div key={job.id} className={`job-block next-job next-job-urgent`}>
                   <div className="job-header">
-                    <span className="job-label">Next {index === 0 ? '(1)' : index === 1 ? '(2)' : '(3)'}</span>
-                    <span className="job-status-badge planned">PLANNED</span>
+                    <span className="job-label">⏰ Starting Soon</span>
+                    <span className="job-status-badge urgent">IN {getTimeUntilStart(job.planned_start_time)}</span>
                   </div>
                   <div className="job-content">
                     <h3 className="job-number">{job.job_card_number}</h3>
                     <p className="job-name">{job.job_name}</p>
                     <div className="job-grid">
                       <div className="job-item">
-                        <span className="label">Starts</span>
+                        <span className="label">Starts At</span>
                         <span className="value">{formatTimeInSLST(job.planned_start_time)}</span>
                       </div>
                       <div className="job-item">
