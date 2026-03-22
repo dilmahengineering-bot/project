@@ -647,6 +647,11 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
           </div>
         )}
 
+        {/* Read-Only Banner */}
+        <div className="gantt-readonly-banner">
+          <span>🔒 Read-Only Mode</span> — This Gantt Chart is in view-only mode. No changes can be made.
+        </div>
+
         {machines.length === 0 ? (
           <div className="gantt-empty"><p>🔧 No machines configured. Add machines in Machine Master first.</p></div>
         ) : (
@@ -713,7 +718,7 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
                           return (
                             <div
                               key={entry.id}
-                              className={`gantt-block ${entry.status}${isDragging ? ' dragging' : ''}`}
+                              className={`gantt-block ${entry.status}${isDragging ? ' dragging' : ''} read-only`}
                               style={{
                                 left: pos.left,
                                 width: pos.width,
@@ -721,19 +726,10 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
                                 borderColor: jobColor.border,
                                 color: jobColor.text,
                               }}
-                              onMouseDown={e => handleBlockMouseDown(e, entry)}
-                              onDoubleClick={() => openEdit(entry)}
                               onMouseEnter={(e) => { setHoveredEntry(entry); setTooltipPos({ x: e.clientX, y: e.clientY }); }}
                               onMouseLeave={() => setHoveredEntry(null)}
-                              title="Drag to reschedule • Double-click to edit"
+                              title="Read-only view"
                             >
-                              {/* Resize handles (hourly view only) */}
-                              {viewMode === 'hourly' && (
-                                <>
-                                  <div className="gantt-resize-handle left" onMouseDown={e => handleResizeMouseDown(e, entry, 'left')} />
-                                  <div className="gantt-resize-handle right" onMouseDown={e => handleResizeMouseDown(e, entry, 'right')} />
-                                </>
-                              )}
                               <div className="gantt-block-content">
                                 <span className="block-job-number">
                                   {PRIORITY_INDICATORS[entry.priority] || ''} {entry.job_card_number}
