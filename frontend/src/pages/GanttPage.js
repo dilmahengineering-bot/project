@@ -332,20 +332,17 @@ export default function GanttPage({ hideLayout = false, onEntriesLoad = null }) 
       const startDT = parseTS(entry.planned_start_time);
       const endDT = parseTS(entry.planned_end_time);
       
-      // If no planned times, fall back to showing during the entire shift based on plan_date
+      // If no planned times, fall back to showing during the entire day based on plan_date
       if (!startDT || !endDT) {
         const planDate = entry.plan_date?.split('T')[0];
         if (planDate !== selectedDate) return null;
-        // Show entry covering the entire visible shift (7 AM to 7 AM next day)
+        // Show entry covering the entire 24-hour timeline (00:00 to 24:00)
         const cellW = VIEW_MODES.hourly.cellWidth;
-        const timelineStart = new Date(selectedDate + `T${SHIFT_CONFIG.day.start.toString().padStart(2, '0')}:00:00`);
-        const timelineEnd = new Date(selectedDate + `T${(SHIFT_CONFIG.day.start + 24).toString().padStart(2, '0') % 24}:00:00`);
-        return { left: 0, width: timelineEnd > timelineStart ? (1440 / 60) * cellW : cellW };
+        return { left: 0, width: 24 * cellW };
       }
       
-      // Timeline starts at 7 AM (SHIFT_CONFIG.day.start) and goes 24 hours
-      const dayStart = new Date(selectedDate + 'T00:00:00');
-      const timelineStart = new Date(selectedDate + `T${SHIFT_CONFIG.day.start.toString().padStart(2, '0')}:00:00`);
+      // Timeline now starts at 00:00 and goes 24 hours
+      const timelineStart = new Date(selectedDate + 'T00:00:00');
       
       const startMinutes = (startDT - timelineStart) / 60000;
       const endMinutes = (endDT - timelineStart) / 60000;
