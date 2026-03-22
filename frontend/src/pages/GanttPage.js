@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Layout from '../components/shared/Layout';
+import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import './GanttPage.css';
@@ -48,6 +49,7 @@ const JOB_COLORS = [
 ];
 
 export default function GanttPage({ hideLayout = false }) {
+  const { isGuest } = useAuth();
   const [viewMode, setViewMode] = useState('hourly');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [machines, setMachines] = useState([]);
@@ -309,6 +311,7 @@ export default function GanttPage({ hideLayout = false }) {
 
   // Drag handlers for moving blocks
   const handleBlockMouseDown = (e, entry) => {
+    if (isGuest) return; // Prevent guest users from dragging
     if (e.target.classList.contains('gantt-resize-handle')) return;
     e.preventDefault();
     const rect = ganttBodyRef.current.getBoundingClientRect();
@@ -323,6 +326,7 @@ export default function GanttPage({ hideLayout = false }) {
 
   // Resize handlers
   const handleResizeMouseDown = (e, entry, direction) => {
+    if (isGuest) return; // Prevent guest users from resizing
     e.preventDefault();
     e.stopPropagation();
     const pos = getEntryPosition(entry);
@@ -454,6 +458,7 @@ export default function GanttPage({ hideLayout = false }) {
 
   // Edit modal
   const openEdit = (entry) => {
+    if (isGuest) return; // Prevent guest users from editing
     const toLocal = (ts) => {
       if (!ts) return '';
       const d = new Date(ts);
@@ -647,7 +652,7 @@ export default function GanttPage({ hideLayout = false }) {
                           return (
                             <div
                               key={entry.id}
-                              className={`gantt-block ${entry.status}${isDragging ? ' dragging' : ''}`}
+                              className={`gantt-block ${entry.status}${isDragging ? ' dragging' : ''}${isGuest ? ' guest-view' : ''}`}
                               style={{
                                 left: pos.left,
                                 width: pos.width,
@@ -659,10 +664,10 @@ export default function GanttPage({ hideLayout = false }) {
                               onDoubleClick={() => openEdit(entry)}
                               onMouseEnter={(e) => { setHoveredEntry(entry); setTooltipPos({ x: e.clientX, y: e.clientY }); }}
                               onMouseLeave={() => setHoveredEntry(null)}
-                              title="Drag to reschedule • Double-click to edit"
+                              title={isGuest ? 'View only - Guest users cannot edit' : 'Drag to reschedule • Double-click to edit'}
                             >
-                              {/* Resize handles (hourly view only) */}
-                              {viewMode === 'hourly' && (
+                              {/* Resize handles (hourly view only, not for guests) */}
+                              {viewMode === 'hourly' && !isGuest && (
                                 <>
                                   <div className="gantt-resize-handle left" onMouseDown={e => handleResizeMouseDown(e, entry, 'left')} />
                                   <div className="gantt-resize-handle right" onMouseDown={e => handleResizeMouseDown(e, entry, 'right')} />

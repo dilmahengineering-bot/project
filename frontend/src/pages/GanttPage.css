@@ -341,6 +341,10 @@ html, body {
 
 .gantt-block.completed { opacity: 0.75; }
 .gantt-block.cancelled { opacity: 0.5; }
+.gantt-block.guest-view {
+  cursor: not-allowed !important;
+  opacity: 0.8;
+}
 
 .gantt-block-content {
   display: flex;
