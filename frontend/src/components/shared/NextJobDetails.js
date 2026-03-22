@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { getNowInSLST, formatTimeInSLST, formatDateInSLST } from '../../utils/timezoneHelper';
+import { getNowInSLST, formatTimeInSLST, isTimeInRange } from '../../utils/timezoneHelper';
 import './NextJobDetails.css';
 
 export default function NextJobDetails({ entries = [], machines = [] }) {
@@ -8,12 +8,10 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
 
     const now = getNowInSLST();
     
-    // Find current jobs (one per machine)
+    // Find current jobs (one per machine) - using precise time range check
     const currentJobs = {};
     entries.forEach(entry => {
-      const start = new Date(entry.planned_start_time);
-      const end = new Date(entry.planned_end_time);
-      if (start <= now && end > now) {
+      if (isTimeInRange(entry.planned_start_time, entry.planned_end_time)) {
         const machineId = entry.machine_id || entry.machine_name;
         if (!currentJobs[machineId]) {
           currentJobs[machineId] = entry;
@@ -29,6 +27,7 @@ export default function NextJobDetails({ entries = [], machines = [] }) {
     
     sortedEntries.forEach(entry => {
       const start = new Date(entry.planned_start_time);
+      // Only show jobs that haven't started yet
       if (start > now) {
         const machineId = entry.machine_id || entry.machine_name;
         if (!upcomingByMachine[machineId]) {
