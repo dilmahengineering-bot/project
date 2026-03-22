@@ -47,7 +47,7 @@ const JOB_COLORS = [
   { bg: '#22c55e', text: '#fff', border: '#16a34a' },  // green
 ];
 
-export default function GanttPage() {
+export default function GanttPage({ hideLayout = false }) {
   const [viewMode, setViewMode] = useState('hourly');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [machines, setMachines] = useState([]);
@@ -539,12 +539,12 @@ export default function GanttPage() {
     : null;
 
   if (loading && machines.length === 0) {
-    return <Layout><div className="gantt-loading"><div className="spinner" /><p>Loading Gantt chart...</p></div></Layout>;
+    const loadingContent = <div className="gantt-loading"><div className="spinner" /><p>Loading Gantt chart...</p></div>;
+    return hideLayout ? loadingContent : <Layout>{loadingContent}</Layout>;
   }
 
-  return (
-    <Layout>
-      <div className="gantt-page">
+  const content = (
+    <div className="gantt-page">
         {/* Header */}
         <div className="gantt-header">
           <div className="gantt-title">
@@ -783,6 +783,8 @@ export default function GanttPage() {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
+
+  return hideLayout ? content : <Layout>{content}</Layout>;
 }
