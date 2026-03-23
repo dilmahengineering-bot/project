@@ -65,32 +65,8 @@ const getUrgencyClass = (dueDate) => {
   return 'safe';
 };
 
-const getDaysRemaining = (card) => {
-  try {
-    // Check if card is completed
-    const isCompleted = card.status === 'completed' || card.actual_end_date;
-    if (isCompleted) return null;
-    
-    const extDate = card.approved_extension_date;
-    const estimateDate = card.estimate_end_date;
-    
-    // Use extended date if available, otherwise use estimate date
-    const deadlineStr = extDate || estimateDate;
-    if (!deadlineStr) return null;
-    
-    const deadline = new Date(deadlineStr);
-    if (isNaN(deadline)) return null;
-    
-    const now = getNowInSLST();
-    return Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
-  } catch (err) {
-    console.error('Error calculating days remaining:', err);
-    return null;
-  }
-};
-
 const getCardUrgencyClass = (card) => {
-  const days = getDaysRemaining(card);
+  const days = getDaysRemaining(card.estimate_end_date);
   if (days === null) return '';
   if (days < 1) return 'card-overdue';
   if (days <= 5) return 'card-warning';
