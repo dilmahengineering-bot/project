@@ -405,6 +405,104 @@
   white-space: nowrap;
 }
 
+/* Card Timeline - Age and Remaining Days */
+.card-timeline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border-radius: 4px;
+  border-left: 3px solid #6366f1;
+  align-items: flex-start;
+}
+
+.timeline-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.timeline-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.timeline-value {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.age-item {
+  border-left-color: #3b82f6;
+}
+
+.age-item .timeline-icon {
+  color: #3b82f6;
+}
+
+.remaining-item {
+  border-left-color: #22c55e;
+}
+
+.remaining-item.urgent {
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.remaining-item.urgent .timeline-icon {
+  color: #f59e0b;
+}
+
+.remaining-item.due-today {
+  border-left-color: #f97316;
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.remaining-item.due-today .timeline-icon {
+  color: #f97316;
+}
+
+.remaining-item.overdue {
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  animation: pulse-overdue 1.5s ease-in-out infinite;
+}
+
+.remaining-item.overdue .timeline-icon {
+  color: #ef4444;
+}
+
+.remaining-item.warning {
+  border-left-color: #eab308;
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.remaining-item.warning .timeline-icon {
+  color: #eab308;
+}
+
+@keyframes pulse-overdue {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
 .card-footer {
   padding-top: 8px;
   border-top: 1px solid var(--border);

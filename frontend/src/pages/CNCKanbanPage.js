@@ -7,74 +7,62 @@ import workflowService from '../services/workflowService';
 import CNCJobCardModal from '../components/kanban/CNCJobCardModal';
 import './CNCKanbanPage.css';
 
-const getCardAge = (card) => {
-  if (!card.job_date) return null;
+// Calculate age from created_at date
+const getJobAge = (createdAt) => {
+  if (!createdAt) return '—';
   try {
-    // Parse dates - handle both ISO and timestamp formats
-    let start = null;
-    if (typeof card.job_date === 'string') {
-      start = new Date(card.job_date);
-    } else if (typeof card.job_date === 'number') {
-      start = new Date(card.job_date);
-    }
+    const created = new Date(createdAt);
+    if (isNaN(created.getTime())) return '—';
     
-    if (!start || isNaN(start.getTime())) {
-      console.warn('Invalid job_date format:', card.job_date, 'Card:', card.job_card_number);
-      return null;
-    }
+    const now = new Date();
+    const ageMs = now - created;
+    const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
     
-    const now = getNowInSLST();
-    if (!now || isNaN(now.getTime())) {
-      console.warn('Invalid now date from getNowInSLST');
-      return null;
-    }
+    if (ageDays === 0) return '< 1 day';
+    if (ageDays === 1) return '1 day';
+    return `${ageDays} days`;
+  } catch (e) {
+    return '—';
+  }
+};
+
+// Calculate days remaining until due date
+const getDaysRemaining = (dueDate) => {
+  if (!dueDate) return null;
+  try {
+    const deadline = new Date(dueDate);
+    if (isNaN(deadline.getTime())) return null;
     
-    const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-    if (days < 0) return null;
-    if (days === 0) return '< 1 day';
-    return days === 1 ? '1 day' : `${days} days`;
-  } catch (err) {
-    console.error('Error calculating card age:', err, 'Card:', card?.job_card_number);
+    const now = new Date();
+    const remainingMs = deadline - now;
+    const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+    
+    return remainingDays;
+  } catch (e) {
     return null;
   }
 };
 
-const getDaysToComplete = (card) => {
-  try {
-    // Check if card is completed by status or actual_end_date
-    const isCompleted = card.status === 'completed' || card.actual_end_date;
-    if (isCompleted) return null;
-    
-    const extDate = card.approved_extension_date;
-    const estimateDate = card.estimate_end_date;
-    
-    // Determine the deadline to use
-    let deadline = null;
-    if (extDate) {
-      deadline = typeof extDate === 'string' ? new Date(extDate) : extDate;
-    } else if (estimateDate) {
-      deadline = typeof estimateDate === 'string' ? new Date(estimateDate) : estimateDate;
-    }
-    
-    if (!deadline || isNaN(deadline.getTime ? deadline.getTime() : NaN)) {
-      if (estimateDate || extDate) {
-        console.warn('Invalid deadline format:', { extDate, estimateDate }, 'Card:', card?.job_card_number);
-      }
-      return null;
-    }
-    
-    const now = getNowInSLST();
-    if (!now || isNaN(now.getTime())) {
-      console.warn('Invalid now date from getNowInSLST');
-      return null;
-    }
-    
-    const days = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
-    return { days, isExtended: !!extDate };
-  } catch (err) {
-    console.error('Error calculating days to complete:', err, 'Card:', card?.job_card_number);
-    return null;
-  }
+// Get display text for days remaining
+const getDaysRemainingText = (dueDate) => {
+  const days = getDaysRemaining(dueDate);
+  if (days === null) return null;
+  
+  if (days < 0) return `Overdue ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''}`;
+  if (days === 0) return 'Due Today';
+  if (days === 1) return '1 day left';
+  return `${days} days left`;
+};
+
+// Get urgency class for days remaining
+const getUrgencyClass = (dueDate) => {
+  const days = getDaysRemaining(dueDate);
+  if (days === null) return '';
+  if (days < 0) return 'overdue';
+  if (days === 0) return 'due-today';
+  if (days <= 2) return 'urgent';
+  if (days <= 5) return 'warning';
+  return 'safe';
 };
 
 const getDaysRemaining = (card) => {
@@ -462,36 +450,26 @@ export default function CNCKanbanPage() {
                       </div>
                     )}
 
-                    {card.job_date && (
-                      <div className="card-metadata">
-                        {(() => {
-                          const age = getCardAge(card);
-                          // Don't render if age is null, undefined, or contains "NaN"
-                          if (!age || age.includes('NaN')) return null;
-                          return (
-                            <div className="card-age">
-                              <span>📅 Age: <strong>{age}</strong></span>
-                            </div>
-                          );
-                        })()}
-
-                        {(() => {
-                          const dtc = getDaysToComplete(card);
-                          if (!dtc || !dtc.days || isNaN(dtc.days)) return null;
-                          const isOverdue = dtc.days < 1;
-                          const isWarning = dtc.days >= 1 && dtc.days <= 5;
-                          const label = isOverdue
-                            ? `Overdue by ${Math.abs(dtc.days)} day${Math.abs(dtc.days) !== 1 ? 's' : ''}`
-                            : `${dtc.days} day${dtc.days !== 1 ? 's' : ''} remaining`;
-                          return (
-                            <div className={`card-days-remaining ${isOverdue ? 'days-overdue' : isWarning ? 'days-warning' : 'days-safe'} ${dtc.isExtended ? 'days-extended' : ''}`}>
-                              <span>{isOverdue ? '🔴' : isWarning ? '🟡' : '🟢'} {label}</span>
-                              {dtc.isExtended && <span className="extended-badge">Extended</span>}
-                            </div>
-                          );
-                        })()}
+                    {/* Age and Remaining Days Display */}
+                    <div className="card-timeline">
+                      <div className="timeline-item age-item">
+                        <span className="timeline-icon">📅</span>
+                        <div className="timeline-content">
+                          <div className="timeline-label">Age</div>
+                          <div className="timeline-value">{getJobAge(card.created_at)}</div>
+                        </div>
                       </div>
-                    )}
+                      
+                      {card.estimate_end_date && (
+                        <div className={`timeline-item remaining-item ${getUrgencyClass(card.estimate_end_date)}`}>
+                          <span className="timeline-icon">⏱️</span>
+                          <div className="timeline-content">
+                            <div className="timeline-label">Remaining</div>
+                            <div className="timeline-value">{getDaysRemainingText(card.estimate_end_date)}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="card-footer">
                       <span className="created-date">
