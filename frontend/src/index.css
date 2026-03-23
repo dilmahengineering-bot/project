@@ -87,6 +87,8 @@ h1,h2,h3,h4,h5 { font-family: 'Space Grotesk', sans-serif; font-weight: 700; lin
 .nav-item.active::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: #818cf8; border-radius: 0 3px 3px 0; }
 .nav-item .icon { width: 18px; height: 18px; flex-shrink: 0; }
 .nav-badge { margin-left: auto; background: var(--danger); color: white; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+.logout-item { color: #fca5a5; transition: all 0.2s; }
+.logout-item:hover { color: white; background: rgba(220, 38, 38, 0.2); }
 .sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.1); }
 .user-info { display: flex; align-items: center; gap: 10px; }
 .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; flex-shrink: 0; }

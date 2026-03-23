@@ -59,8 +59,8 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
 
           <div className="nav-section">
             <div className="nav-section-title">Account</div>
-            <NavItem to="/profile" icon="⚙️" label="Settings" />
-            <div className="nav-item" onClick={handleLogout}>
+            {!isGuest && <NavItem to="/profile" icon="⚙️" label="Settings" />}
+            <div className="nav-item logout-item" onClick={handleLogout} style={{ cursor: 'pointer' }}>
               <span className="icon">🚪</span>
               <span>Sign Out</span>
             </div>
