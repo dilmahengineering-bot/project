@@ -8,32 +8,71 @@ import CNCJobCardModal from '../components/kanban/CNCJobCardModal';
 import './CNCKanbanPage.css';
 
 const getCardAge = (card) => {
-  const start = card.job_date ? new Date(card.job_date) : null;
-  if (!start) return null;
-  const now = getNowInSLST();
-  const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-  if (days < 0) return null;
-  if (days === 0) return '< 1 day';
-  return days === 1 ? '1 day' : days + ' days';
+  if (!card.job_date) return null;
+  try {
+    const start = new Date(card.job_date);
+    if (isNaN(start)) return null;
+    const now = getNowInSLST();
+    const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+    if (days < 0) return null;
+    if (days === 0) return '< 1 day';
+    return days === 1 ? '1 day' : `${days} days`;
+  } catch (err) {
+    console.error('Error calculating card age:', err);
+    return null;
+  }
 };
 
 const getDaysToComplete = (card) => {
-  if (card.status === 'completed') return null;
-  const extDate = card.approved_extension_date;
-  const deadline = extDate ? new Date(extDate) : (card.estimate_end_date ? new Date(card.estimate_end_date) : null);
-  if (!deadline) return null;
-  const now = getNowInSLST();
-  const days = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
-  return { days, isExtended: !!extDate };
+  try {
+    // Check if card is completed by status or actual_end_date
+    const isCompleted = card.status === 'completed' || card.actual_end_date;
+    if (isCompleted) return null;
+    
+    const extDate = card.approved_extension_date;
+    const estimateDate = card.estimate_end_date;
+    
+    // Determine the deadline to use
+    let deadline = null;
+    if (extDate) {
+      deadline = new Date(extDate);
+    } else if (estimateDate) {
+      deadline = new Date(estimateDate);
+    }
+    
+    if (!deadline || isNaN(deadline)) return null;
+    
+    const now = getNowInSLST();
+    const days = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    return { days, isExtended: !!extDate };
+  } catch (err) {
+    console.error('Error calculating days to complete:', err);
+    return null;
+  }
 };
 
 const getDaysRemaining = (card) => {
-  const extDate = card.approved_extension_date;
-  const deadlineStr = extDate || card.estimate_end_date;
-  if (!deadlineStr || card.status === 'completed') return null;
-  const deadline = new Date(deadlineStr);
-  const now = getNowInSLST();
-  return Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+  try {
+    // Check if card is completed
+    const isCompleted = card.status === 'completed' || card.actual_end_date;
+    if (isCompleted) return null;
+    
+    const extDate = card.approved_extension_date;
+    const estimateDate = card.estimate_end_date;
+    
+    // Use extended date if available, otherwise use estimate date
+    const deadlineStr = extDate || estimateDate;
+    if (!deadlineStr) return null;
+    
+    const deadline = new Date(deadlineStr);
+    if (isNaN(deadline)) return null;
+    
+    const now = getNowInSLST();
+    return Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+  } catch (err) {
+    console.error('Error calculating days remaining:', err);
+    return null;
+  }
 };
 
 const getCardUrgencyClass = (card) => {
@@ -397,27 +436,31 @@ export default function CNCKanbanPage() {
                       </div>
                     )}
 
-                    {getCardAge(card) && (
-                      <div className="card-age">
-                        <span>📅 Age: <strong>{getCardAge(card)}</strong></span>
+                    {card.job_date && (
+                      <div className="card-metadata">
+                        {getCardAge(card) && (
+                          <div className="card-age">
+                            <span>📅 Age: <strong>{getCardAge(card)}</strong></span>
+                          </div>
+                        )}
+
+                        {(() => {
+                          const dtc = getDaysToComplete(card);
+                          if (!dtc) return null;
+                          const isOverdue = dtc.days < 1;
+                          const isWarning = dtc.days >= 1 && dtc.days <= 5;
+                          const label = isOverdue
+                            ? `Overdue by ${Math.abs(dtc.days)} day${Math.abs(dtc.days) !== 1 ? 's' : ''}`
+                            : `${dtc.days} day${dtc.days !== 1 ? 's' : ''} remaining`;
+                          return (
+                            <div className={`card-days-remaining ${isOverdue ? 'days-overdue' : isWarning ? 'days-warning' : 'days-safe'} ${dtc.isExtended ? 'days-extended' : ''}`}>
+                              <span>{isOverdue ? '🔴' : isWarning ? '🟡' : '🟢'} {label}</span>
+                              {dtc.isExtended && <span className="extended-badge">Extended</span>}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
-
-                    {(() => {
-                      const dtc = getDaysToComplete(card);
-                      if (!dtc) return null;
-                      const isOverdue = dtc.days < 1;
-                      const isWarning = dtc.days >= 1 && dtc.days <= 5;
-                      const label = isOverdue
-                        ? `Overdue by ${Math.abs(dtc.days)} day${Math.abs(dtc.days) !== 1 ? 's' : ''}`
-                        : `${dtc.days} day${dtc.days !== 1 ? 's' : ''} remaining`;
-                      return (
-                        <div className={`card-days-remaining ${isOverdue ? 'days-overdue' : isWarning ? 'days-warning' : 'days-safe'} ${dtc.isExtended ? 'days-extended' : ''}`}>
-                          <span>{isOverdue ? '🔴' : isWarning ? '🟡' : '🟢'} {label}</span>
-                          {dtc.isExtended && <span className="extended-badge">Extended</span>}
-                        </div>
-                      );
-                    })()}
 
                     <div className="card-footer">
                       <span className="created-date">

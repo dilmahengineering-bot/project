@@ -95,7 +95,49 @@ CREATE INDEX IF NOT EXISTS idx_cnc_job_cards_assigned_to ON cnc_job_cards(assign
 CREATE INDEX IF NOT EXISTS idx_cnc_job_cards_job_card_number ON cnc_job_cards(job_card_number);
 CREATE INDEX IF NOT EXISTS idx_cnc_job_card_history_job_card_id ON cnc_job_card_history(job_card_id);
 
+-- Add status and reminding_day columns to cnc_job_cards if they don't exist
+ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed'));
+ALTER TABLE cnc_job_cards ADD COLUMN IF NOT EXISTS reminding_day INTEGER DEFAULT 1;
+
+-- Create index for status column
+CREATE INDEX IF NOT EXISTS idx_cnc_job_cards_status ON cnc_job_cards(status);
+
+-- Add deadline extensions table for CNC job cards  
+CREATE TABLE IF NOT EXISTS cnc_deadline_extensions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_card_id UUID NOT NULL REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
+    requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    previous_deadline TIMESTAMP,
+    new_deadline TIMESTAMP NOT NULL,
+    reason TEXT,
+    approval_status VARCHAR(20) DEFAULT 'pending' CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+    approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    approved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create indexes for extensions
+CREATE INDEX IF NOT EXISTS idx_cnc_deadline_extensions_job_card_id ON cnc_deadline_extensions(job_card_id);
+CREATE INDEX IF NOT EXISTS idx_cnc_deadline_extensions_approval_status ON cnc_deadline_extensions(approval_status);
+
+-- Add attachments table for CNC job cards
+CREATE TABLE IF NOT EXISTS cnc_job_attachments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_card_id UUID NOT NULL REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
+    original_name VARCHAR(500) NOT NULL,
+    stored_filename VARCHAR(500) NOT NULL,
+    file_size INTEGER,
+    file_type VARCHAR(100),
+    uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create index for attachments
+CREATE INDEX IF NOT EXISTS idx_cnc_job_attachments_job_card_id ON cnc_job_attachments(job_card_id);
+
 -- Update trigger for workflows table
 CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON workflows FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_workflow_stages_updated_at BEFORE UPDATE ON workflow_stages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_cnc_job_cards_updated_at BEFORE UPDATE ON cnc_job_cards FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_cnc_deadline_extensions_updated_at BEFORE UPDATE ON cnc_deadline_extensions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
