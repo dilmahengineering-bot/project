@@ -481,6 +481,8 @@ router.get('/machine-last-job/:machineId', authenticate, async (req, res) => {
        FROM cnc_plan_entries pe
        JOIN cnc_job_cards jc ON pe.job_card_id = jc.id
        WHERE pe.machine_id = $1 
+         AND pe.planned_end_time IS NOT NULL
+         AND pe.status IN ('completed', 'in_progress', 'planned')
        ORDER BY pe.planned_end_time DESC
        LIMIT 1`,
       [machineId]

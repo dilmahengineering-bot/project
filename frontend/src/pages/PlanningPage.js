@@ -157,6 +157,15 @@ export default function PlanningPage() {
 
   const endTimePreview = calcEndTimePreview();
 
+  // Auto-suggest start time when modal opens with pre-selected machine
+  useEffect(() => {
+    if (showAddModal && addMachineId) {
+      suggestStartTime(addMachineId);
+    } else if (!showAddModal) {
+      resetAddForm();
+    }
+  }, [showAddModal, addMachineId]);
+
   // Add entry — compute segments on frontend, use proven POST /entries endpoint
   const handleAddEntry = async () => {
     if (!selectedJob || !addMachineId) { toast.error('Select a machine and job card'); return; }
@@ -205,23 +214,26 @@ export default function PlanningPage() {
     try {
       const res = await api.get(`/planning/machine-last-job/${machineId}`);
       if (res.data && res.data.planned_end_time) {
-        const lastEndTime = new Date(String(res.data.planned_end_time).replace(' ', 'T'));
-        // Suggest the last job's end time as the next start time
+        // Parse timestamp string directly (format: "2026-03-25 14:30:00")
+        const timeStr = String(res.data.planned_end_time);
+        // Convert to datetime-local format (YYYY-MM-DDTHH:MM)
+        const isoFormat = timeStr.replace(' ', 'T').substring(0, 16);
+        
         setSuggestedStartTime({
-          time: fmtLocal(lastEndTime),
+          time: isoFormat,
           jobNumber: res.data.job_card_number,
           jobName: res.data.job_name,
           endDate: formatDateTime(res.data.planned_end_time),
         });
         // Auto-fill the start time if user hasn't already entered one
         if (!addForm.planned_start_time) {
-          setAddForm(p => ({ ...p, planned_start_time: fmtLocal(lastEndTime) }));
+          setAddForm(p => ({ ...p, planned_start_time: isoFormat }));
         }
       } else {
         setSuggestedStartTime(null);
       }
     } catch (err) {
-      console.log('No previous job found or error fetching');
+      console.error('Failed to fetch previous job:', err);
       setSuggestedStartTime(null);
     }
   };
@@ -469,14 +481,7 @@ export default function PlanningPage() {
               <div className="modal-body">
                 <div className="form-group">
                   <label>Machine</label>
-                  <select value={addMachineId} onChange={e => {
-                    setAddMachineId(e.target.value);
-                    if (e.target.value) {
-                      suggestStartTime(e.target.value);
-                    } else {
-                      setSuggestedStartTime(null);
-                    }
-                  }} className="form-control">
+                  <select value={addMachineId} onChange={e => setAddMachineId(e.target.value)} className="form-control">
                     <option value="">Select machine...</option>
                     {machines.map(m => <option key={m.id} value={m.id}>{m.machine_name} ({m.machine_code})</option>)}
                   </select>
