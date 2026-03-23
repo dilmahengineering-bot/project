@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -7,13 +9,20 @@ import { useAuth } from '../../context/AuthContext';
 export default function Layout({ children, title }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingExtensions, setPendingExtensions] = useState(0);
-  const { isAdmin } = useAuth();
+  const { isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (isAdmin) {
       api.get('/reports/stats').then(res => setPendingExtensions(res.data.pending_extensions || 0)).catch(() => {});
     }
   }, [isAdmin]);
+
+  const handleLogout = () => {
+    logout();
+    toast.success('Logged out');
+    navigate('/login');
+  };
 
   return (
     <div className="app-layout">
@@ -26,6 +35,9 @@ export default function Layout({ children, title }) {
             </button>
             <h2 className="header-title">{title}</h2>
           </div>
+          <button className="btn btn-logout" onClick={handleLogout} title="Sign out">
+            🚪 Sign Out
+          </button>
         </header>
         <main className="page-content animate-fade">
           {children}
