@@ -10,15 +10,31 @@ import './CNCKanbanPage.css';
 const getCardAge = (card) => {
   if (!card.job_date) return null;
   try {
-    const start = new Date(card.job_date);
-    if (isNaN(start)) return null;
+    // Parse dates - handle both ISO and timestamp formats
+    let start = null;
+    if (typeof card.job_date === 'string') {
+      start = new Date(card.job_date);
+    } else if (typeof card.job_date === 'number') {
+      start = new Date(card.job_date);
+    }
+    
+    if (!start || isNaN(start.getTime())) {
+      console.warn('Invalid job_date format:', card.job_date, 'Card:', card.job_card_number);
+      return null;
+    }
+    
     const now = getNowInSLST();
+    if (!now || isNaN(now.getTime())) {
+      console.warn('Invalid now date from getNowInSLST');
+      return null;
+    }
+    
     const days = Math.floor((now - start) / (1000 * 60 * 60 * 24));
     if (days < 0) return null;
     if (days === 0) return '< 1 day';
     return days === 1 ? '1 day' : `${days} days`;
   } catch (err) {
-    console.error('Error calculating card age:', err);
+    console.error('Error calculating card age:', err, 'Card:', card?.job_card_number);
     return null;
   }
 };
@@ -35,18 +51,28 @@ const getDaysToComplete = (card) => {
     // Determine the deadline to use
     let deadline = null;
     if (extDate) {
-      deadline = new Date(extDate);
+      deadline = typeof extDate === 'string' ? new Date(extDate) : extDate;
     } else if (estimateDate) {
-      deadline = new Date(estimateDate);
+      deadline = typeof estimateDate === 'string' ? new Date(estimateDate) : estimateDate;
     }
     
-    if (!deadline || isNaN(deadline)) return null;
+    if (!deadline || isNaN(deadline.getTime ? deadline.getTime() : NaN)) {
+      if (estimateDate || extDate) {
+        console.warn('Invalid deadline format:', { extDate, estimateDate }, 'Card:', card?.job_card_number);
+      }
+      return null;
+    }
     
     const now = getNowInSLST();
+    if (!now || isNaN(now.getTime())) {
+      console.warn('Invalid now date from getNowInSLST');
+      return null;
+    }
+    
     const days = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
     return { days, isExtended: !!extDate };
   } catch (err) {
-    console.error('Error calculating days to complete:', err);
+    console.error('Error calculating days to complete:', err, 'Card:', card?.job_card_number);
     return null;
   }
 };
@@ -438,15 +464,20 @@ export default function CNCKanbanPage() {
 
                     {card.job_date && (
                       <div className="card-metadata">
-                        {getCardAge(card) && (
-                          <div className="card-age">
-                            <span>📅 Age: <strong>{getCardAge(card)}</strong></span>
-                          </div>
-                        )}
+                        {(() => {
+                          const age = getCardAge(card);
+                          // Don't render if age is null, undefined, or contains "NaN"
+                          if (!age || age.includes('NaN')) return null;
+                          return (
+                            <div className="card-age">
+                              <span>📅 Age: <strong>{age}</strong></span>
+                            </div>
+                          );
+                        })()}
 
                         {(() => {
                           const dtc = getDaysToComplete(card);
-                          if (!dtc) return null;
+                          if (!dtc || !dtc.days || isNaN(dtc.days)) return null;
                           const isOverdue = dtc.days < 1;
                           const isWarning = dtc.days >= 1 && dtc.days <= 5;
                           const label = isOverdue
