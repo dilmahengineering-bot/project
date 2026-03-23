@@ -34,6 +34,7 @@ export default function PlanningPage() {
   const [searchResults, setSearchResults] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [addForm, setAddForm] = useState({ planned_start_time: '', required_hours: '', shift_type: 'day', assigned_to: '', notes: '' });
+  const [suggestedStartTime, setSuggestedStartTime] = useState(null);
   const searchTimeoutRef = useRef(null);
 
   // Edit entry modal
@@ -196,6 +197,33 @@ export default function PlanningPage() {
     setSearchQuery(''); setSearchResults([]); setSelectedJob(null);
     setAddForm({ planned_start_time: '', required_hours: '', shift_type: 'day', assigned_to: '', notes: '' });
     setAddMachineId('');
+    setSuggestedStartTime(null);
+  };
+
+  // Fetch the last job's end time for a machine to suggest next start time
+  const suggestStartTime = async (machineId) => {
+    try {
+      const res = await api.get(`/planning/machine-last-job/${machineId}`);
+      if (res.data && res.data.planned_end_time) {
+        const lastEndTime = new Date(String(res.data.planned_end_time).replace(' ', 'T'));
+        // Suggest the last job's end time as the next start time
+        setSuggestedStartTime({
+          time: fmtLocal(lastEndTime),
+          jobNumber: res.data.job_card_number,
+          jobName: res.data.job_name,
+          endDate: formatDateTime(res.data.planned_end_time),
+        });
+        // Auto-fill the start time if user hasn't already entered one
+        if (!addForm.planned_start_time) {
+          setAddForm(p => ({ ...p, planned_start_time: fmtLocal(lastEndTime) }));
+        }
+      } else {
+        setSuggestedStartTime(null);
+      }
+    } catch (err) {
+      console.log('No previous job found or error fetching');
+      setSuggestedStartTime(null);
+    }
   };
 
   // Update entry
@@ -441,7 +469,14 @@ export default function PlanningPage() {
               <div className="modal-body">
                 <div className="form-group">
                   <label>Machine</label>
-                  <select value={addMachineId} onChange={e => setAddMachineId(e.target.value)} className="form-control">
+                  <select value={addMachineId} onChange={e => {
+                    setAddMachineId(e.target.value);
+                    if (e.target.value) {
+                      suggestStartTime(e.target.value);
+                    } else {
+                      setSuggestedStartTime(null);
+                    }
+                  }} className="form-control">
                     <option value="">Select machine...</option>
                     {machines.map(m => <option key={m.id} value={m.id}>{m.machine_name} ({m.machine_code})</option>)}
                   </select>
@@ -484,6 +519,21 @@ export default function PlanningPage() {
                   <div className="form-group">
                     <label>Start Date & Time</label>
                     <input type="datetime-local" className="form-control" value={addForm.planned_start_time} onChange={e => setAddForm(p => ({...p, planned_start_time: e.target.value}))} />
+                    {suggestedStartTime && (
+                      <div className="suggestion-hint">
+                        💡 <strong>Suggested based on previous job:</strong> {suggestedStartTime.jobNumber} ({suggestedStartTime.jobName})<br/>
+                        <span>Ends: {suggestedStartTime.endDate}</span>
+                        <button
+                          type="button"
+                          className="btn-suggestion"
+                          onClick={() => {
+                            setAddForm(p => ({ ...p, planned_start_time: suggestedStartTime.time }));
+                          }}
+                        >
+                          Apply Suggestion
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Required Hours</label>

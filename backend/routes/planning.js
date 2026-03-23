@@ -465,6 +465,38 @@ router.get('/search-jobs', authenticate, async (req, res) => {
   }
 });
 
+// Get last completed/planned job for a machine to suggest next start time
+router.get('/machine-last-job/:machineId', authenticate, async (req, res) => {
+  try {
+    const { machineId } = req.params;
+    if (!machineId) return res.status(400).json({ error: 'Machine ID required' });
+
+    const result = await db.query(
+      `SELECT 
+         pe.job_card_id,
+         pe.planned_start_time,
+         pe.planned_end_time,
+         jc.job_card_number,
+         jc.job_name
+       FROM cnc_plan_entries pe
+       JOIN cnc_job_cards jc ON pe.job_card_id = jc.id
+       WHERE pe.machine_id = $1 
+       ORDER BY pe.planned_end_time DESC
+       LIMIT 1`,
+      [machineId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json(null);
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching last job for machine:', error);
+    res.status(500).json({ error: 'Failed to fetch last job' });
+  }
+});
+
 // Get planning dashboard stats
 router.get('/stats', authenticate, async (req, res) => {
   try {
