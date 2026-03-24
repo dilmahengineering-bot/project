@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { getInitials, AVATAR_COLORS } from '../utils/helpers';
@@ -8,7 +8,24 @@ import toast from 'react-hot-toast';
 export default function ProfilePage() {
   const { user } = useAuth();
   const [passForm, setPassForm] = useState({ currentPassword: '', newPassword: '', confirm: '' });
+  const [phoneForm, setPhoneForm] = useState({ phone_number: '', loading: true });
   const [saving, setSaving] = useState(false);
+  const [testingSummary, setTestingSummary] = useState(false);
+
+  // Load current phone number
+  useEffect(() => {
+    loadPhoneNumber();
+  }, []);
+
+  const loadPhoneNumber = async () => {
+    try {
+      const res = await api.get('/whatsapp/phone');
+      setPhoneForm(p => ({ ...p, phone_number: res.data.phone_number || '', loading: false }));
+    } catch (err) {
+      console.error('Error loading phone:', err);
+      setPhoneForm(p => ({ ...p, loading: false }));
+    }
+  };
 
   const handlePassChange = async (e) => {
     e.preventDefault();
@@ -21,6 +38,51 @@ export default function ProfilePage() {
       setPassForm({ currentPassword:'', newPassword:'', confirm:'' });
     } catch (err) { toast.error(err.response?.data?.error || 'Error'); }
     finally { setSaving(false); }
+  };
+
+  const handlePhoneUpdate = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.post('/whatsapp/phone', { phone_number: phoneForm.phone_number || null });
+      toast.success('Phone number updated successfully!');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error updating phone');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestMessage = async () => {
+    setSaving(true);
+    try {
+      const res = await api.post('/whatsapp/test-message');
+      if (res.data.success) {
+        toast.success('✅ Test message sent! Check WhatsApp.');
+      } else {
+        toast.error('❌ Failed to send test message: ' + res.data.reason);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestSummary = async () => {
+    setTestingSummary(true);
+    try {
+      const res = await api.post('/whatsapp/test-summary');
+      if (res.data.success || res.data.success === undefined) {
+        toast.success('✅ Dashboard summary sent! Check WhatsApp.');
+      } else {
+        toast.error('❌ ' + (res.data.error || res.data.reason || 'Failed to send'));
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error');
+    } finally {
+      setTestingSummary(false);
+    }
   };
 
   return (
@@ -58,6 +120,63 @@ export default function ProfilePage() {
               </div>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving?'Saving...':'Update Password'}</button>
             </form>
+          </div>
+        </div>
+
+        <div className="card" style={{marginTop:'24px'}}>
+          <div className="card-header"><h3 style={{fontSize:'16px'}}>📱 WhatsApp Notifications</h3></div>
+          <div style={{padding:'24px'}}>
+            <p style={{fontSize:'13px',color:'var(--text-muted)',marginBottom:'16px'}}>
+              Get daily task summaries via WhatsApp at 7 AM and 7 PM. Enter your phone number in international format (e.g., +1234567890).
+            </p>
+            <form onSubmit={handlePhoneUpdate}>
+              <div className="form-group">
+                <label className="form-label">WhatsApp Phone Number</label>
+                <input
+                  type="tel"
+                  className="form-control"
+                  placeholder="+1234567890"
+                  value={phoneForm.phone_number}
+                  onChange={e => setPhoneForm(p => ({...p, phone_number: e.target.value}))}
+                  disabled={phoneForm.loading}
+                  title="Format: +country_code + phone_number"
+                />
+                <small style={{color:'var(--text-muted)',marginTop:'6px',display:'block'}}>
+                  💡 Tip: Use international format starting with +
+                </small>
+              </div>
+              <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                <button type="submit" className="btn btn-primary" disabled={saving || phoneForm.loading}>
+                  {saving ? 'Saving...' : '💾 Save Phone'}
+                </button>
+                {phoneForm.phone_number && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleTestMessage}
+                      disabled={saving}
+                    >
+                      {saving ? 'Sending...' : '📨 Send Test Message'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleTestSummary}
+                      disabled={testingSummary}
+                    >
+                      {testingSummary ? 'Sending...' : '📊 Send Test Summary'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </form>
+            <div style={{marginTop:'16px',padding:'12px',background:'#f0f9ff',border:'1px solid #0284c7',borderRadius:'8px',fontSize:'12px',color:'#0c4a6e'}}>
+              <strong>📅 You will receive:</strong><br/>
+              • 7:00 AM - Morning dashboard summary<br/>
+              • 7:00 PM - Evening dashboard summary<br/>
+              • Task updates & reminders (coming soon)
+            </div>
           </div>
         </div>
       </div>

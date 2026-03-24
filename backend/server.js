@@ -10,6 +10,7 @@ const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
+const schedulerService = require('./services/schedulerService');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -143,6 +144,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/workflows', require('./routes/workflows'));
 app.use('/api/cnc-jobs', require('./routes/cnc-jobs'));
 app.use('/api/planning', require('./routes/planning'));
+app.use('/api/whatsapp', require('./routes/whatsapp'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
@@ -455,6 +457,40 @@ const initDB = async () => {
       console.log(`✅ Admin created: ${adminEmail}`);
     }
     console.log('✅ Database initialized');
+    
+    // Initialize WhatsApp support (add phone number fields and logs table)
+    try {
+      await db.query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT false
+      `);
+      
+      // Create WhatsApp logs table
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS whatsapp_logs (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          phone_number VARCHAR(20) NOT NULL,
+          message_type VARCHAR(50) NOT NULL,
+          message_content TEXT,
+          status VARCHAR(20) NOT NULL DEFAULT 'sent',
+          error_message TEXT,
+          twilio_sid VARCHAR(100),
+          sent_at TIMESTAMP DEFAULT NOW(),
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      
+      // Create indexes if not exist
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_user_id ON whatsapp_logs(user_id)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_created_at ON whatsapp_logs(created_at)`);
+      
+      console.log('✅ WhatsApp support initialized');
+    } catch (err) {
+      console.log('⚠️ WhatsApp initialization notice:', err.message.substring(0, 50));
+    }
   } catch (err) {
     console.error('DB init error:', err.message);
   }
@@ -464,4 +500,15 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT} at http://0.0.0.0:${PORT}`);
   await initDB();
+  
+  // Start WhatsApp dashboard summary scheduler (7 AM & 7 PM)
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+    try {
+      schedulerService.startDashboardScheduler();
+    } catch (err) {
+      console.warn('⚠️ WhatsApp scheduler could not start:', err.message);
+    }
+  } else {
+    console.log('ℹ️ WhatsApp scheduler not started (set TWILIO_ACCOUNT_SID & TWILIO_AUTH_TOKEN to enable)');
+  }
 });
