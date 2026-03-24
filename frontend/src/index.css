@@ -215,6 +215,40 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 .deadline-red { color: var(--danger); }
 .deadline-red .deadline-dot { background: var(--danger); }
 
+/* Task Card Timeline (Age & Remaining Days) */
+.card-timeline-task {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.timeline-item-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  border-left: 3px solid #dbeafe;
+  border-radius: 2px;
+}
+
+.age-item-task { border-left-color: #3b82f6; }
+.timeline-item-task.safe { border-left-color: #10b981; }
+.timeline-item-task.warning { border-left-color: #eab308; }
+.timeline-item-task.urgent { border-left-color: #f59e0b; }
+.timeline-item-task.due-today { border-left-color: #f97316; }
+.timeline-item-task.overdue { border-left-color: #ef4444; animation: pulse-timeline 2s infinite; }
+
+@keyframes pulse-timeline { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+.timeline-icon-task { font-size: 12px; flex-shrink: 0; }
+.timeline-content-task { display: flex; flex-direction: column; gap: 1px; }
+.timeline-label-task { color: var(--text-muted); font-weight: 500; font-size: 10px; }
+.timeline-value-task { color: var(--text); font-weight: 600; }
+
 /* Kanban */
 .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 16px; min-height: calc(100vh - 200px); }
 .kanban-column { flex: 0 0 300px; display: flex; flex-direction: column; }

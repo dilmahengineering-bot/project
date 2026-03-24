@@ -9,6 +9,64 @@ import Layout from '../components/shared/Layout';
 import TaskModal from '../components/shared/TaskModal';
 import { useAuth } from '../context/AuthContext';
 
+// Calculate age from task creation date
+const getTaskAge = (createdAt) => {
+  if (!createdAt) return '—';
+  try {
+    const created = new Date(createdAt);
+    if (isNaN(created.getTime())) return '—';
+    
+    const now = new Date();
+    const ageMs = now - created;
+    const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+    
+    if (ageDays === 0) return '< 1 day';
+    if (ageDays === 1) return '1 day';
+    return `${ageDays} days`;
+  } catch (e) {
+    return '—';
+  }
+};
+
+// Calculate days remaining until deadline
+const getDaysRemaining = (deadline) => {
+  if (!deadline) return null;
+  try {
+    const due = new Date(deadline);
+    if (isNaN(due.getTime())) return null;
+    
+    const now = new Date();
+    const remainingMs = due - now;
+    const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+    
+    return remainingDays;
+  } catch (e) {
+    return null;
+  }
+};
+
+// Get display text for days remaining
+const getDaysRemainingText = (deadline) => {
+  const days = getDaysRemaining(deadline);
+  if (days === null) return null;
+  
+  if (days < 0) return `Overdue ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''}`;
+  if (days === 0) return 'Due Today';
+  if (days === 1) return '1 day left';
+  return `${days} days left`;
+};
+
+// Get urgency class for days remaining
+const getUrgencyClass = (deadline) => {
+  const days = getDaysRemaining(deadline);
+  if (days === null) return '';
+  if (days < 0) return 'overdue';
+  if (days === 0) return 'due-today';
+  if (days <= 2) return 'urgent';
+  if (days <= 5) return 'warning';
+  return 'safe';
+};
+
 const STATUS_COLUMNS = [
   { id: 'pending', label: '⏳ Pending', color: '#f59e0b', bg: '#fef3c7' },
   { id: 'in_progress', label: '🔄 In Progress', color: '#3b82f6', bg: '#dbeafe' },
@@ -385,6 +443,26 @@ export default function KanbanPage() {
                                   <div className="deadline-dot"></div>
                                   <span className="deadline-text">{dl.label}</span>
                                 </div>
+
+                                {/* Age and Remaining Days Display */}
+                                {task.deadline && (
+                                  <div className="card-timeline-task">
+                                    <div className="timeline-item-task age-item-task">
+                                      <span className="timeline-icon-task">📅</span>
+                                      <div className="timeline-content-task">
+                                        <div className="timeline-label-task">Age</div>
+                                        <div className="timeline-value-task">{getTaskAge(task.created_at)}</div>
+                                      </div>
+                                    </div>
+                                    <div className={`timeline-item-task remaining-item-task ${getUrgencyClass(task.deadline)}`}>
+                                      <span className="timeline-icon-task">⏱️</span>
+                                      <div className="timeline-content-task">
+                                        <div className="timeline-label-task">Remaining</div>
+                                        <div className="timeline-value-task">{getDaysRemainingText(task.deadline)}</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             );
                           }}
