@@ -21,7 +21,13 @@ router.post('/:jobCardId/manufacturing-orders', authenticate, denyGuest, async (
       return res.status(400).json({ error: 'Machine and sequence are required' });
     }
     
-    // Insert manufacturing order (FK constraints validate job_card_id and machine_id)
+    // Verify machine exists in cnc_machines
+    const machineCheck = await db.query('SELECT id FROM cnc_machines WHERE id = $1', [machine_id]);
+    if (machineCheck.rows.length === 0) {
+      return res.status(400).json({ error: 'Machine not found. Please select a valid machine.' });
+    }
+    
+    // Insert manufacturing order
     const result = await db.query(`
       INSERT INTO manufacturing_orders 
       (job_card_id, machine_id, order_sequence, estimated_duration_minutes, notes, created_by)
@@ -1443,7 +1449,7 @@ router.get(
           op.name as operator_name,
           creator.name as created_by_name
         FROM manufacturing_orders mo
-        LEFT JOIN machines m ON mo.machine_id = m.id
+        LEFT JOIN cnc_machines m ON mo.machine_id = m.id
         LEFT JOIN users op ON mo.assigned_operator = op.id
         LEFT JOIN users creator ON mo.created_by = creator.id
         WHERE mo.job_card_id = $1

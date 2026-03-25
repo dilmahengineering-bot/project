@@ -460,6 +460,36 @@ const initDB = async () => {
     }
     console.log('✅ Database initialized');
     
+    // Migrate manufacturing_orders FK from machines to cnc_machines
+    try {
+      // Drop old FK constraint referencing machines table, add new one referencing cnc_machines
+      await db.query(`
+        DO $$ BEGIN
+          -- Drop old FK if it exists
+          IF EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'manufacturing_orders_machine_id_fkey'
+            AND table_name = 'manufacturing_orders'
+          ) THEN
+            ALTER TABLE manufacturing_orders DROP CONSTRAINT manufacturing_orders_machine_id_fkey;
+          END IF;
+          -- Add new FK to cnc_machines if not already there
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_name = 'manufacturing_orders_machine_id_cnc_fkey'
+            AND table_name = 'manufacturing_orders'
+          ) THEN
+            ALTER TABLE manufacturing_orders
+              ADD CONSTRAINT manufacturing_orders_machine_id_cnc_fkey
+              FOREIGN KEY (machine_id) REFERENCES cnc_machines(id) ON DELETE RESTRICT;
+          END IF;
+        END $$;
+      `);
+      console.log('\u2705 Manufacturing orders FK migrated to cnc_machines');
+    } catch (err) {
+      console.log('\u26A0\uFE0F Manufacturing FK migration note:', err.message.substring(0, 80));
+    }
+
     // Initialize WhatsApp support (add phone number fields and logs table)
     try {
       await db.query(`

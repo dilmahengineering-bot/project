@@ -129,7 +129,8 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
     let successCount = 0;
     let errorCount = 0;
 
-    for (const row of addRows) {
+    for (let i = 0; i < addRows.length; i++) {
+      const row = addRows[i];
       try {
         await api.post(`/cnc-jobs/${jobCard.id}/manufacturing-orders`, {
           machine_id: row.machine_id,
@@ -142,7 +143,7 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
         errorCount++;
         const errMsg = err.response?.data?.error || err.message;
         console.error('Error saving step:', err.response?.status, errMsg);
-        toast.error(`Step ${idx + 1} failed: ${errMsg}`);
+        toast.error(`Step ${i + 1} failed: ${errMsg}`);
       }
     }
 
