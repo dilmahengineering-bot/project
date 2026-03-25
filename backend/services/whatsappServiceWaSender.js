@@ -49,11 +49,10 @@ async function sendWhatsAppMessage(toNumber, message) {
     const phoneNumber = toNumber.replace('+', '');
 
     // Send message via WaSender
-    // WaSender endpoint: POST /api/send-message
-    const response = await wasenderClient.post('/api/send-message', {
-      phone: toNumber,  // Include country code
-      message: message,
-      deviceId: WASENDER_DEVICE_ID,  // If required by WaSender setup
+    // WaSender endpoint: POST /send-message
+    const response = await wasenderClient.post('/send-message', {
+      to: toNumber,  // Include country code
+      text: message,
     });
 
     console.log('WaSender Response:', JSON.stringify(response.data, null, 2));
@@ -157,8 +156,8 @@ Active: ${summaryData.active || 0}`;
  */
 async function checkMessageStatus(messageId) {
   try {
-    // WaSender endpoint: GET /api/message-status/:messageId
-    const response = await wasenderClient.get(`/api/message-status/${messageId}`);
+    // WaSender endpoint: GET /check-message-status/:messageId
+    const response = await wasenderClient.get(`/check-message-status/${messageId}`);
     
     return { 
       success: true,
