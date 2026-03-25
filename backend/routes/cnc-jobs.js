@@ -9,6 +9,8 @@ const fs = require('fs');
 const PDFDocument = require('pdfkit');
 const crypto = require('crypto');
 
+console.log('🔧 Loading CNC Jobs routes...');
+
 // File upload config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -1456,6 +1458,13 @@ router.post(
     }
   }
 );
+
+// Manufacturing Orders Routes Log
+console.log('✅ Manufacturing Orders routes registered:');
+console.log('  - GET    /:jobCardId/manufacturing-orders');
+console.log('  - POST   /:jobCardId/manufacturing-orders');
+console.log('  - PUT    /manufacturing-orders/:orderId');
+console.log('  - DELETE /manufacturing-orders/:orderId');
 
 // Update manufacturing order
 router.put(
