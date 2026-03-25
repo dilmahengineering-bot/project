@@ -3,11 +3,18 @@
  * Replaces Twilio with Whapi.Cloud API for better delivery
  */
 
+require('dotenv').config();
 const axios = require('axios');
 const db = require('../db');
 
 const WHAPI_TOKEN = process.env.WHAPI_CLOUD_TOKEN;
 const WHAPI_BASE_URL = 'https://gate.whapi.cloud';
+
+// Verify token is loaded
+if (!WHAPI_TOKEN) {
+  console.warn('⚠️ WARNING: WHAPI_CLOUD_TOKEN not loaded from environment');
+  console.warn('Set WHAPI_CLOUD_TOKEN in .env file');
+}
 
 // Whapi.Cloud API client
 const whapiClient = axios.create({
