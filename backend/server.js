@@ -146,6 +146,7 @@ app.use('/api/workflows', require('./routes/workflows'));
 app.use('/api/cnc-jobs', require('./routes/cnc-jobs'));
 app.use('/api/planning', require('./routes/planning'));
 app.use('/api/whatsapp', require('./routes/whatsapp'));
+app.use('/api/admin', require('./routes/admin'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
 

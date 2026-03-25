@@ -46,6 +46,7 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
           {isAdmin && (
             <div className="nav-section">
               <div className="nav-section-title">Admin</div>
+              <NavItem to="/admin/system-summary" icon="📊" label="System Summary" />
               <NavItem to="/admin/tasks" icon="📋" label="All Tasks" />
               <NavItem to="/admin/workflows" icon="🔧" label="Workflows" />
               <NavItem to="/admin/csv-import" icon="📊" label="CSV Import" />
