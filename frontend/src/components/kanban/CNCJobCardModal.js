@@ -7,6 +7,20 @@ import toast from 'react-hot-toast';
 import ManufacturingOrders from './ManufacturingOrders';
 import './CNCJobCardModal.css';
 
+// Helper function to extract date string from various formats
+const extractDateString = (dateValue) => {
+  if (!dateValue) return '';
+  if (typeof dateValue === 'string') {
+    // Handle ISO format (2026-03-24T00:00:00) 
+    if (dateValue.includes('T')) return dateValue.split('T')[0];
+    // Handle space-separated format (2026-03-24 00:00:00)
+    if (dateValue.includes(' ')) return dateValue.split(' ')[0];
+    // Already in correct format
+    if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) return dateValue;
+  }
+  return dateValue;
+};
+
 export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, isCompletedRecord = false }) {
   const { user, isAdmin, isGuest } = useAuth();
   const fileInputRef = useRef(null);
@@ -53,13 +67,13 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
         job_name: jobCard.job_name,
         job_card_number: jobCard.job_card_number,
         subjob_card_number: jobCard.subjob_card_number || '',
-        job_date: jobCard.job_date?.split('T')[0] || new Date().toISOString().split('T')[0],
+        job_date: extractDateString(jobCard.job_date) || new Date().toISOString().split('T')[0],
         machine_name: jobCard.machine_name || '',
         client_name: jobCard.client_name || '',
         part_number: jobCard.part_number,
         manufacturing_type: jobCard.manufacturing_type,
         quantity: jobCard.quantity,
-        estimate_end_date: jobCard.estimate_end_date?.split('T')[0] || '',
+        estimate_end_date: extractDateString(jobCard.estimate_end_date) || '',
         assigned_to: jobCard.assigned_to || '',
         priority: jobCard.priority,
         notes: jobCard.notes || '',
@@ -71,7 +85,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
         dimension: jobCard.dimension || '',
         pr_number: jobCard.pr_number || '',
         po_number: jobCard.po_number || '',
-        estimated_delivery_date: jobCard.estimated_delivery_date?.split('T')[0] || '',
+        estimated_delivery_date: extractDateString(jobCard.estimated_delivery_date) || '',
         workflow_id: workflow?.id || ''
       });
       loadDetail();

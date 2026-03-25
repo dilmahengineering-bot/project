@@ -5,6 +5,17 @@ import { formatDate, getDeadlineStatus, timeAgo } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
+// Helper function to extract date string from various formats
+const extractDateString = (dateValue) => {
+  if (!dateValue) return '';
+  if (typeof dateValue === 'string') {
+    if (dateValue.includes('T')) return dateValue.split('T')[0];
+    if (dateValue.includes(' ')) return dateValue.split(' ')[0];
+    if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) return dateValue;
+  }
+  return dateValue;
+};
+
 export default function TaskModal({ task, onClose, onSave, users = [] }) {
   const { isAdmin, user } = useAuth();
   const [tab, setTab] = useState('details');
@@ -16,7 +27,7 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
     title: task?.title || '',
     description: task?.description || '',
     assigned_to: task?.assigned_to || '',
-    deadline: task?.deadline ? task.deadline.split('T')[0] : '',
+    deadline: extractDateString(task?.deadline) || '',
     priority: task?.priority || 'medium',
     status: task?.status || 'pending',
   });
@@ -30,7 +41,7 @@ export default function TaskModal({ task, onClose, onSave, users = [] }) {
           title: res.data.task.title || '',
           description: res.data.task.description || '',
           assigned_to: res.data.task.assigned_to || '',
-          deadline: res.data.task.deadline ? res.data.task.deadline.split('T')[0] : '',
+          deadline: extractDateString(res.data.task.deadline) || '',
           priority: res.data.task.priority || 'medium',
           status: res.data.task.status || 'pending',
         });
