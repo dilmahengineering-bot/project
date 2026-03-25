@@ -131,36 +131,20 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
 👤 User: ${user.name}
 ⏰ ${timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening'} Report • ${new Date().toLocaleString()}
 
-📋 *TASKS OVERVIEW*
-├ 📊 Total: ${taskStats.total || 0}
-├ ✅ Completed: ${taskStats.completed || 0}
-├ 🔄 In Progress: ${taskStats.in_progress || 0}
-└ ⏰ Pending: ${taskStats.pending || 0}
+� TASKS OVERVIEW
+├ Total Tasks: ${taskStats.total || 0}
+├ Pending: ${taskStats.pending || 0}
+├ In Progress: ${taskStats.in_progress || 0}
+├ Completed: ${taskStats.completed || 0}
+├ 🔴 Overdue: ${overdueCount || 0}
+└ 🟡 Due ≤ 5 Days: ${dueSoonCount || 0}
 
-🔧 *CNC JOBS STATUS*
-├ 📊 Total: ${cncStats.total || 0}
-├ ✅ Completed: ${cncStats.completed || 0}
-├ ⚙️ Active: ${cncStats.active || 0}
-└ ⏳ Pending: ${cncStats.pending || 0}
-
-⚠️ *PRIORITY ALERTS*
-${overdueCount > 0 ? `├ 🔴 *OVERDUE*: ${overdueCount} task(s) past due!` : '├ ✅ No overdue tasks'}
-${dueSoonCount > 0 ? `├ 🟡 *DUE ≤ 5 DAYS*: ${dueSoonCount} task(s)` : '├ ✅ No urgent due dates'}
-└ 📌 ${cncStats.active || 0} active CNC job(s)
-
-📈 *PERFORMANCE METRICS*
-├ Completion Rate: ${completionRate}%
-├ Status: ${completionRate >= 75 ? '🌟' : completionRate >= 50 ? '👍' : '⚡'} ${completionRate >= 75 ? 'Excellent!' : completionRate >= 50 ? 'Good progress' : 'Keep working!'}
-└ Efficiency: ${taskStats.in_progress > 0 ? '🔄 Active' : '✨ Ready'}
-
-💡 *QUICK SUMMARY*
-${taskStats.pending > 0 ? `• ${taskStats.pending} task(s) awaiting action
-` : ''}${overdueCount > 0 ? `• ⚠️ ${overdueCount} overdue - needs attention!
-` : ''}${dueSoonCount > 0 ? `• ⏰ ${dueSoonCount} due within 5 days
-` : ''}Available: ${cncStats.pending || 0} CNC slot(s) ready
-
-🔗 Log in to dashboard for full details
-📱 Reply to confirm receipt`;
+🔧 CNC MANUFACTURING OVERVIEW
+├ Active CNC Jobs: ${cncStats.active || 0}
+├ Completed: ${cncStats.completed || 0}
+├ Overdue: ${overdueCount > 0 ? '⚠️ Yes' : '✅ None'}
+├ Due ≤ 5 Days: ${dueSoonCount > 0 ? '⚠️ Yes' : '✅ None'}
+└ No Deadline: ${cncStats.pending || 0}`;
 
         // Send via Whapi.Cloud
         const result = await whatsappService.sendWhatsAppMessage(

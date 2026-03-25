@@ -352,36 +352,20 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
 👤 User: ${user.name}
 ⏰ Manual Report • ${new Date().toLocaleString()}
 
-📋 *TASKS OVERVIEW*
-├ 📊 Total: ${taskStats.total}
-├ ✅ Completed: ${taskStats.completed}
-├ 🔄 In Progress: ${taskStats.in_progress}
-└ ⏰ Pending: ${taskStats.pending}
+📊 TASKS OVERVIEW
+├ Total Tasks: ${taskStats.total}
+├ Pending: ${taskStats.pending}
+├ In Progress: ${taskStats.in_progress}
+├ Completed: ${taskStats.completed}
+├ 🔴 Overdue: ${overdueCount}
+└ 🟡 Due ≤ 5 Days: ${dueSoonCount}
 
-🔧 *CNC JOBS STATUS*
-├ 📊 Total: ${cncStats.total}
-├ ✅ Completed: ${cncStats.completed}
-├ ⚙️ Active: ${cncStats.active}
-└ ⏳ Pending: ${cncStats.pending}
-
-⚠️ *PRIORITY ALERTS*
-${overdueCount > 0 ? `├ 🔴 *OVERDUE*: ${overdueCount} task(s) past due!` : '├ ✅ No overdue tasks'}
-${dueSoonCount > 0 ? `├ 🟡 *DUE ≤ 5 DAYS*: ${dueSoonCount} task(s)` : '├ ✅ No urgent due dates'}
-└ 📌 ${cncStats.active || 0} active CNC job(s)
-
-📈 *PERFORMANCE METRICS*
-├ Completion Rate: ${completionRate}%
-├ Status: ${completionRate >= 75 ? '🌟' : completionRate >= 50 ? '👍' : '⚡'} ${completionRate >= 75 ? 'Excellent!' : completionRate >= 50 ? 'Good progress' : 'Keep working!'}
-└ Efficiency: ${taskStats.in_progress > 0 ? '🔄 Active' : '✨ Ready'}
-
-💡 *QUICK SUMMARY*
-${taskStats.pending > 0 ? `• ${taskStats.pending} task(s) awaiting action
-` : ''}${overdueCount > 0 ? `• ⚠️ ${overdueCount} overdue - needs attention!
-` : ''}${dueSoonCount > 0 ? `• ⏰ ${dueSoonCount} due within 5 days
-` : ''}Available: ${cncStats.pending || 0} CNC slot(s) ready
-
-🔗 Log in to dashboard for full details
-📱 Reply to confirm receipt`;
+🔧 CNC MANUFACTURING OVERVIEW
+├ Active CNC Jobs: ${cncStats.active}
+├ Completed: ${cncStats.completed}
+├ Overdue: ${overdueCount > 0 ? '⚠️ Yes' : '✅ None'}
+├ Due ≤ 5 Days: ${dueSoonCount > 0 ? '⚠️ Yes' : '✅ None'}
+└ No Deadline: ${cncStats.pending}`;
 
     const whatsappResult = await whatsappService.sendWhatsAppMessage(user.phone_number, message);
 
