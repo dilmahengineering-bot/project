@@ -143,8 +143,14 @@ class PlanningEngine {
    * Calculate estimated end date based on manufacturing duration and shift type
    */
   static _calculateEstimatedEndDate(startDate, totalMinutes, shiftType = 'day') {
-    let currentDate = new Date(`${startDate}T${DAY_START}:00:00`);
-    let remainingMinutes = totalMinutes;
+    const startHour = String(DAY_START).padStart(2, '0');
+    let currentDate = new Date(`${startDate}T${startHour}:00:00`);
+    if (isNaN(currentDate.getTime())) {
+      currentDate = new Date();
+      currentDate.setHours(DAY_START, 0, 0, 0);
+    }
+    let remainingMinutes = totalMinutes || 0;
+    if (remainingMinutes <= 0) return currentDate.toISOString();
 
     // Simulate shift-based scheduling
     while (remainingMinutes > 0) {

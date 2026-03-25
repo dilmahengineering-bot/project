@@ -1109,12 +1109,16 @@ router.get('/auto-plan/preview/:jobCardId', authenticate, async (req, res) => {
 
     const orders = ordersResult.rows;
     const totalMinutes = orders.reduce((sum, mo) => sum + (mo.estimated_duration_minutes || 0), 0);
-    const estimatedEndDate = PlanningEngine._calculateEstimatedEndDate(start_date, totalMinutes, preferred_shift);
-
-    // Build shift segments for preview
-    const planSegments = PlanningEngine._buildShiftSegments(
-      new Date(`${start_date}T07:00:00`), totalMinutes, preferred_shift
-    );
+    
+    let estimatedEndDate = null;
+    let planSegments = [];
+    
+    if (totalMinutes > 0) {
+      estimatedEndDate = PlanningEngine._calculateEstimatedEndDate(start_date, totalMinutes, preferred_shift);
+      planSegments = PlanningEngine._buildShiftSegments(
+        new Date(`${start_date}T07:00:00`), totalMinutes, preferred_shift
+      );
+    }
 
     res.json({
       jobCard: {
