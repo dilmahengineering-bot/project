@@ -75,11 +75,17 @@ async function sendWhatsAppMessage(toNumber, message) {
       provider: 'whapi.cloud'
     };
   } catch (error) {
-    console.error(`❌ Failed to send WhatsApp message to ${toNumber}:`, error.message);
+    // Capture full error details including HTTP status
+    const statusCode = error.response?.status;
+    const errorData = error.response?.data;
+    const fullMessage = `HTTP ${statusCode}: ${error.message}. Details: ${JSON.stringify(errorData)}`;
+    
+    console.error(`❌ Failed to send WhatsApp message to ${toNumber}:`, fullMessage);
     
     return { 
       success: false, 
-      reason: error.message || 'Failed to send message',
+      reason: fullMessage || 'Failed to send message',
+      statusCode: statusCode,
       provider: 'whapi.cloud'
     };
   }
