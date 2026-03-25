@@ -71,6 +71,37 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
 
         const taskStats = tasksResult.rows[0] || { total: 0, completed: 0, in_progress: 0, pending: 0 };
 
+        // Get overdue tasks
+        let overdueCount = 0;
+        try {
+          const overdueResult = await db.query(
+            `SELECT COUNT(*) as count FROM tasks 
+             WHERE assigned_to = $1 
+             AND due_date < NOW() 
+             AND status != 'completed'`,
+            [user.id]
+          );
+          overdueCount = overdueResult.rows[0]?.count || 0;
+        } catch (err) {
+          // Column might not exist
+        }
+
+        // Get due soon (next 3 days)
+        let dueSoonCount = 0;
+        try {
+          const dueSoonResult = await db.query(
+            `SELECT COUNT(*) as count FROM tasks 
+             WHERE assigned_to = $1 
+             AND due_date >= NOW() 
+             AND due_date <= NOW() + INTERVAL '3 days'
+             AND status != 'completed'`,
+            [user.id]
+          );
+          dueSoonCount = dueSoonResult.rows[0]?.count || 0;
+        } catch (err) {
+          // Column might not exist
+        }
+
         // Get CNC jobs breakdown for THIS USER ONLY (if table exists)
         let cncStats = { total: 0, completed: 0, active: 0, pending: 0 };
         try {
@@ -91,29 +122,38 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
 
         // Build detailed formatted message
         const timeDisplay = timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening';
-        const message = `${timeDisplay} *Dashboard Summary*
+        const completionRate = taskStats.total > 0 
+          ? Math.round((taskStats.completed / taskStats.total) * 100)
+          : 0;
 
-👤 *${user.name}*
+        const message = `📊 *TaskFlow Detailed Dashboard Summary*
 
-*📋 TASKS OVERVIEW*
-├ Total: ${taskStats.total || 0}
+👤 User: ${user.name}
+
+📋 *TASKS OVERVIEW*
+├ Total Tasks: ${taskStats.total || 0}
 ├ ✅ Completed: ${taskStats.completed || 0}
-├ ⏳ In Progress: ${taskStats.in_progress || 0}
+├ 🔄 In Progress: ${taskStats.in_progress || 0}
 └ ⏰ Pending: ${taskStats.pending || 0}
 
-*🔧 CNC JOBS STATUS*
-├ Total: ${cncStats.total || 0}
+🔧 *CNC JOBS STATUS*
+├ Total Jobs: ${cncStats.total || 0}
 ├ ✅ Completed: ${cncStats.completed || 0}
 ├ ⚙️ Active: ${cncStats.active || 0}
 └ ⏳ Pending: ${cncStats.pending || 0}
 
-*📈 PERFORMANCE*
-├ Completion Rate: ${taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0}%
-└ Active Jobs: ${cncStats.active || 0}
+⚠️ *URGENT ALERTS*
+${overdueCount > 0 ? `├ 🔴 OVERDUE: ${overdueCount} task(s) past due!` : '├ ✅ No overdue tasks'}
+${dueSoonCount > 0 ? `└ 🟡 DUE SOON: ${dueSoonCount} task(s) in next 3 days` : '└ ✅ No tasks due soon'}
+
+📈 *PERFORMANCE*
+├ Completion Rate: ${completionRate}%
+└ ${completionRate >= 75 ? '🌟 Excellent!' : completionRate >= 50 ? '👍 Good progress' : '⚡ Keep working!'}
 
 ⏰ ${timeOfDay === 'morning' ? '7:00 AM' : '7:00 PM'} UTC
+Generated: ${new Date().toLocaleString()}
 
-Log in to dashboard for full details`;
+🔗 Log in to dashboard for full details`;
 
         // Send via Whapi.Cloud
         const result = await whatsappService.sendWhatsAppMessage(

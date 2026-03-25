@@ -93,31 +93,34 @@ async function sendDetailedSummaryToAllUsers() {
           // Table might not have due_date column
         }
 
-        // Build detailed message
-        const message = `📊 *Detailed Dashboard Summary for ${user.name}*
-${new Date().toLocaleString()}
+        // Build detailed message with new format
+        const message = `📊 *TaskFlow Detailed Dashboard Summary*
 
-*⚠️ URGENT ALERTS:*
-${overdueCount > 0 ? `🔴 OVERDUE: ${overdueCount} task(s) past due date!` : '✅ No overdue tasks'}
-${dueSoonCount > 0 ? `🟡 DUE SOON: ${dueSoonCount} task(s) due in next 3 days` : '✅ No tasks due soon'}
+👤 User: ${user.name}
 
-*📋 Your Tasks:*
-Total: ${parseInt(taskStats.total) || 0}
-✅ Completed: ${parseInt(taskStats.completed) || 0}
-🔄 In Progress: ${parseInt(taskStats.in_progress) || 0}
-⏳ Pending: ${parseInt(taskStats.pending) || 0}
-Completion Rate: ${completionRate}%
+📋 *TASKS OVERVIEW*
+├ Total Tasks: ${parseInt(taskStats.total) || 0}
+├ ✅ Completed: ${parseInt(taskStats.completed) || 0}
+├ 🔄 In Progress: ${parseInt(taskStats.in_progress) || 0}
+└ ⏰ Pending: ${parseInt(taskStats.pending) || 0}
 
-*⚙️ CNC Jobs:*
-Total: ${parseInt(cncStats.total) || 0}
-✅ Completed: ${parseInt(cncStats.completed) || 0}
-🟢 Active: ${parseInt(cncStats.active) || 0}
-⏳ Pending: ${parseInt(cncStats.pending) || 0}
+🔧 *CNC JOBS STATUS*
+├ Total Jobs: ${parseInt(cncStats.total) || 0}
+├ ✅ Completed: ${parseInt(cncStats.completed) || 0}
+├ ⚙️ Active: ${parseInt(cncStats.active) || 0}
+└ ⏳ Pending: ${parseInt(cncStats.pending) || 0}
 
-*📈 Performance Summary:*
-${completionRate >= 75 ? '🌟 Excellent task completion!' : completionRate >= 50 ? '👍 Good progress on tasks' : '⚡ Keep working on tasks!'}
+⚠️ *URGENT ALERTS*
+${overdueCount > 0 ? `├ 🔴 OVERDUE: ${overdueCount} task(s) past due!` : '├ ✅ No overdue tasks'}
+${dueSoonCount > 0 ? `└ 🟡 DUE SOON: ${dueSoonCount} task(s) in next 3 days` : '└ ✅ No tasks due soon'}
 
-Have a productive day! 💪`;
+📈 *PERFORMANCE*
+├ Completion Rate: ${completionRate}%
+└ ${completionRate >= 75 ? '🌟 Excellent!' : completionRate >= 50 ? '👍 Good progress' : '⚡ Keep working!'}
+
+⏰ Generated: ${new Date().toLocaleString()} UTC
+
+🔗 Log in to dashboard for full details`;
 
         // Send via WhatsApp
         const result = await whatsappService.sendWhatsAppMessage(user.phone_number, message);
