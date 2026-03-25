@@ -31,6 +31,7 @@ class PlanningEngine {
         assignOperator = true,
         preferredShift = 'day', // 'day', 'night', or 'both'
         respectDeadline = true,
+        userId = null,
       } = options;
 
       console.log(`\n📊 Generating automatic plan for job card: ${jobCardId}`);
@@ -107,7 +108,8 @@ class PlanningEngine {
           duration,
           start_date,
           preferredShift,
-          assignOperator ? job.assigned_to : null
+          assignOperator ? job.assigned_to : null,
+          userId
         );
 
         planEntries.push(entry);
@@ -218,7 +220,7 @@ class PlanningEngine {
   /**
    * Create a single plan entry in the planning board
    */
-  static async _createPlanEntry(jobCardId, machineId, startTime, durationMinutes, planDate, shiftType, assignedOperator) {
+  static async _createPlanEntry(jobCardId, machineId, startTime, durationMinutes, planDate, shiftType, assignedOperator, createdBy) {
     // Build segments accounting for shift breaks
     const segments = this._buildShiftSegments(startTime, durationMinutes, shiftType);
 
@@ -239,7 +241,7 @@ class PlanningEngine {
         lastSegment.end.toISOString(),
         assignedOperator || null,
         `Auto-generated plan entry (${durationMinutes} min)`,
-        'system'
+        createdBy || null
       ]
     );
 

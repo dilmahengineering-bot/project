@@ -1033,7 +1033,8 @@ router.post('/auto-plan/job/:jobCardId', authenticate, async (req, res) => {
     const result = await PlanningEngine.generateAutoPlan(jobCardId, {
       start_date,
       preferredShift: preferred_shift,
-      assignOperator: assign_operator
+      assignOperator: assign_operator,
+      userId: req.user.id
     });
 
     res.json(result);
@@ -1058,7 +1059,8 @@ router.post('/auto-plan/bulk', authenticate, requireAdmin, async (req, res) => {
 
     const result = await PlanningEngine.generateBulkAutoPlans({
       preferredShift: preferred_shift,
-      assignOperator: assign_operator
+      assignOperator: assign_operator,
+      userId: req.user.id
     });
 
     res.json({

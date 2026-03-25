@@ -235,6 +235,14 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
     return orders.reduce((sum, order) => sum + (order.estimated_duration_minutes || 0), 0);
   };
 
+  const formatDuration = (minutes) => {
+    if (!minutes) return '0h';
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) return `${m}m`;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  };
+
   if (loading) {
     return <div className="manufacturing-loading"><div className="spinner" /></div>;
   }
@@ -250,7 +258,7 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
           </div>
           <div className="summary-item">
             <span className="summary-label">Est. Total Time:</span>
-            <span className="summary-value">{calculateTotalTime()} min</span>
+            <span className="summary-value">{formatDuration(calculateTotalTime())}</span>
           </div>
           <div className="summary-item">
             <span className="summary-label">Completed:</span>
@@ -454,7 +462,7 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
                   {order.estimated_duration_minutes && (
                     <div className="info-row">
                       <span className="label">Est. Time:</span>
-                      <span className="value">{order.estimated_duration_minutes} min</span>
+                      <span className="value">{formatDuration(order.estimated_duration_minutes)}</span>
                     </div>
                   )}
 

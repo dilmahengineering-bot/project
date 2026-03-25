@@ -319,7 +319,11 @@ export default function AutoPlanningPanel({ isOpen, onClose, isAdmin }) {
                         <div key={idx} className="sequence-item">
                           <div className="seq-number">{order.order_sequence || idx + 1}</div>
                           <div className="seq-machine">{order.machine_name || 'Unknown'}</div>
-                          <div className="seq-duration">{order.estimated_duration_minutes || 0} min</div>
+                          <div className="seq-duration">
+                            {order.estimated_duration_minutes >= 60 
+                              ? `${(order.estimated_duration_minutes / 60).toFixed(1)}h`
+                              : `${order.estimated_duration_minutes || 0} min`}
+                          </div>
                         </div>
                       ))}
                     </div>
