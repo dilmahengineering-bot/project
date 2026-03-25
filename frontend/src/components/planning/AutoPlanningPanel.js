@@ -299,11 +299,11 @@ export default function AutoPlanningPanel({ isOpen, onClose, isAdmin }) {
                 <div className="preview-stats">
                   <div className="stat-item">
                     <span className="stat-label">Total Hours</span>
-                    <span className="stat-value">{(preview.totalMinutes / 60).toFixed(1)}</span>
+                    <span className="stat-value">{preview.totalMinutes ? (preview.totalMinutes / 60).toFixed(1) : '—'}</span>
                   </div>
                   <div className="stat-item">
                     <span className="stat-label">End Date</span>
-                    <span className="stat-value">{preview.estimatedEndDate?.substring(0, 10) || '—'}</span>
+                    <span className="stat-value">{preview.estimatedEndDate ? new Date(preview.estimatedEndDate).toLocaleDateString() : '—'}</span>
                   </div>
                   <div className="stat-item">
                     <span className="stat-label">Segments</span>
@@ -317,9 +317,9 @@ export default function AutoPlanningPanel({ isOpen, onClose, isAdmin }) {
                     <div className="sequence-list">
                       {preview.manufacturingOrders.map((order, idx) => (
                         <div key={idx} className="sequence-item">
-                          <div className="seq-number">{idx + 1}</div>
-                          <div className="seq-machine">{order.machine_name}</div>
-                          <div className="seq-duration">{order.estimated_duration_minutes} min</div>
+                          <div className="seq-number">{order.order_sequence || idx + 1}</div>
+                          <div className="seq-machine">{order.machine_name || 'Unknown'}</div>
+                          <div className="seq-duration">{order.estimated_duration_minutes || 0} min</div>
                         </div>
                       ))}
                     </div>

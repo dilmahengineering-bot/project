@@ -55,7 +55,7 @@ class PlanningEngine {
       const ordersResult = await db.query(
         `SELECT mo.*, m.machine_name, m.machine_code, m.machine_type
          FROM manufacturing_orders mo
-         LEFT JOIN machines m ON mo.machine_id = m.id
+         LEFT JOIN cnc_machines m ON mo.machine_id = m.id
          WHERE mo.job_card_id = $1 AND mo.status != 'skipped'
          ORDER BY mo.order_sequence ASC`,
         [jobCardId]

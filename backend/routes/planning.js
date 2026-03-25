@@ -1064,6 +1064,7 @@ router.post('/auto-plan/bulk', authenticate, requireAdmin, async (req, res) => {
     res.json({
       success: true,
       ...result,
+      processedJobs: result.successful,
       message: `Bulk auto-planning complete: ${result.successful} successful, ${result.failed} failed`
     });
 
@@ -1100,7 +1101,7 @@ router.get('/auto-plan/preview/:jobCardId', authenticate, async (req, res) => {
     const ordersResult = await db.query(
       `SELECT mo.*, m.machine_name, m.machine_code
        FROM manufacturing_orders mo
-       LEFT JOIN machines m ON mo.machine_id = m.id
+       LEFT JOIN cnc_machines m ON mo.machine_id = m.id
        WHERE mo.job_card_id = $1 AND mo.status != 'skipped'
        ORDER BY mo.order_sequence ASC`,
       [jobCardId]
@@ -1110,6 +1111,11 @@ router.get('/auto-plan/preview/:jobCardId', authenticate, async (req, res) => {
     const totalMinutes = orders.reduce((sum, mo) => sum + (mo.estimated_duration_minutes || 0), 0);
     const estimatedEndDate = PlanningEngine._calculateEstimatedEndDate(start_date, totalMinutes, preferred_shift);
 
+    // Build shift segments for preview
+    const planSegments = PlanningEngine._buildShiftSegments(
+      new Date(`${start_date}T07:00:00`), totalMinutes, preferred_shift
+    );
+
     res.json({
       jobCard: {
         id: job.id,
@@ -1117,23 +1123,16 @@ router.get('/auto-plan/preview/:jobCardId', authenticate, async (req, res) => {
         job_card_number: job.job_card_number
       },
       manufacturingOrders: orders.map(o => ({
-        sequence: o.order_sequence,
-        machine: o.machine_name,
-        machineCode: o.machine_code,
-        estimatedDurationMinutes: o.estimated_duration_minutes
+        order_sequence: o.order_sequence,
+        machine_name: o.machine_name,
+        machine_code: o.machine_code,
+        estimated_duration_minutes: o.estimated_duration_minutes
       })),
-      recommendations: {
-        startDate: start_date,
-        estimatedEndDate,
-        totalMinutes,
-        totalHours: (totalMinutes / 60).toFixed(1),
-        preferredShift,
-        machineSequence: orders.map((o, i) => ({
-          step: i + 1,
-          machine: o.machine_name,
-          duration: `${o.estimated_duration_minutes} min`
-        }))
-      }
+      totalMinutes,
+      estimatedEndDate,
+      planSegments,
+      startDate: start_date,
+      preferredShift: preferred_shift
     });
 
   } catch (error) {
