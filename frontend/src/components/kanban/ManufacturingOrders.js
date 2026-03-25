@@ -140,7 +140,9 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
         successCount++;
       } catch (err) {
         errorCount++;
-        console.error('Error saving step:', err);
+        const errMsg = err.response?.data?.error || err.message;
+        console.error('Error saving step:', err.response?.status, errMsg);
+        toast.error(`Step ${idx + 1} failed: ${errMsg}`);
       }
     }
 

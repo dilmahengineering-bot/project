@@ -15,23 +15,13 @@ router.post('/:jobCardId/manufacturing-orders', authenticate, denyGuest, async (
     const { jobCardId } = req.params;
     const { machine_id, order_sequence, estimated_duration_minutes, notes } = req.body;
     
+    console.log('[MFG-POST] jobCardId:', jobCardId, 'machine_id:', machine_id, 'seq:', order_sequence);
+    
     if (!machine_id || order_sequence === undefined) {
       return res.status(400).json({ error: 'Machine and sequence are required' });
     }
     
-    // Check if job card exists
-    const jobResult = await db.query('SELECT id FROM cnc_job_cards WHERE id = $1', [jobCardId]);
-    if (jobResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Job card not found' });
-    }
-    
-    // Check if machine exists
-    const machineResult = await db.query('SELECT id FROM machines WHERE id = $1', [machine_id]);
-    if (machineResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Machine not found' });
-    }
-    
-    // Insert manufacturing order
+    // Insert manufacturing order (FK constraints validate job_card_id and machine_id)
     const result = await db.query(`
       INSERT INTO manufacturing_orders 
       (job_card_id, machine_id, order_sequence, estimated_duration_minutes, notes, created_by)
@@ -39,15 +29,31 @@ router.post('/:jobCardId/manufacturing-orders', authenticate, denyGuest, async (
       RETURNING *
     `, [jobCardId, machine_id, order_sequence, estimated_duration_minutes, notes, req.user.id]);
     
+    console.log('[MFG-POST] Created order:', result.rows[0].id);
+    
     // Log history
-    await db.query(`
-      INSERT INTO manufacturing_order_history (manufacturing_order_id, action_type, user_id, notes)
-      VALUES ($1, 'created', $2, $3)
-    `, [result.rows[0].id, req.user.id, 'Added machine to manufacturing sequence']);
+    try {
+      await db.query(`
+        INSERT INTO manufacturing_order_history (manufacturing_order_id, action_type, user_id, notes)
+        VALUES ($1, 'created', $2, $3)
+      `, [result.rows[0].id, req.user.id, 'Added machine to manufacturing sequence']);
+    } catch (histErr) {
+      console.error('[MFG-POST] History log failed (non-fatal):', histErr.message);
+    }
     
     res.status(201).json({ data: result.rows[0] });
   } catch (error) {
-    console.error('Error adding manufacturing order:', error);
+    console.error('[MFG-POST] Error:', error.message);
+    // Handle FK constraint violations with user-friendly messages
+    if (error.code === '23503') {
+      if (error.constraint?.includes('job_card')) {
+        return res.status(400).json({ error: 'Job card not found in database' });
+      }
+      if (error.constraint?.includes('machine')) {
+        return res.status(400).json({ error: 'Machine not found in database' });
+      }
+      return res.status(400).json({ error: 'Referenced record not found' });
+    }
     res.status(500).json({ error: error.message });
   }
 });
