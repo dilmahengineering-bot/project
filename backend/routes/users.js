@@ -330,18 +330,29 @@ Total: ${cncStats.total}
 
 Have a productive day! 💪`;
 
-    await whatsappService.sendWhatsAppMessage(user.phone_number, message);
+    const whatsappResult = await whatsappService.sendWhatsAppMessage(user.phone_number, message);
 
-    // Log the manual send
+    // Log the manual send with actual status
+    const logStatus = whatsappResult.success ? (whatsappResult.status || 'sent') : 'failed';
+    const errorMsg = whatsappResult.success ? null : whatsappResult.reason;
+    
     await db.query(`
-      INSERT INTO whatsapp_logs (user_id, phone_number, message_type, status, sent_at)
-      VALUES ($1, $2, $3, $4, NOW())
-    `, [userId, user.phone_number, 'manual_summary', 'sent']);
+      INSERT INTO whatsapp_logs (user_id, phone_number, message_type, status, error_message, sent_at)
+      VALUES ($1, $2, $3, $4, $5, NOW())
+    `, [userId, user.phone_number, 'manual_summary', logStatus, errorMsg]);
+
+    if (!whatsappResult.success) {
+      throw new Error(whatsappResult.reason);
+    }
 
     res.json({ 
       message: 'Summary sent successfully',
       user: { id: user.id, name: user.name, phone: user.phone_number },
-      summary: summary
+      summary: summary,
+      delivery: {
+        status: whatsappResult.status,
+        messageId: whatsappResult.sid
+      }
     });
   } catch (err) {
     console.error('Error sending summary:', err);

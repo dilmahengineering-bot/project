@@ -55,14 +55,15 @@ async function sendWhatsAppMessage(toNumber, message) {
 
     console.log('Whapi.Cloud Response:', JSON.stringify(response.data, null, 2));
 
-    // Whapi.Cloud returns nested structure
-    const messageId = response.data?.result?.id || response.data?.id || response.data?.message?.id;
+    // Whapi.Cloud returns message in nested structure
+    const messageId = response.data?.message?.id || response.data?.result?.id || response.data?.id;
+    const messageStatus = response.data?.message?.status || response.data?.status || 'pending';
 
     if (!messageId) {
       throw new Error(`No message ID found. Response: ${JSON.stringify(response.data)}`);
     }
 
-    console.log(`✅ WhatsApp message sent to ${toNumber} (ID: ${messageId})`);
+    console.log(`✅ WhatsApp message sent to ${toNumber} (ID: ${messageId}, Status: ${messageStatus})`);
 
     // Log to database (don't insert user_id here - let routes handle it)
     // This is for direct API calls only
@@ -70,6 +71,7 @@ async function sendWhatsAppMessage(toNumber, message) {
     return { 
       success: true, 
       sid: messageId,
+      status: messageStatus,
       provider: 'whapi.cloud'
     };
   } catch (error) {
