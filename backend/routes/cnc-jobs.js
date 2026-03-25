@@ -1403,7 +1403,15 @@ router.get(
 // Add manufacturing order
 router.post(
   '/:jobCardId/manufacturing-orders',
+  (req, res, next) => {
+    console.log('[DEBUG-PRE-AUTH] POST manufacturing-orders: path=' + req.path + ', method=' + req.method);
+    next();
+  },
   authenticate,
+  (req, res, next) => {
+    console.log('[DEBUG-POST-AUTH] After authenticate middleware');
+    next();
+  },
   denyGuest,
   async (req, res) => {
     console.log('[DEBUG] POST manufacturing-orders route hit:', { jobCardId: req.params.jobCardId });
