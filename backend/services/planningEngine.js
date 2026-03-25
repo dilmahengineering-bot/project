@@ -86,7 +86,12 @@ class PlanningEngine {
 
       // 5. Generate plan entries for each machine in sequence
       const planEntries = [];
-      let currentStartTime = new Date(`${start_date}T${DAY_START}:00:00`);
+      const padHour = String(DAY_START).padStart(2, '0');
+      let currentStartTime = new Date(`${start_date}T${padHour}:00:00`);
+      if (isNaN(currentStartTime.getTime())) {
+        currentStartTime = new Date();
+        currentStartTime.setHours(DAY_START, 0, 0, 0);
+      }
 
       for (let i = 0; i < manufacturingOrders.length; i++) {
         const mo = manufacturingOrders[i];
