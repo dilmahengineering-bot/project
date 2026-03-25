@@ -1,6 +1,6 @@
 const schedule = require('node-schedule');
 const db = require('../db');
-const whatsappService = require('./whatsappService');
+const whatsappService = require('./whatsappServiceWhapi'); // Using Whapi.Cloud
 
 let scheduledJobs = {};
 
@@ -62,8 +62,19 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
         summary.userName = user.name;
         summary.time = timeOfDay === 'morning' ? '7:00 AM' : '7:00 PM';
 
-        // Send WhatsApp
-        await whatsappService.sendDashboardSummary(user.phone_number, summary);
+        // Send WhatsApp using APPROVED template (bypasses 24-hour window restriction)
+        // Template: dashboard_summary | SID: HXcf72251c358f71217ea2b4b34d9af5db
+        const templateVariables = {
+          1: String(summary.tasksCount || 0),
+          2: String(summary.tasksCompleted || 0),
+          3: String(summary.cncJobsCount || 0),
+          4: String(summary.cncJobsActive || 0),
+        };
+        await whatsappService.sendWhatsAppTemplate(
+          user.phone_number,
+          'HXcf72251c358f71217ea2b4b34d9af5db', // ✅ APPROVED template SID
+          templateVariables
+        );
 
         // Log the message
         await db.query(

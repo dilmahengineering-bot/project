@@ -170,8 +170,62 @@ async function sendCNCJobNotification(toNumber, job, action) {
   }
 }
 
+/**
+ * Send WhatsApp message using Message Template
+ * (No 24-hour window restriction)
+ * @param {string} toNumber - Recipient phone number
+ * @param {string} templateName - Template name (e.g., 'dashboard_summary')
+ * @param {Object} templateVariables - Variables to fill in template
+ * @returns {Promise<Object>}
+ */
+/**
+ * Send WhatsApp message using approved template
+ * Template: dashboard_summary (HXcf72251c358f71217ea2b4b34d9af5db)
+ * @param {string} toNumber - Recipient phone number
+ * @param {string} templateSid - Template SID
+ * @param {Array} variables - Template variables in order [tasks, completed, cncTotal, cncActive]
+ * @returns {Promise<Object>}
+ */
+async function sendWhatsAppTemplate(toNumber, templateSid, templateVariables = {}) {
+  try {
+    if (!client) {
+      console.warn('⚠️ Twilio not configured. Message not sent.');
+      return { success: false, reason: 'Twilio not configured' };
+    }
+
+    if (!toNumber || !toNumber.startsWith('+')) {
+      console.error('❌ Invalid phone number format. Use: +1234567890');
+      return { success: false, reason: 'Invalid phone format' };
+    }
+
+    // Convert variables object to ordered array
+    const variablesArray = Object.keys(templateVariables)
+      .sort((a, b) => parseInt(a) - parseInt(b))
+      .map(key => String(templateVariables[key]));
+
+    // Using newer Twilio API for content templates
+    const response = await client.messages.create({
+      from: `whatsapp:${whatsappNumber}`,
+      to: `whatsapp:${toNumber}`,
+      contentSid: templateSid,
+      contentVariables: JSON.stringify(variablesArray),
+    });
+
+    console.log(`✅ WhatsApp template sent to ${toNumber} (SID: ${response.sid})`);
+    return { success: true, sid: response.sid, template: 'dashboard_summary' };
+  } catch (error) {
+    console.error(`❌ Failed to send WhatsApp template to ${toNumber}:`, error.message);
+    // Fallback to free-form message if template fails
+    console.log('Falling back to free-form message...');
+    const { 1: tasks, 2: completed, 3: cncTotal, 4: cncActive } = templateVariables;
+    const message = `📊 TaskFlow Dashboard Summary\n\nTasks Total: ${tasks}\nCompleted: ${completed}\nCNC Jobs: ${cncTotal}\nActive: ${cncActive}\n\nLog in to your dashboard for full details.`;
+    return await sendWhatsAppMessage(toNumber, message);
+  }
+}
+
 module.exports = {
   sendWhatsAppMessage,
+  sendWhatsAppTemplate,
   sendDashboardSummary,
   sendTaskNotification,
   sendCNCJobNotification,

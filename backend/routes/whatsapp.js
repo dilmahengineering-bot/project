@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const whatsappService = require('../services/whatsappService');
+const whatsappService = require('../services/whatsappServiceWhapi'); // Using Whapi.Cloud
 const schedulerService = require('../services/schedulerService');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 
@@ -54,7 +54,7 @@ router.post('/phone', authenticate, async (req, res) => {
 router.post('/test-message', authenticate, async (req, res) => {
   try {
     const userResult = await db.query(
-      'SELECT phone_number, name FROM users WHERE id = $1',
+      'SELECT id, phone_number, name FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -63,18 +63,27 @@ router.post('/test-message', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'No phone number set for your account' });
     }
 
-    // Send a simple test message
-    const testMessage = `✅ TaskFlow Test\nHello ${user.name}, this is a test message from TaskFlow! 🎯\n\n💡 To disable messages, manage your phone settings in your profile.`;
+    // Send using template (works with Whapi.Cloud too)
+    const templateVariables = {
+      1: '5',    // Total tasks
+      2: '3',    // Completed tasks
+      3: '2',    // Total CNC jobs
+      4: '1',    // Active CNC jobs
+    };
     
-    const result = await whatsappService.sendWhatsAppMessage(user.phone_number, testMessage);
+    const result = await whatsappService.sendWhatsAppTemplate(
+      user.phone_number,
+      'HXcf72251c358f71217ea2b4b34d9af5db', // Template SID (ignored by Whapi.Cloud)
+      templateVariables
+    );
 
     if (result.success) {
       // Log the message
       await db.query(
         `INSERT INTO whatsapp_logs 
-         (user_id, phone_number, message_type, status, message_content, twilio_sid) 
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [req.user.id, user.phone_number, 'test', 'sent', testMessage, result.sid || null]
+         (user_id, phone_number, message_type, status, twilio_sid) 
+         VALUES ($1, $2, $3, $4, $5)`,
+        [req.user.id, user.phone_number, 'test_dashboard', 'sent', result.sid || null]
       );
     }
 

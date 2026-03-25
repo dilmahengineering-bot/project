@@ -11,6 +11,7 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const schedulerService = require('./services/schedulerService');
+const whatsappServiceWhapi = require('./services/whatsappServiceWhapi');
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -501,14 +502,20 @@ server.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT} at http://0.0.0.0:${PORT}`);
   await initDB();
   
-  // Start WhatsApp dashboard summary scheduler (7 AM & 7 PM)
-  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+  // Start WhatsApp dashboard summary scheduler (7 AM & 7 PM) via Whapi.Cloud
+  if (process.env.WHAPI_CLOUD_TOKEN) {
     try {
-      schedulerService.startDashboardScheduler();
+      // Test Whapi.Cloud connection first
+      const connected = await whatsappServiceWhapi.testConnection();
+      if (connected) {
+        schedulerService.startDashboardScheduler();
+      } else {
+        console.warn('⚠️ Whapi.Cloud connection failed - scheduler not started');
+      }
     } catch (err) {
       console.warn('⚠️ WhatsApp scheduler could not start:', err.message);
     }
   } else {
-    console.log('ℹ️ WhatsApp scheduler not started (set TWILIO_ACCOUNT_SID & TWILIO_AUTH_TOKEN to enable)');
+    console.log('ℹ️ WhatsApp scheduler not started (set WHAPI_CLOUD_TOKEN to enable)');
   }
 });
