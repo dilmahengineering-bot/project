@@ -7,6 +7,7 @@ require('dotenv').config();
 const axios = require('axios');
 const db = require('../db');
 
+const SYSTEM_TIMEZONE = process.env.SYSTEM_TIMEZONE || 'Asia/Colombo';
 const WHAPI_TOKEN = process.env.WHAPI_CLOUD_TOKEN;
 const WHAPI_BASE_URL = 'https://gate.whapi.cloud';
 
@@ -163,7 +164,7 @@ async function sendTaskNotification(toNumber, task, action = 'updated') {
         message = `🆕 New Task Created\n\nTitle: ${task.title}\nAssigned to: ${task.assignedTo}\nDeadline: ${task.deadline}`;
         break;
       case 'completed':
-        message = `✅ Task Completed\n\nTitle: ${task.title}\nCompleted at: ${new Date().toLocaleString()}`;
+        message = `✅ Task Completed\n\nTitle: ${task.title}\nCompleted at: ${new Date().toLocaleString('en-US', { timeZone: SYSTEM_TIMEZONE })}`;
         break;
       case 'assigned':
         message = `📋 Task Assigned to You\n\nTitle: ${task.title}\nAssigned by: ${task.assignedBy}\nDeadline: ${task.deadline}`;
@@ -195,7 +196,7 @@ async function sendCNCJobNotification(toNumber, job, action = 'updated') {
         message = `🔧 CNC Job Started\n\nJob: ${job.jobName}\nMachine: ${job.machine}\nEstimated Duration: ${job.duration}`;
         break;
       case 'completed':
-        message = `✅ CNC Job Completed\n\nJob: ${job.jobName}\nCompleted at: ${new Date().toLocaleString()}`;
+        message = `✅ CNC Job Completed\n\nJob: ${job.jobName}\nCompleted at: ${new Date().toLocaleString('en-US', { timeZone: SYSTEM_TIMEZONE })}`;
         break;
       case 'ready':
         message = `📦 CNC Job Ready\n\nJob: ${job.jobName}\nReady for pickup/delivery`;

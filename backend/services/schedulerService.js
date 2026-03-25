@@ -4,6 +4,17 @@ const whatsappService = require('./whatsappServiceWaSender'); // Using WaSender
 
 let scheduledJobs = {};
 
+// System timezone — must match the frontend configured timezone
+const SYSTEM_TIMEZONE = process.env.SYSTEM_TIMEZONE || 'Asia/Colombo';
+
+// Helper: format current date/time in system timezone
+function formatNow() {
+  return new Date().toLocaleString('en-US', { timeZone: SYSTEM_TIMEZONE });
+}
+
+// Helper: SQL expression for NOW() in system timezone
+const TZ_NOW = `NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}'`;
+
 /**
  * Start scheduler for daily dashboard summaries
  * Sends at 7 AM and 7 PM for each user who has WhatsApp enabled
@@ -12,19 +23,20 @@ async function startDashboardScheduler() {
   try {
     console.log('🕐 Starting WhatsApp Dashboard Scheduler...');
 
-    // Schedule 7 AM summary (every day at 7:00 AM)
-    scheduledJobs.morning = schedule.scheduleJob('0 7 * * *', async () => {
-      console.log('📨 Sending 7 AM dashboard summaries...');
+    // Schedule 7 AM summary (every day at 7:00 AM in system timezone)
+    scheduledJobs.morning = schedule.scheduleJob({ rule: '0 7 * * *', tz: SYSTEM_TIMEZONE }, async () => {
+      console.log(`📨 Sending 7 AM dashboard summaries... (${SYSTEM_TIMEZONE}: ${formatNow()})`);
       await sendDailySummariesToAll('morning');
     });
 
-    // Schedule 7 PM summary (every day at 7:00 PM)
-    scheduledJobs.evening = schedule.scheduleJob('0 19 * * *', async () => {
-      console.log('📨 Sending 7 PM dashboard summaries...');
+    // Schedule 7 PM summary (every day at 7:00 PM in system timezone)
+    scheduledJobs.evening = schedule.scheduleJob({ rule: '0 19 * * *', tz: SYSTEM_TIMEZONE }, async () => {
+      console.log(`📨 Sending 7 PM dashboard summaries... (${SYSTEM_TIMEZONE}: ${formatNow()})`);
       await sendDailySummariesToAll('evening');
     });
 
     console.log('✅ Dashboard scheduler started');
+    console.log(`   - Timezone: ${SYSTEM_TIMEZONE}`);
     console.log('   - Morning summary: 7:00 AM');
     console.log('   - Evening summary: 7:00 PM');
   } catch (error) {
@@ -77,7 +89,7 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
           const overdueResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
-             AND due_date < NOW() 
+             AND due_date < (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date
              AND status != 'completed'`,
             [user.id]
           );
@@ -92,8 +104,8 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
           const dueSoonResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
-             AND due_date >= NOW() 
-             AND due_date <= NOW() + INTERVAL '5 days'
+             AND due_date >= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date
+             AND due_date <= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date + INTERVAL '5 days'
              AND status != 'completed'`,
             [user.id]
           );
@@ -126,7 +138,7 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
           const cncOverdueResult = await db.query(
             `SELECT COUNT(*) as count FROM cnc_job_cards 
              WHERE assigned_to = $1 
-             AND estimate_end_date < NOW() 
+             AND estimate_end_date < (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date
              AND status != 'completed'`,
             [user.id]
           );
@@ -141,8 +153,8 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
           const cncDueSoonResult = await db.query(
             `SELECT COUNT(*) as count FROM cnc_job_cards 
              WHERE assigned_to = $1 
-             AND estimate_end_date >= NOW() 
-             AND estimate_end_date <= NOW() + INTERVAL '5 days'
+             AND estimate_end_date >= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date
+             AND estimate_end_date <= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date + INTERVAL '5 days'
              AND status != 'completed'`,
             [user.id]
           );
@@ -160,7 +172,7 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
         const message = `📊 *TaskFlow Detailed Dashboard Summary*
 
 👤 User: ${user.name}
-⏰ ${timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening'} Report • ${new Date().toLocaleString()}
+⏰ ${timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening'} Report • ${formatNow()}
 
 � TASKS OVERVIEW
 ├ Total Tasks: ${taskStats.total || 0}
@@ -311,7 +323,7 @@ async function sendTestSummary(userId) {
 
     const summary = await getUserDashboardSummary(userId);
     summary.userName = user.name;
-    summary.time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    summary.time = new Date().toLocaleTimeString('en-US', { timeZone: SYSTEM_TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: true });
 
     const result = await whatsappService.sendDashboardSummary(user.phone_number, summary);
 

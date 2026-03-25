@@ -5,6 +5,8 @@
 const db = require('./db');
 const whatsappService = require('./services/whatsappServiceWhapi');
 
+const SYSTEM_TIMEZONE = process.env.SYSTEM_TIMEZONE || 'Asia/Colombo';
+
 async function sendDetailedSummary() {
   try {
     console.log('📊 Fetching detailed dashboard data...\n');
@@ -81,7 +83,7 @@ async function sendDetailedSummary() {
 ├ Completion Rate: ${taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0}%
 └ Active Jobs: ${cncStats.active || 0}
 
-⏰ Generated: ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC
+⏰ Generated: ${new Date().toLocaleString('en-US', { timeZone: SYSTEM_TIMEZONE })}
 
 🔗 Log in to dashboard for full details`;
 

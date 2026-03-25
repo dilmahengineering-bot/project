@@ -529,8 +529,10 @@ const initDB = async () => {
 };
 
 const PORT = process.env.PORT || 5000;
+const SYSTEM_TIMEZONE = process.env.SYSTEM_TIMEZONE || 'Asia/Colombo';
 server.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT} at http://0.0.0.0:${PORT}`);
+  console.log(`🕐 System timezone: ${SYSTEM_TIMEZONE}`);
   await initDB();
   
   // Start WhatsApp dashboard summary scheduler (7 AM & 7 PM) via Whapi.Cloud

@@ -1,5 +1,7 @@
 const twilio = require('twilio');
 
+const SYSTEM_TIMEZONE = process.env.SYSTEM_TIMEZONE || 'Asia/Colombo';
+
 // Initialize Twilio client
 const accountSid = process.env.TWILIO_ACCOUNT_SID || '';
 const authToken = process.env.TWILIO_AUTH_TOKEN || '';
@@ -77,7 +79,7 @@ function formatDashboardMessage(summary) {
     cncJobsActive = 0,
     cncJobsCompleted = 0,
     cncJobsOverdue = 0,
-    time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+    time = new Date().toLocaleTimeString('en-US', { timeZone: SYSTEM_TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: true }),
   } = summary;
 
   return `📊 TaskFlow Dashboard Summary
@@ -114,16 +116,16 @@ async function sendTaskNotification(toNumber, task, action) {
 
     switch (action) {
       case 'created':
-        message = `📋 NEW TASK\n"${task.title}"\n⏰ Due: ${new Date(task.deadline).toLocaleDateString()}\n🔗 ${process.env.FRONTEND_URL}/tasks`;
+        message = `📋 NEW TASK\n"${task.title}"\n⏰ Due: ${new Date(task.deadline).toLocaleDateString('en-US', { timeZone: SYSTEM_TIMEZONE })}\n🔗 ${process.env.FRONTEND_URL}/tasks`;
         break;
       case 'assigned':
-        message = `👤 TASK ASSIGNED TO YOU\n"${task.title}"\n⏰ Due: ${new Date(task.deadline).toLocaleDateString()}\n🔗 ${process.env.FRONTEND_URL}/tasks`;
+        message = `👤 TASK ASSIGNED TO YOU\n"${task.title}"\n⏰ Due: ${new Date(task.deadline).toLocaleDateString('en-US', { timeZone: SYSTEM_TIMEZONE })}\n🔗 ${process.env.FRONTEND_URL}/tasks`;
         break;
       case 'completed':
         message = `✅ TASK COMPLETED\n"${task.title}"\nGreat work! 🎉\n🔗 ${process.env.FRONTEND_URL}/tasks`;
         break;
       case 'overdue':
-        message = `🚨 TASK OVERDUE\n"${task.title}"\n⏰ Due: ${new Date(task.deadline).toLocaleDateString()}\n🔗 ${process.env.FRONTEND_URL}/tasks`;
+        message = `🚨 TASK OVERDUE\n"${task.title}"\n⏰ Due: ${new Date(task.deadline).toLocaleDateString('en-US', { timeZone: SYSTEM_TIMEZONE })}\n🔗 ${process.env.FRONTEND_URL}/tasks`;
         break;
       default:
         message = `📋 Task Update: "${task.title}"`;
