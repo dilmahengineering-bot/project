@@ -76,14 +76,14 @@ async function showPersonalizedDashboards() {
           // Column might not exist
         }
 
-        // Get due soon (next 3 days)
+        // Get due soon (next 5 days)
         let dueSoonCount = 0;
         try {
           const dueSoonResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
              AND due_date >= NOW() 
-             AND due_date <= NOW() + INTERVAL '3 days'
+             AND due_date <= NOW() + INTERVAL '5 days'
              AND status != 'completed'`,
             [user.id]
           );
@@ -93,66 +93,41 @@ async function showPersonalizedDashboards() {
         }
 
         // Display dashboard
-        console.log(`\n   ⚠️ URGENT ALERTS:`);
-        if (overdueCount > 0) {
-          console.log(`      🔴 OVERDUE: ${overdueCount} task(s) past due date!`);
-        } else {
-          console.log(`      ✅ No overdue tasks`);
-        }
-        
-        if (dueSoonCount > 0) {
-          console.log(`      🟡 DUE SOON: ${dueSoonCount} task(s) due in next 3 days`);
-        } else {
-          console.log(`      ✅ No tasks due soon`);
-        }
+        console.log(`\n   📊 TASKS OVERVIEW:`);
+        console.log(`      Total Tasks: ${parseInt(taskStats.total) || 0}`);
+        console.log(`      Pending: ${parseInt(taskStats.pending) || 0}`);
+        console.log(`      In Progress: ${parseInt(taskStats.in_progress) || 0}`);
+        console.log(`      Completed: ${parseInt(taskStats.completed) || 0}`);
+        console.log(`      🔴 Overdue: ${overdueCount || 0}`);
+        console.log(`      🟡 Due ≤ 5 Days: ${dueSoonCount || 0}`);
 
-        console.log(`\n   📋 TASKS:`);
-        console.log(`      Total: ${parseInt(taskStats.total) || 0}`);
-        console.log(`      ✅ Completed: ${parseInt(taskStats.completed) || 0}`);
-        console.log(`      🔄 In Progress: ${parseInt(taskStats.in_progress) || 0}`);
-        console.log(`      ⏳ Pending: ${parseInt(taskStats.pending) || 0}`);
-        console.log(`      📈 Completion Rate: ${completionRate}%`);
-
-        console.log(`\n   ⚙️ CNC JOBS:`);
-        console.log(`      Total: ${parseInt(cncStats.total) || 0}`);
-        console.log(`      ✅ Completed: ${parseInt(cncStats.completed) || 0}`);
-        console.log(`      🟢 Active: ${parseInt(cncStats.active) || 0}`);
-        console.log(`      ⏳ Pending: ${parseInt(cncStats.pending) || 0}`);
-
-        console.log(`\n   📈 PERFORMANCE:`);
-        if (completionRate >= 75) {
-          console.log(`      🌟 Excellent task completion!`);
-        } else if (completionRate >= 50) {
-          console.log(`      👍 Good progress on tasks`);
-        } else {
-          console.log(`      ⚡ Keep working on tasks!`);
-        }
+        console.log(`\n   🔧 CNC MANUFACTURING OVERVIEW:`);
+        console.log(`      Active CNC Jobs: ${parseInt(cncStats.active) || 0}`);
+        console.log(`      Completed: ${parseInt(cncStats.completed) || 0}`);
+        console.log(`      Overdue: ${overdueCount > 0 ? '⚠️ Yes' : '✅ None'}`);
+        console.log(`      Due ≤ 5 Days: ${dueSoonCount > 0 ? '⚠️ Yes' : '✅ None'}`);
+        console.log(`      No Deadline: ${parseInt(cncStats.pending) || 0}`);
 
         // Show what message will say
-        const message = `📊 *Detailed Dashboard Summary for ${user.name}*
-${new Date().toLocaleString()}
+        const message = `📊 *TaskFlow Detailed Dashboard Summary*
 
-*⚠️ URGENT ALERTS:*
-${overdueCount > 0 ? `🔴 OVERDUE: ${overdueCount} task(s) past due date!` : '✅ No overdue tasks'}
-${dueSoonCount > 0 ? `🟡 DUE SOON: ${dueSoonCount} task(s) due in next 3 days` : '✅ No tasks due soon'}
+👤 User: ${user.name}
+⏰ Manual Report • ${new Date().toLocaleString()}
 
-*📋 Your Tasks:*
-Total: ${parseInt(taskStats.total) || 0}
-✅ Completed: ${parseInt(taskStats.completed) || 0}
-🔄 In Progress: ${parseInt(taskStats.in_progress) || 0}
-⏳ Pending: ${parseInt(taskStats.pending) || 0}
-Completion Rate: ${completionRate}%
+📊 TASKS OVERVIEW
+├ Total Tasks: ${parseInt(taskStats.total) || 0}
+├ Pending: ${parseInt(taskStats.pending) || 0}
+├ In Progress: ${parseInt(taskStats.in_progress) || 0}
+├ Completed: ${parseInt(taskStats.completed) || 0}
+├ 🔴 Overdue: ${overdueCount || 0}
+└ 🟡 Due ≤ 5 Days: ${dueSoonCount || 0}
 
-*⚙️ CNC Jobs:*
-Total: ${parseInt(cncStats.total) || 0}
-✅ Completed: ${parseInt(cncStats.completed) || 0}
-🟢 Active: ${parseInt(cncStats.active) || 0}
-⏳ Pending: ${parseInt(cncStats.pending) || 0}
-
-*📈 Performance Summary:*
-${completionRate >= 75 ? '🌟 Excellent task completion!' : completionRate >= 50 ? '👍 Good progress on tasks' : '⚡ Keep working on tasks!'}
-
-Have a productive day! 💪`;
+🔧 CNC MANUFACTURING OVERVIEW
+├ Active CNC Jobs: ${parseInt(cncStats.active) || 0}
+├ Completed: ${parseInt(cncStats.completed) || 0}
+├ Overdue: ${overdueCount > 0 ? '⚠️ Yes' : '✅ None'}
+├ Due ≤ 5 Days: ${dueSoonCount > 0 ? '⚠️ Yes' : '✅ None'}
+└ No Deadline: ${parseInt(cncStats.pending) || 0}`;
 
         console.log(`\n   📱 WHATSAPP MESSAGE PREVIEW:`);
         console.log(`   ${'-'.repeat(50)}`);
