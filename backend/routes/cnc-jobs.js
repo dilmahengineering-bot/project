@@ -11,6 +11,23 @@ const crypto = require('crypto');
 
 console.log('🔧 Loading CNC Jobs routes...');
 
+// SIMPLE TEST ROUTES - To verify GET vs POST handling
+router.get('/test', (req, res) => {
+  res.json({ message: 'GET /test works', timestamp: new Date() });
+});
+
+router.post('/test', (req, res) => {
+  res.json({ message: 'POST /test works', body: req.body, timestamp: new Date() });
+});
+
+router.get('/:id/test', (req, res) => {
+  res.json({ message: 'GET /:id/test works', id: req.params.id, timestamp: new Date() });
+});
+
+router.post('/:id/test', authenticate, (req, res) => {
+  res.json({ message: 'POST /:id/test works (with auth)', id: req.params.id, user: req.user?.id, body: req.body, timestamp: new Date() });
+});
+
 // File upload config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
