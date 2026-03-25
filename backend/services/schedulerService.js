@@ -33,7 +33,7 @@ async function startDashboardScheduler() {
 }
 
 /**
- * Send dashboard summary to all users with WhatsApp enabled
+ * Send detailed dashboard summary to all users with WhatsApp enabled
  * @param {string} timeOfDay - 'morning' or 'evening'
  */
 async function sendDailySummariesToAll(timeOfDay = 'morning') {
@@ -53,36 +53,86 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
       return;
     }
 
-    console.log(`📤 Sending to ${usersResult.rows.length} users...`);
+    console.log(`📤 Sending detailed summaries to ${usersResult.rows.length} users...`);
 
     for (const user of usersResult.rows) {
       try {
-        // Fetch user's dashboard summary
-        const summary = await getUserDashboardSummary(user.id);
-        summary.userName = user.name;
-        summary.time = timeOfDay === 'morning' ? '7:00 AM' : '7:00 PM';
+        // Get detailed tasks breakdown
+        const tasksResult = await db.query(
+          `SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+           FROM tasks 
+           WHERE created_by = $1 OR assigned_to = $1`,
+          [user.id]
+        );
 
-        // Send WhatsApp using APPROVED template (bypasses 24-hour window restriction)
-        // Template: dashboard_summary | SID: HXcf72251c358f71217ea2b4b34d9af5db
-        const templateVariables = {
-          1: String(summary.tasksCount || 0),
-          2: String(summary.tasksCompleted || 0),
-          3: String(summary.cncJobsCount || 0),
-          4: String(summary.cncJobsActive || 0),
-        };
-        await whatsappService.sendWhatsAppTemplate(
+        const taskStats = tasksResult.rows[0] || { total: 0, completed: 0, in_progress: 0, pending: 0 };
+
+        // Get CNC jobs breakdown (if table exists)
+        let cncStats = { total: 0, completed: 0, active: 0, pending: 0 };
+        try {
+          const cncResult = await db.query(
+            `SELECT 
+              COUNT(*) as total,
+              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+              SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as active,
+              SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+             FROM cnc_jobs 
+             LIMIT 10`
+          );
+          cncStats = cncResult.rows[0] || cncStats;
+        } catch (err) {
+          // CNC jobs table might not exist - continue with 0 values
+        }
+
+        // Build detailed formatted message
+        const timeDisplay = timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening';
+        const message = `${timeDisplay} *Dashboard Summary*
+
+👤 *${user.name}*
+
+*📋 TASKS OVERVIEW*
+├ Total: ${taskStats.total || 0}
+├ ✅ Completed: ${taskStats.completed || 0}
+├ ⏳ In Progress: ${taskStats.in_progress || 0}
+└ ⏰ Pending: ${taskStats.pending || 0}
+
+*🔧 CNC JOBS STATUS*
+├ Total: ${cncStats.total || 0}
+├ ✅ Completed: ${cncStats.completed || 0}
+├ ⚙️ Active: ${cncStats.active || 0}
+└ ⏳ Pending: ${cncStats.pending || 0}
+
+*📈 PERFORMANCE*
+├ Completion Rate: ${taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0}%
+└ Active Jobs: ${cncStats.active || 0}
+
+⏰ ${timeOfDay === 'morning' ? '7:00 AM' : '7:00 PM'} UTC
+
+Log in to dashboard for full details`;
+
+        // Send via Whapi.Cloud
+        const result = await whatsappService.sendWhatsAppMessage(
           user.phone_number,
-          'HXcf72251c358f71217ea2b4b34d9af5db', // ✅ APPROVED template SID
-          templateVariables
+          message
         );
 
-        // Log the message
-        await db.query(
-          `INSERT INTO whatsapp_logs 
-           (user_id, phone_number, message_type, status, sent_at) 
-           VALUES ($1, $2, $3, $4, NOW())`,
-          [user.id, user.phone_number, `summary_${timeOfDay}`, 'sent']
-        );
+        if (result.success) {
+          console.log(`✅ Sent to ${user.name} (${result.sid})`);
+          
+          // Log the message
+          await db.query(
+            `INSERT INTO whatsapp_logs 
+             (user_id, phone_number, message_type, status, twilio_sid, sent_at) 
+             VALUES ($1, $2, $3, $4, $5, NOW())`,
+            [user.id, user.phone_number, `summary_${timeOfDay}`, 'sent', result.sid]
+          );
+        } else {
+          console.log(`❌ Failed for ${user.name}: ${result.reason}`);
+        }
 
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -91,7 +141,7 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
       }
     }
 
-    console.log('✅ Daily summaries sent');
+    console.log('✅ Detailed summaries sent');
   } catch (error) {
     console.error('❌ Error in sendDailySummariesToAll:', error);
   }
