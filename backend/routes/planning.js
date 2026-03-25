@@ -1114,11 +1114,41 @@ router.get('/auto-plan/preview/:jobCardId', authenticate, async (req, res) => {
     
     let estimatedEndDate = null;
     let planSegments = [];
+    const machineSchedule = [];
     
     if (totalMinutes > 0) {
-      estimatedEndDate = PlanningEngine._calculateEstimatedEndDate(start_date, totalMinutes, preferred_shift);
+      // Simulate intelligent scheduling: check existing entries per machine
+      const padHour = String(7).padStart(2, '0');
+      let currentStart = new Date(`${start_date}T${padHour}:00:00`);
+      if (isNaN(currentStart.getTime())) {
+        currentStart = new Date();
+        currentStart.setHours(7, 0, 0, 0);
+      }
+
+      for (const mo of orders) {
+        const duration = mo.estimated_duration_minutes || 0;
+        const availableStart = await PlanningEngine._getNextAvailableSlot(
+          mo.machine_id, currentStart, duration, preferred_shift
+        );
+        const segments = PlanningEngine._buildShiftSegments(availableStart, duration, preferred_shift);
+        const segEnd = segments.length > 0 ? segments[segments.length - 1].end : availableStart;
+
+        machineSchedule.push({
+          machine_name: mo.machine_name,
+          machine_code: mo.machine_code,
+          estimated_duration_minutes: mo.estimated_duration_minutes,
+          order_sequence: mo.order_sequence,
+          planned_start: availableStart.toISOString(),
+          planned_end: segEnd.toISOString(),
+          shifted: availableStart.getTime() !== currentStart.getTime()
+        });
+
+        currentStart = new Date(segEnd);
+      }
+
+      estimatedEndDate = currentStart.toISOString();
       planSegments = PlanningEngine._buildShiftSegments(
-        new Date(`${start_date}T07:00:00`), totalMinutes, preferred_shift
+        new Date(`${start_date}T${padHour}:00:00`), totalMinutes, preferred_shift
       );
     }
 
@@ -1134,6 +1164,7 @@ router.get('/auto-plan/preview/:jobCardId', authenticate, async (req, res) => {
         machine_code: o.machine_code,
         estimated_duration_minutes: o.estimated_duration_minutes
       })),
+      machineSchedule,
       totalMinutes,
       estimatedEndDate,
       planSegments,

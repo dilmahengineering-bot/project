@@ -100,11 +100,24 @@ class PlanningEngine {
 
         console.log(`\n📍 Step ${i + 1}: ${mo.machine_name} (${duration} min)`);
 
-        // Create plan entry for this machine
+        // Intelligent scheduling: check existing entries on this machine
+        // and find the next available time slot (no double-booking)
+        const availableStart = await this._getNextAvailableSlot(
+          mo.machine_id,
+          currentStartTime,
+          duration,
+          preferredShift
+        );
+
+        if (availableStart.getTime() !== currentStartTime.getTime()) {
+          console.log(`   ⏳ Machine busy until ${availableStart.toISOString()}, shifted start`);
+        }
+
+        // Create plan entry for this machine at the available slot
         const entry = await this._createPlanEntry(
           jobCardId,
           mo.machine_id,
-          currentStartTime,
+          availableStart,
           duration,
           start_date,
           preferredShift,
@@ -119,12 +132,15 @@ class PlanningEngine {
         currentStartTime = new Date(entry.planned_end_time);
       }
 
-      // 6. Update job card estimate end date
+      // 6. Update job card estimate end date (use actual last entry, not naive estimate)
+      const actualEndDate = planEntries.length > 0
+        ? new Date(planEntries[planEntries.length - 1].planned_end_time).toISOString()
+        : estimatedEndDate;
       await db.query(
         `UPDATE cnc_job_cards 
          SET estimate_end_date = $1, updated_at = NOW() 
          WHERE id = $2`,
-        [estimatedEndDate, jobCardId]
+        [actualEndDate, jobCardId]
       );
 
       console.log(`\n✅ Automatic plan generated successfully!`);
@@ -215,6 +231,79 @@ class PlanningEngine {
     }
 
     return currentDate.toISOString();
+  }
+
+  /**
+   * Find the next available time slot on a machine, avoiding overlaps with existing entries
+   */
+  static async _getNextAvailableSlot(machineId, desiredStart, durationMinutes, shiftType) {
+    // Get all non-cancelled entries on this machine that could conflict
+    const existingEntries = await db.query(
+      `SELECT planned_start_time, planned_end_time
+       FROM cnc_plan_entries
+       WHERE machine_id = $1
+         AND status != 'cancelled'
+         AND planned_end_time > $2
+       ORDER BY planned_start_time ASC`,
+      [machineId, desiredStart.toISOString()]
+    );
+
+    if (existingEntries.rows.length === 0) {
+      return desiredStart; // Machine is free
+    }
+
+    // Calculate where the new job would end with shift-aware segments
+    const proposedSegments = this._buildShiftSegments(desiredStart, durationMinutes, shiftType);
+    const proposedEnd = proposedSegments.length > 0
+      ? proposedSegments[proposedSegments.length - 1].end
+      : new Date(desiredStart.getTime() + durationMinutes * 60000);
+
+    // Check if the desired slot overlaps with any existing entry
+    let candidateStart = new Date(desiredStart);
+    for (const row of existingEntries.rows) {
+      const entryStart = new Date(row.planned_start_time);
+      const entryEnd = new Date(row.planned_end_time);
+
+      // Recalculate proposed end for the candidate start
+      const candSegments = this._buildShiftSegments(candidateStart, durationMinutes, shiftType);
+      const candEnd = candSegments.length > 0
+        ? candSegments[candSegments.length - 1].end
+        : new Date(candidateStart.getTime() + durationMinutes * 60000);
+
+      // Check overlap: candidateStart < entryEnd AND candEnd > entryStart
+      if (candidateStart < entryEnd && candEnd > entryStart) {
+        // Conflict — push candidate start to after this entry ends
+        candidateStart = new Date(entryEnd);
+
+        // Snap to shift boundary if needed
+        candidateStart = this._snapToShift(candidateStart, shiftType);
+      }
+    }
+
+    return candidateStart;
+  }
+
+  /**
+   * Snap a time to the nearest valid shift start if it falls outside working hours
+   */
+  static _snapToShift(time, shiftType) {
+    const snapped = new Date(time);
+    const hour = snapped.getHours();
+
+    if (shiftType === 'day') {
+      if (hour < DAY_START) {
+        snapped.setHours(DAY_START, 0, 0, 0);
+      } else if (hour >= DAY_END) {
+        snapped.setDate(snapped.getDate() + 1);
+        snapped.setHours(DAY_START, 0, 0, 0);
+      }
+    } else if (shiftType === 'night') {
+      if (hour >= DAY_START && hour < DAY_END) {
+        snapped.setHours(DAY_END, 0, 0, 0);
+      }
+    }
+    // 'both' = 24h, no snapping needed
+    return snapped;
   }
 
   /**

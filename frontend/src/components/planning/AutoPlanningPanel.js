@@ -315,15 +315,25 @@ export default function AutoPlanningPanel({ isOpen, onClose, isAdmin }) {
                   <div className="manufacturing-sequence">
                     <h5>🔧 Manufacturing Sequence</h5>
                     <div className="sequence-list">
-                      {preview.manufacturingOrders.map((order, idx) => (
-                        <div key={idx} className="sequence-item">
+                      {(preview.machineSchedule || preview.manufacturingOrders).map((order, idx) => (
+                        <div key={idx} className="sequence-item" style={order.shifted ? { borderLeft: '3px solid #f59e0b' } : {}}>
                           <div className="seq-number">{order.order_sequence || idx + 1}</div>
-                          <div className="seq-machine">{order.machine_name || 'Unknown'}</div>
+                          <div className="seq-machine">
+                            {order.machine_name || 'Unknown'}
+                            {order.shifted && <span style={{ color: '#f59e0b', fontSize: '11px', marginLeft: '6px' }}>⏳ shifted</span>}
+                          </div>
                           <div className="seq-duration">
-                            {order.estimated_duration_minutes >= 60 
-                              ? `${(order.estimated_duration_minutes / 60).toFixed(1)}h`
+                            {(order.estimated_duration_minutes || 0) >= 60 
+                              ? `${((order.estimated_duration_minutes || 0) / 60).toFixed(1)}h`
                               : `${order.estimated_duration_minutes || 0} min`}
                           </div>
+                          {order.planned_start && (
+                            <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                              {new Date(order.planned_start).toLocaleDateString()} {new Date(order.planned_start).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                              {' → '}
+                              {new Date(order.planned_end).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
