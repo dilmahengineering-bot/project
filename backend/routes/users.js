@@ -115,4 +115,115 @@ router.post('/kanban-order/update', authenticate, requireAdmin, async (req, res)
   }
 });
 
+/**
+ * Get all users with their phone numbers (admin only)
+ */
+router.get('/phone-numbers/all', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT id, name, email, role, phone_number, phone_verified FROM users ORDER BY name ASC'
+    );
+    res.json({ users: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * Update user phone number (admin only)
+ */
+router.post('/:userId/phone-number', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { phone_number } = req.body;
+
+    if (!phone_number) {
+      return res.status(400).json({ error: 'Phone number required' });
+    }
+
+    // Validate phone format
+    if (!phone_number.startsWith('+')) {
+      return res.status(400).json({ error: 'Phone number must start with + (e.g., +1234567890)' });
+    }
+
+    // Check if phone already exists
+    const existing = await db.query(
+      'SELECT id FROM users WHERE phone_number = $1 AND id != $2',
+      [phone_number, userId]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Phone number already assigned to another user' });
+    }
+
+    // Update phone number
+    const result = await db.query(
+      'UPDATE users SET phone_number = $1, phone_verified = false WHERE id = $2 RETURNING id, name, phone_number',
+      [phone_number, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ 
+      message: 'Phone number updated', 
+      user: result.rows[0]
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * Update multiple user phone numbers (admin bulk update)
+ */
+router.post('/phone-numbers/bulk-update', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { updates } = req.body;
+
+    if (!Array.isArray(updates)) {
+      return res.status(400).json({ error: 'Updates array required' });
+    }
+
+    const results = [];
+    const errors = [];
+
+    for (const update of updates) {
+      try {
+        const { userId, phone_number } = update;
+
+        if (!phone_number || !phone_number.startsWith('+')) {
+          errors.push({ userId, error: 'Invalid phone format' });
+          continue;
+        }
+
+        const result = await db.query(
+          'UPDATE users SET phone_number = $1, phone_verified = false WHERE id = $2 RETURNING id, name, phone_number',
+          [phone_number, userId]
+        );
+
+        if (result.rows.length > 0) {
+          results.push(result.rows[0]);
+        } else {
+          errors.push({ userId, error: 'User not found' });
+        }
+      } catch (err) {
+        errors.push({ userId: update.userId, error: err.message });
+      }
+    }
+
+    res.json({ 
+      message: 'Bulk update completed',
+      updated: results,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

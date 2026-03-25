@@ -20,6 +20,7 @@ import GanttPage from './pages/GanttPage';
 import ProductionReportPage from './pages/ProductionReportPage';
 import DisplayRotationPage from './pages/DisplayRotationPage';
 import AdminSettingsPage from './pages/AdminSettingsPage';
+import AdminPhoneManagementPage from './pages/AdminPhoneManagementPage';
 
 const PrivateRoute = ({ children, adminOnly = false, denyGuest = false }) => {
   const { user, loading, isAdmin, isGuest } = useAuth();
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/admin/machines" element={<PrivateRoute adminOnly><MachineMasterPage /></PrivateRoute>} />
       <Route path="/admin/reports" element={<PrivateRoute adminOnly><ReportsPage /></PrivateRoute>} />
       <Route path="/admin/settings" element={<PrivateRoute adminOnly><AdminSettingsPage /></PrivateRoute>} />
+      <Route path="/admin/phone-management" element={<PrivateRoute adminOnly><AdminPhoneManagementPage /></PrivateRoute>} />
       <Route path="*" element={<Navigate to={user?.role === 'guest' ? '/cnc-kanban' : '/dashboard'} replace />} />
     </Routes>
   );
