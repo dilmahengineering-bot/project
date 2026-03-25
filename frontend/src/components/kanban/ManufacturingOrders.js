@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import './ManufacturingOrders.css';
 
 export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
+  console.log('[ManufacturingOrders] Props received:', { jobCard: jobCard?.id, isGuest, isAdmin });
+  
   const [orders, setOrders] = useState([]);
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -207,15 +209,26 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
       )}
 
       {/* Add/Edit Form */}
-      {!isGuest && (
-        <>
-          {!showAddForm && (
-            <button className="btn btn-primary" onClick={() => setShowAddForm(true)} style={{ marginBottom: '16px' }}>
-              + Add Manufacturing Step
-            </button>
-          )}
+      {/* Button always visible, but disabled for guests */}
+      <>
+        {!showAddForm && (
+          <button 
+            className="btn btn-primary" 
+            onClick={() => {
+              if (isGuest) {
+                toast.error('Guest users have read-only access');
+                return;
+              }
+              setShowAddForm(true);
+            }} 
+            style={{ marginBottom: '16px' }}
+            title={isGuest ? "Read-only access" : "Add a new manufacturing step"}
+          >
+            + Add Manufacturing Step
+          </button>
+        )}
 
-          {showAddForm && (
+        {showAddForm && !isGuest && (
             <div className="manufacturing-form">
               <h4>{editingId ? 'Edit Manufacturing Step' : 'Add New Manufacturing Step'}</h4>
               <form onSubmit={handleAddOrder}>
@@ -271,14 +284,13 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
               </form>
             </div>
           )}
-        </>
-      )}
+      </>
 
       {/* Orders List */}
       {orders.length === 0 ? (
         <div className="manufacturing-empty">
           <p>📋 No manufacturing steps defined yet</p>
-          {!isGuest && <p>Click "Add Manufacturing Step" to start building the manufacturing route</p>}
+          <p>Click "Add Manufacturing Step" to start building the manufacturing route</p>
         </div>
       ) : (
         <div className="manufacturing-list">
