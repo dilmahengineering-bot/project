@@ -279,7 +279,7 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
           COUNT(*) as total,
           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
           SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+          SUM(CASE WHEN estimate_end_date IS NULL THEN 1 ELSE 0 END) as pending
         FROM cnc_job_cards 
         WHERE assigned_to = $1
       `, [userId]);
