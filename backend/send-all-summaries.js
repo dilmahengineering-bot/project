@@ -62,9 +62,44 @@ async function sendDetailedSummaryToAllUsers() {
           // Table might not exist or no jobs assigned
         }
 
+        // Get overdue tasks
+        let overdueCount = 0;
+        try {
+          const overdueResult = await db.query(
+            `SELECT COUNT(*) as count FROM tasks 
+             WHERE assigned_to = $1 
+             AND due_date < NOW() 
+             AND status != 'completed'`,
+            [user.id]
+          );
+          overdueCount = overdueResult.rows[0]?.count || 0;
+        } catch (err) {
+          // Table might not have due_date column
+        }
+
+        // Get due soon (in next 3 days)
+        let dueSoonCount = 0;
+        try {
+          const dueSoonResult = await db.query(
+            `SELECT COUNT(*) as count FROM tasks 
+             WHERE assigned_to = $1 
+             AND due_date >= NOW() 
+             AND due_date <= NOW() + INTERVAL '3 days'
+             AND status != 'completed'`,
+            [user.id]
+          );
+          dueSoonCount = dueSoonResult.rows[0]?.count || 0;
+        } catch (err) {
+          // Table might not have due_date column
+        }
+
         // Build detailed message
         const message = `📊 *Detailed Dashboard Summary for ${user.name}*
 ${new Date().toLocaleString()}
+
+*⚠️ URGENT ALERTS:*
+${overdueCount > 0 ? `🔴 OVERDUE: ${overdueCount} task(s) past due date!` : '✅ No overdue tasks'}
+${dueSoonCount > 0 ? `🟡 DUE SOON: ${dueSoonCount} task(s) due in next 3 days` : '✅ No tasks due soon'}
 
 *📋 Your Tasks:*
 Total: ${parseInt(taskStats.total) || 0}
