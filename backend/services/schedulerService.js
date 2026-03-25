@@ -86,14 +86,14 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
           // Column might not exist
         }
 
-        // Get due soon (next 3 days)
+        // Get due soon (next 5 days)
         let dueSoonCount = 0;
         try {
           const dueSoonResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
              AND due_date >= NOW() 
-             AND due_date <= NOW() + INTERVAL '3 days'
+             AND due_date <= NOW() + INTERVAL '5 days'
              AND status != 'completed'`,
             [user.id]
           );
@@ -129,31 +129,38 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
         const message = `📊 *TaskFlow Detailed Dashboard Summary*
 
 👤 User: ${user.name}
+⏰ ${timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening'} • ${new Date().toLocaleString()}
 
 📋 *TASKS OVERVIEW*
-├ Total Tasks: ${taskStats.total || 0}
+├ 📊 Total: ${taskStats.total || 0}
 ├ ✅ Completed: ${taskStats.completed || 0}
 ├ 🔄 In Progress: ${taskStats.in_progress || 0}
 └ ⏰ Pending: ${taskStats.pending || 0}
 
 🔧 *CNC JOBS STATUS*
-├ Total Jobs: ${cncStats.total || 0}
+├ 📊 Total: ${cncStats.total || 0}
 ├ ✅ Completed: ${cncStats.completed || 0}
 ├ ⚙️ Active: ${cncStats.active || 0}
 └ ⏳ Pending: ${cncStats.pending || 0}
 
-⚠️ *URGENT ALERTS*
-${overdueCount > 0 ? `├ 🔴 OVERDUE: ${overdueCount} task(s) past due!` : '├ ✅ No overdue tasks'}
-${dueSoonCount > 0 ? `└ 🟡 DUE SOON: ${dueSoonCount} task(s) in next 3 days` : '└ ✅ No tasks due soon'}
+⚠️ *PRIORITY ALERTS*
+${overdueCount > 0 ? `├ 🔴 *OVERDUE*: ${overdueCount} task(s) past due!` : '├ ✅ No overdue tasks'}
+${dueSoonCount > 0 ? `├ 🟡 *DUE ≤ 5 DAYS*: ${dueSoonCount} task(s)` : '├ ✅ No urgent due dates'}
+└ 📌 ${cncStats.active || 0} active CNC job(s)
 
-📈 *PERFORMANCE*
+📈 *PERFORMANCE METRICS*
 ├ Completion Rate: ${completionRate}%
-└ ${completionRate >= 75 ? '🌟 Excellent!' : completionRate >= 50 ? '👍 Good progress' : '⚡ Keep working!'}
+├ Status: ${completionRate >= 75 ? '🌟' : completionRate >= 50 ? '👍' : '⚡'} ${completionRate >= 75 ? 'Excellent!' : completionRate >= 50 ? 'Good progress' : 'Keep working!'}
+└ Efficiency: ${taskStats.in_progress > 0 ? '🔄 Active' : '✨ Ready'}
 
-⏰ ${timeOfDay === 'morning' ? '7:00 AM' : '7:00 PM'} UTC
-Generated: ${new Date().toLocaleString()}
+💡 *QUICK SUMMARY*
+${taskStats.pending > 0 ? `• ${taskStats.pending} task(s) awaiting action
+` : ''}${overdueCount > 0 ? `• ⚠️ ${overdueCount} overdue - needs attention!
+` : ''}${dueSoonCount > 0 ? `• ⏰ ${dueSoonCount} due within 5 days
+` : ''}Available: ${cncStats.pending || 0} CNC slot(s) ready
 
-🔗 Log in to dashboard for full details`;
+🔗 Log in to dashboard for full details
+📱 Reply to confirm receipt`;
 
         // Send via Whapi.Cloud
         const result = await whatsappService.sendWhatsAppMessage(

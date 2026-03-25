@@ -311,14 +311,14 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
       // Column might not exist
     }
 
-    // Get due soon (next 3 days)
+    // Get due soon (next 5 days)
     let dueSoonCount = 0;
     try {
       const dueSoonResult = await db.query(
         `SELECT COUNT(*) as count FROM tasks 
          WHERE assigned_to = $1 
          AND due_date >= NOW() 
-         AND due_date <= NOW() + INTERVAL '3 days'
+         AND due_date <= NOW() + INTERVAL '5 days'
          AND status != 'completed'`,
         [userId]
       );
@@ -338,7 +338,11 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
       timestamp: new Date().toLocaleString(),
       tasks: taskStats,
       cncJobs: cncStats,
-      completionRate: completionRate
+      completionRate: completionRate,
+      alerts: {
+        overdue: overdueCount,
+        dueSoon5Days: dueSoonCount
+      }
     };
 
     // Send via WhatsApp
@@ -346,30 +350,38 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
     const message = `📊 *TaskFlow Detailed Dashboard Summary*
 
 👤 User: ${user.name}
+⏰ Manual Report • ${new Date().toLocaleString()}
 
 📋 *TASKS OVERVIEW*
-├ Total Tasks: ${taskStats.total}
+├ 📊 Total: ${taskStats.total}
 ├ ✅ Completed: ${taskStats.completed}
 ├ 🔄 In Progress: ${taskStats.in_progress}
 └ ⏰ Pending: ${taskStats.pending}
 
 🔧 *CNC JOBS STATUS*
-├ Total Jobs: ${cncStats.total}
+├ 📊 Total: ${cncStats.total}
 ├ ✅ Completed: ${cncStats.completed}
 ├ ⚙️ Active: ${cncStats.active}
 └ ⏳ Pending: ${cncStats.pending}
 
-⚠️ *URGENT ALERTS*
-${overdueCount > 0 ? `├ 🔴 OVERDUE: ${overdueCount} task(s) past due!` : '├ ✅ No overdue tasks'}
-${dueSoonCount > 0 ? `└ 🟡 DUE SOON: ${dueSoonCount} task(s) in next 3 days` : '└ ✅ No tasks due soon'}
+⚠️ *PRIORITY ALERTS*
+${overdueCount > 0 ? `├ 🔴 *OVERDUE*: ${overdueCount} task(s) past due!` : '├ ✅ No overdue tasks'}
+${dueSoonCount > 0 ? `├ 🟡 *DUE ≤ 5 DAYS*: ${dueSoonCount} task(s)` : '├ ✅ No urgent due dates'}
+└ 📌 ${cncStats.active || 0} active CNC job(s)
 
-📈 *PERFORMANCE*
+📈 *PERFORMANCE METRICS*
 ├ Completion Rate: ${completionRate}%
-└ ${completionRate >= 75 ? '🌟 Excellent!' : completionRate >= 50 ? '👍 Good progress' : '⚡ Keep working!'}
+├ Status: ${completionRate >= 75 ? '🌟' : completionRate >= 50 ? '👍' : '⚡'} ${completionRate >= 75 ? 'Excellent!' : completionRate >= 50 ? 'Good progress' : 'Keep working!'}
+└ Efficiency: ${taskStats.in_progress > 0 ? '🔄 Active' : '✨ Ready'}
 
-⏰ Generated: ${new Date().toLocaleString()} UTC
+💡 *QUICK SUMMARY*
+${taskStats.pending > 0 ? `• ${taskStats.pending} task(s) awaiting action
+` : ''}${overdueCount > 0 ? `• ⚠️ ${overdueCount} overdue - needs attention!
+` : ''}${dueSoonCount > 0 ? `• ⏰ ${dueSoonCount} due within 5 days
+` : ''}Available: ${cncStats.pending || 0} CNC slot(s) ready
 
-🔗 Log in to dashboard for full details`;
+🔗 Log in to dashboard for full details
+📱 Reply to confirm receipt`;
 
     const whatsappResult = await whatsappService.sendWhatsAppMessage(user.phone_number, message);
 
