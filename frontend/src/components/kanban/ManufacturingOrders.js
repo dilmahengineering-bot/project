@@ -135,7 +135,7 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
         await api.post(`/cnc-jobs/${jobCard.id}/manufacturing-orders`, {
           machine_id: row.machine_id,
           order_sequence: parseInt(row.order_sequence),
-          estimated_duration_minutes: row.estimated_duration_minutes ? parseInt(row.estimated_duration_minutes) : null,
+          estimated_duration_minutes: row.estimated_duration_minutes ? Math.round(parseFloat(row.estimated_duration_minutes) * 60) : null,
           notes: row.notes
         });
         successCount++;
@@ -165,7 +165,7 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
     setEditFormData({
       machine_id: order.machine_id,
       order_sequence: order.order_sequence.toString(),
-      estimated_duration_minutes: order.estimated_duration_minutes?.toString() || '',
+      estimated_duration_minutes: order.estimated_duration_minutes ? (order.estimated_duration_minutes / 60).toString() : '',
       notes: order.notes || ''
     });
     setEditingId(order.id);
@@ -178,7 +178,7 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
       await api.put(`/cnc-jobs/manufacturing-orders/${editingId}`, {
         machine_id: editFormData.machine_id,
         order_sequence: parseInt(editFormData.order_sequence),
-        estimated_duration_minutes: editFormData.estimated_duration_minutes ? parseInt(editFormData.estimated_duration_minutes) : null,
+        estimated_duration_minutes: editFormData.estimated_duration_minutes ? Math.round(parseFloat(editFormData.estimated_duration_minutes) * 60) : null,
         notes: editFormData.notes
       });
       toast.success('Manufacturing step updated');
@@ -316,13 +316,14 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
                   />
                 </div>
                 <div className="form-group" style={{ flex: 0.7, margin: 0 }}>
-                  {idx === 0 && <label>Duration (min)</label>}
+                  {idx === 0 && <label>Duration (hrs)</label>}
                   <input
                     type="number"
                     value={row.estimated_duration_minutes}
                     onChange={(e) => handleRowChange(idx, 'estimated_duration_minutes', e.target.value)}
-                    placeholder="min"
+                    placeholder="hrs"
                     min="0"
+                    step="0.25"
                   />
                 </div>
                 <div className="form-group" style={{ flex: 1.5, margin: 0 }}>
@@ -395,12 +396,13 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
                 />
               </div>
               <div className="form-group">
-                <label>Est. Duration (min)</label>
+                <label>Est. Duration (hrs)</label>
                 <input
                   type="number"
                   value={editFormData.estimated_duration_minutes}
                   onChange={(e) => setEditFormData({ ...editFormData, estimated_duration_minutes: e.target.value })}
                   min="0"
+                  step="0.25"
                 />
               </div>
             </div>
