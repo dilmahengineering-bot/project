@@ -11,24 +11,13 @@ const crypto = require('crypto');
 
 console.log('🔧 Loading CNC Jobs routes...');
 
-// SIMPLE TEST ROUTES - To verify GET vs POST handling
-router.get('/test', (req, res) => {
-  res.json({ message: 'GET /test works', timestamp: new Date() });
+// QUICK TEST: Simple POST route to verify POST method works
+router.post('/:jobCardId/manufacturing-orders', async (req, res) => {
+  console.log('✅ SIMPLE POST manufacturing-orders route HIT!');
+  res.json({ message: 'Simple POST works', params: req.params, body: req.body });
 });
 
-router.post('/test', (req, res) => {
-  res.json({ message: 'POST /test works', body: req.body, timestamp: new Date() });
-});
-
-router.get('/:id/test', (req, res) => {
-  res.json({ message: 'GET /:id/test works', id: req.params.id, timestamp: new Date() });
-});
-
-router.post('/:id/test', authenticate, (req, res) => {
-  res.json({ message: 'POST /:id/test works (with auth)', id: req.params.id, user: req.user?.id, body: req.body, timestamp: new Date() });
-});
-
-// File upload config
+// QUICK TEST: Test routes
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, '..', 'uploads');
@@ -1419,67 +1408,9 @@ router.get(
   }
 );
 
-// Add manufacturing order
-router.post(
-  '/:jobCardId/manufacturing-orders',
-  (req, res, next) => {
-    console.log('[DEBUG-PRE-AUTH] POST manufacturing-orders: path=' + req.path + ', method=' + req.method);
-    next();
-  },
-  authenticate,
-  (req, res, next) => {
-    console.log('[DEBUG-POST-AUTH] After authenticate middleware');
-    next();
-  },
-  denyGuest,
-  async (req, res) => {
-    console.log('[DEBUG] POST manufacturing-orders route hit:', { jobCardId: req.params.jobCardId });
-    try {
-      const { jobCardId } = req.params;
-      const { machine_id, order_sequence, estimated_duration_minutes, notes } = req.body;
-      
-      if (!machine_id || order_sequence === undefined) {
-        return res.status(400).json({ error: 'Machine and sequence are required' });
-      }
-      
-      // Check if job card exists
-      const jobResult = await db.query('SELECT id FROM cnc_job_cards WHERE id = $1', [jobCardId]);
-      if (jobResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Job card not found' });
-      }
-      
-      // Check if machine exists
-      const machineResult = await db.query('SELECT id FROM machines WHERE id = $1', [machine_id]);
-      if (machineResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Machine not found' });
-      }
-      
-      // Insert manufacturing order
-      const result = await db.query(`
-        INSERT INTO manufacturing_orders 
-        (job_card_id, machine_id, order_sequence, estimated_duration_minutes, notes, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING *
-      `, [jobCardId, machine_id, order_sequence, estimated_duration_minutes, notes, req.user.id]);
-      
-      // Log history
-      await db.query(`
-        INSERT INTO manufacturing_order_history (manufacturing_order_id, action_type, user_id, notes)
-        VALUES ($1, 'created', $2, $3)
-      `, [result.rows[0].id, req.user.id, `Added machine to manufacturing sequence`]);
-      
-      res.status(201).json({ data: result.rows[0] });
-    } catch (error) {
-      console.error('Error adding manufacturing order:', error);
-      res.status(500).json({ error: error.message });
-    }
-  }
-);
-
 // Manufacturing Orders Routes Log
 console.log('✅ Manufacturing Orders routes registered:');
 console.log('  - GET    /:jobCardId/manufacturing-orders');
-console.log('  - POST   /:jobCardId/manufacturing-orders');
 console.log('  - PUT    /manufacturing-orders/:orderId');
 console.log('  - DELETE /manufacturing-orders/:orderId');
 
