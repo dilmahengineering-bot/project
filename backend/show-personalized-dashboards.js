@@ -92,6 +92,37 @@ async function showPersonalizedDashboards() {
           // Column might not exist
         }
 
+        // Get overdue CNC jobs
+        let cncOverdueCount = 0;
+        try {
+          const cncOverdueResult = await db.query(
+            `SELECT COUNT(*) as count FROM cnc_job_cards 
+             WHERE assigned_to = $1 
+             AND estimate_end_date < NOW() 
+             AND status != 'completed'`,
+            [user.id]
+          );
+          cncOverdueCount = cncOverdueResult.rows[0]?.count || 0;
+        } catch (err) {
+          // Column might not exist
+        }
+
+        // Get CNC jobs due soon (next 5 days)
+        let cncDueSoonCount = 0;
+        try {
+          const cncDueSoonResult = await db.query(
+            `SELECT COUNT(*) as count FROM cnc_job_cards 
+             WHERE assigned_to = $1 
+             AND estimate_end_date >= NOW() 
+             AND estimate_end_date <= NOW() + INTERVAL '5 days'
+             AND status != 'completed'`,
+            [user.id]
+          );
+          cncDueSoonCount = cncDueSoonResult.rows[0]?.count || 0;
+        } catch (err) {
+          // Column might not exist
+        }
+
         // Display dashboard
         console.log(`\n   📊 TASKS OVERVIEW:`);
         console.log(`      Total Tasks: ${parseInt(taskStats.total) || 0}`);
@@ -104,8 +135,8 @@ async function showPersonalizedDashboards() {
         console.log(`\n   🔧 CNC MANUFACTURING OVERVIEW:`);
         console.log(`      Active CNC Jobs: ${parseInt(cncStats.active) || 0}`);
         console.log(`      Completed: ${parseInt(cncStats.completed) || 0}`);
-        console.log(`      Overdue: ${overdueCount > 0 ? '⚠️ Yes' : '✅ None'}`);
-        console.log(`      Due ≤ 5 Days: ${dueSoonCount > 0 ? '⚠️ Yes' : '✅ None'}`);
+        console.log(`      🔴 Overdue: ${cncOverdueCount || 0}`);
+        console.log(`      🟡 Due ≤ 5 Days: ${cncDueSoonCount || 0}`);
         console.log(`      No Deadline: ${parseInt(cncStats.pending) || 0}`);
 
         // Show what message will say
@@ -125,8 +156,8 @@ async function showPersonalizedDashboards() {
 🔧 CNC MANUFACTURING OVERVIEW
 ├ Active CNC Jobs: ${parseInt(cncStats.active) || 0}
 ├ Completed: ${parseInt(cncStats.completed) || 0}
-├ Overdue: ${overdueCount > 0 ? '⚠️ Yes' : '✅ None'}
-├ Due ≤ 5 Days: ${dueSoonCount > 0 ? '⚠️ Yes' : '✅ None'}
+├ 🔴 Overdue: ${cncOverdueCount || 0}
+├ 🟡 Due ≤ 5 Days: ${cncDueSoonCount || 0}
 └ No Deadline: ${parseInt(cncStats.pending) || 0}`;
 
         console.log(`\n   📱 WHATSAPP MESSAGE PREVIEW:`);

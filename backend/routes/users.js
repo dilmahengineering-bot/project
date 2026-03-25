@@ -327,6 +327,37 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
       // Column might not exist
     }
 
+    // Get overdue CNC jobs
+    let cncOverdueCount = 0;
+    try {
+      const cncOverdueResult = await db.query(
+        `SELECT COUNT(*) as count FROM cnc_job_cards 
+         WHERE assigned_to = $1 
+         AND estimate_end_date < NOW() 
+         AND status != 'completed'`,
+        [userId]
+      );
+      cncOverdueCount = cncOverdueResult.rows[0]?.count || 0;
+    } catch (err) {
+      // Column might not exist
+    }
+
+    // Get CNC jobs due soon (next 5 days)
+    let cncDueSoonCount = 0;
+    try {
+      const cncDueSoonResult = await db.query(
+        `SELECT COUNT(*) as count FROM cnc_job_cards 
+         WHERE assigned_to = $1 
+         AND estimate_end_date >= NOW() 
+         AND estimate_end_date <= NOW() + INTERVAL '5 days'
+         AND status != 'completed'`,
+        [userId]
+      );
+      cncDueSoonCount = cncDueSoonResult.rows[0]?.count || 0;
+    } catch (err) {
+      // Column might not exist
+    }
+
     // Calculate completion rate
     const completionRate = taskStats.total > 0 
       ? Math.round((taskStats.completed / taskStats.total) * 100)
@@ -363,8 +394,8 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
 🔧 CNC MANUFACTURING OVERVIEW
 ├ Active CNC Jobs: ${cncStats.active}
 ├ Completed: ${cncStats.completed}
-├ Overdue: ${overdueCount > 0 ? '⚠️ Yes' : '✅ None'}
-├ Due ≤ 5 Days: ${dueSoonCount > 0 ? '⚠️ Yes' : '✅ None'}
+├ 🔴 Overdue: ${cncOverdueCount}
+├ 🟡 Due ≤ 5 Days: ${cncDueSoonCount}
 └ No Deadline: ${cncStats.pending}`;
 
     const whatsappResult = await whatsappService.sendWhatsAppMessage(user.phone_number, message);

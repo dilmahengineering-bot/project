@@ -120,6 +120,37 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
           // CNC jobs table might not exist - continue with 0 values
         }
 
+        // Get overdue CNC jobs
+        let cncOverdueCount = 0;
+        try {
+          const cncOverdueResult = await db.query(
+            `SELECT COUNT(*) as count FROM cnc_job_cards 
+             WHERE assigned_to = $1 
+             AND estimate_end_date < NOW() 
+             AND status != 'completed'`,
+            [user.id]
+          );
+          cncOverdueCount = cncOverdueResult.rows[0]?.count || 0;
+        } catch (err) {
+          // Column might not exist
+        }
+
+        // Get CNC jobs due soon (next 5 days)
+        let cncDueSoonCount = 0;
+        try {
+          const cncDueSoonResult = await db.query(
+            `SELECT COUNT(*) as count FROM cnc_job_cards 
+             WHERE assigned_to = $1 
+             AND estimate_end_date >= NOW() 
+             AND estimate_end_date <= NOW() + INTERVAL '5 days'
+             AND status != 'completed'`,
+            [user.id]
+          );
+          cncDueSoonCount = cncDueSoonResult.rows[0]?.count || 0;
+        } catch (err) {
+          // Column might not exist
+        }
+
         // Build detailed formatted message
         const timeDisplay = timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening';
         const completionRate = taskStats.total > 0 
@@ -142,8 +173,8 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
 🔧 CNC MANUFACTURING OVERVIEW
 ├ Active CNC Jobs: ${cncStats.active || 0}
 ├ Completed: ${cncStats.completed || 0}
-├ Overdue: ${overdueCount > 0 ? '⚠️ Yes' : '✅ None'}
-├ Due ≤ 5 Days: ${dueSoonCount > 0 ? '⚠️ Yes' : '✅ None'}
+├ 🔴 Overdue: ${cncOverdueCount || 0}
+├ 🟡 Due ≤ 5 Days: ${cncDueSoonCount || 0}
 └ No Deadline: ${cncStats.pending || 0}`;
 
         // Send via Whapi.Cloud
