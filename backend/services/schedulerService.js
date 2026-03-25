@@ -57,7 +57,7 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
 
     for (const user of usersResult.rows) {
       try {
-        // Get detailed tasks breakdown
+        // Get detailed tasks breakdown for THIS USER ONLY
         const tasksResult = await db.query(
           `SELECT 
             COUNT(*) as total,
@@ -65,23 +65,24 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
             SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
             SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
            FROM tasks 
-           WHERE created_by = $1 OR assigned_to = $1`,
+           WHERE assigned_to = $1`,
           [user.id]
         );
 
         const taskStats = tasksResult.rows[0] || { total: 0, completed: 0, in_progress: 0, pending: 0 };
 
-        // Get CNC jobs breakdown (if table exists)
+        // Get CNC jobs breakdown for THIS USER ONLY (if table exists)
         let cncStats = { total: 0, completed: 0, active: 0, pending: 0 };
         try {
           const cncResult = await db.query(
             `SELECT 
               COUNT(*) as total,
               SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-              SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as active,
+              SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
               SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
-             FROM cnc_jobs 
-             LIMIT 10`
+             FROM cnc_job_cards 
+             WHERE assigned_to = $1`,
+            [user.id]
           );
           cncStats = cncResult.rows[0] || cncStats;
         } catch (err) {

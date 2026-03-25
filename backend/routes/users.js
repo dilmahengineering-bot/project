@@ -252,11 +252,11 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
       const taskResult = await db.query(`
         SELECT 
           COUNT(*) as total,
-          SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
-          SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-          SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
         FROM tasks 
-        WHERE assigned_to_id = $1
+        WHERE assigned_to = $1
       `, [userId]);
 
       if (taskResult.rows[0]) {
@@ -277,11 +277,11 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
       const cncResult = await db.query(`
         SELECT 
           COUNT(*) as total,
-          SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
-          SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
-          SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending
-        FROM cnc_jobs 
-        WHERE assigned_to_id = $1
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+        FROM cnc_job_cards 
+        WHERE assigned_to = $1
       `, [userId]);
 
       if (cncResult.rows[0]) {
