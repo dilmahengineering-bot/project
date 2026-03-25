@@ -1,6 +1,6 @@
 const schedule = require('node-schedule');
 const db = require('../db');
-const whatsappService = require('./whatsappServiceWhapi'); // Using Whapi.Cloud
+const whatsappService = require('./whatsappServiceWaSender'); // Using WaSender
 
 let scheduledJobs = {};
 

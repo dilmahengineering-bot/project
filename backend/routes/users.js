@@ -311,7 +311,7 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
     };
 
     // Send via WhatsApp
-    const whatsappService = require('../services/whatsappServiceWhapi');
+    const whatsappService = require('../services/whatsappServiceWaSender');
     const message = `📊 *Dashboard Summary for ${user.name}*
 ${new Date().toLocaleString()}
 

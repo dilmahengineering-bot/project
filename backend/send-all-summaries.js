@@ -1,6 +1,6 @@
 require('dotenv').config();
 const db = require('./db');
-const whatsappService = require('./services/whatsappServiceWhapi');
+const whatsappService = require('./services/whatsappServiceWaSender');
 
 async function sendDetailedSummaryToAllUsers() {
   try {
