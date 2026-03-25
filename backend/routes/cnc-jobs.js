@@ -36,6 +36,21 @@ const upload = multer({
   }
 });
 
+// Debug middleware - log all requests to manufacturing-orders
+router.use((req, res, next) => {
+  if (req.path.includes('manufacturing-orders')) {
+    console.log(`[DEBUG] Incoming ${req.method} request to manufacturing-orders:`, {
+      path: req.path,
+      fullUrl: req.originalUrl,
+      method: req.method,
+      jobCardId: req.params.jobCardId,
+      orderId: req.params.orderId,
+      headers: { 'content-type': req.headers['content-type'] }
+    });
+  }
+  next();
+});
+
 // Helper to log CNC job card history
 const logCncHistory = async (jobCardId, actionType, userId, notes, oldValue = null, newValue = null) => {
   await db.query(
@@ -1391,6 +1406,7 @@ router.post(
   authenticate,
   denyGuest,
   async (req, res) => {
+    console.log('[DEBUG] POST manufacturing-orders route hit:', { jobCardId: req.params.jobCardId });
     try {
       const { jobCardId } = req.params;
       const { machine_id, order_sequence, estimated_duration_minutes, notes } = req.body;
