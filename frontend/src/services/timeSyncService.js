@@ -4,6 +4,8 @@
  * see consistent time regardless of their browser's local timezone
  */
 
+import api from '../utils/api';
+
 let serverTimeOffset = 0; // Offset between client and server time in ms
 let lastSyncTime = 0; // Last time we synced with server (ms since epoch)
 const SYNC_INTERVAL = 5 * 60 * 1000; // Resync every 5 minutes
@@ -15,9 +17,8 @@ const SYNC_INTERVAL = 5 * 60 * 1000; // Resync every 5 minutes
 export async function syncWithServer() {
   try {
     const clientTime = Date.now();
-    const response = await fetch('/api/time', { method: 'GET' });
-    const data = await response.json();
-    const serverTime = data.timestamp;
+    const response = await api.get('/time');
+    const serverTime = response.data.timestamp;
     const fetchTime = Date.now();
 
     // Calculate offset: serverTime - clientTime
