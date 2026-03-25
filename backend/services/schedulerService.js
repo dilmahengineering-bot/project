@@ -129,7 +129,7 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
         const message = `📊 *TaskFlow Detailed Dashboard Summary*
 
 👤 User: ${user.name}
-⏰ ${timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening'} • ${new Date().toLocaleString()}
+⏰ ${timeOfDay === 'morning' ? '🌅 Morning' : '🌆 Evening'} Report • ${new Date().toLocaleString()}
 
 📋 *TASKS OVERVIEW*
 ├ 📊 Total: ${taskStats.total || 0}
