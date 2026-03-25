@@ -7,14 +7,17 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
   const [orders, setOrders] = useState([]);
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
+  const [editFormData, setEditFormData] = useState({
     machine_id: '',
     order_sequence: '',
     estimated_duration_minutes: '',
     notes: ''
   });
+  // Multi-row add support
+  const [addRows, setAddRows] = useState([]);
   const [operators, setOperators] = useState([]);
 
   const statusColors = {
@@ -46,7 +49,6 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
       setOrders(res.data.data || []);
     } catch (err) {
       console.error('Error loading orders:', err);
-      toast.error('Failed to load manufacturing orders');
     } finally {
       setLoading(false);
     }
@@ -59,14 +61,13 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
       setMachines(activeMachines);
     } catch (err) {
       console.error('Error loading machines:', err);
-      toast.error('Failed to load machines');
     }
   };
 
   const loadOperators = async () => {
     try {
       const res = await api.get('/users');
-      const userOperators = (res.data.users || []).filter(u => u.role === 'user');
+      const userOperators = (res.data.users || []).filter(u => u.role !== 'guest');
       setOperators(userOperators);
     } catch (err) {
       console.error('Error loading operators:', err);
@@ -74,50 +75,125 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
   };
 
   const getNextSequence = () => {
-    if (orders.length === 0) return 1;
-    return Math.max(...orders.map(o => o.order_sequence)) + 1;
+    const existingMax = orders.length > 0 ? Math.max(...orders.map(o => o.order_sequence)) : 0;
+    const addRowMax = addRows.length > 0 ? Math.max(...addRows.map(r => parseInt(r.order_sequence) || 0)) : 0;
+    return Math.max(existingMax, addRowMax) + 1;
   };
 
-  const handleAddOrder = async (e) => {
+  const createEmptyRow = (seq) => ({
+    machine_id: '',
+    order_sequence: seq.toString(),
+    estimated_duration_minutes: '',
+    notes: '',
+    _key: Date.now() + Math.random() // unique key for React
+  });
+
+  const handleOpenAddForm = () => {
+    if (isGuest) {
+      toast.error('Guest users have read-only access');
+      return;
+    }
+    const nextSeq = orders.length > 0 ? Math.max(...orders.map(o => o.order_sequence)) + 1 : 1;
+    setAddRows([createEmptyRow(nextSeq)]);
+    setShowAddForm(true);
+    setEditingId(null);
+  };
+
+  const handleAddRow = () => {
+    const nextSeq = getNextSequence();
+    setAddRows([...addRows, createEmptyRow(nextSeq)]);
+  };
+
+  const handleRemoveRow = (index) => {
+    if (addRows.length === 1) return;
+    setAddRows(addRows.filter((_, i) => i !== index));
+  };
+
+  const handleRowChange = (index, field, value) => {
+    const updated = [...addRows];
+    updated[index] = { ...updated[index], [field]: value };
+    setAddRows(updated);
+  };
+
+  const handleSaveAll = async (e) => {
     e.preventDefault();
     
-    if (!formData.machine_id || formData.order_sequence === '') {
-      toast.error('Machine and sequence are required');
+    // Validate all rows
+    const invalid = addRows.find(r => !r.machine_id || r.order_sequence === '');
+    if (invalid) {
+      toast.error('Each step needs a machine and sequence number');
       return;
     }
 
-    try {
-      const payload = {
-        machine_id: formData.machine_id,
-        order_sequence: parseInt(formData.order_sequence),
-        estimated_duration_minutes: formData.estimated_duration_minutes ? parseInt(formData.estimated_duration_minutes) : null,
-        notes: formData.notes
-      };
+    setSaving(true);
+    let successCount = 0;
+    let errorCount = 0;
 
-      if (editingId) {
-        await api.put(`/cnc-jobs/manufacturing-orders/${editingId}`, payload);
-        toast.success('Manufacturing order updated');
-      } else {
-        await api.post(`/cnc-jobs/${jobCard.id}/manufacturing-orders`, payload);
-        toast.success('Manufacturing order added');
+    for (const row of addRows) {
+      try {
+        await api.post(`/cnc-jobs/${jobCard.id}/manufacturing-orders`, {
+          machine_id: row.machine_id,
+          order_sequence: parseInt(row.order_sequence),
+          estimated_duration_minutes: row.estimated_duration_minutes ? parseInt(row.estimated_duration_minutes) : null,
+          notes: row.notes
+        });
+        successCount++;
+      } catch (err) {
+        errorCount++;
+        console.error('Error saving step:', err);
       }
+    }
 
+    setSaving(false);
+
+    if (successCount > 0) {
+      toast.success(`${successCount} manufacturing step${successCount > 1 ? 's' : ''} added`);
       loadOrders();
-      resetForm();
+    }
+    if (errorCount > 0) {
+      toast.error(`${errorCount} step${errorCount > 1 ? 's' : ''} failed to save`);
+    }
+    
+    setShowAddForm(false);
+    setAddRows([]);
+  };
+
+  const handleEditOrder = (order) => {
+    setEditFormData({
+      machine_id: order.machine_id,
+      order_sequence: order.order_sequence.toString(),
+      estimated_duration_minutes: order.estimated_duration_minutes?.toString() || '',
+      notes: order.notes || ''
+    });
+    setEditingId(order.id);
+    setShowAddForm(false);
+  };
+
+  const handleUpdateOrder = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(`/cnc-jobs/manufacturing-orders/${editingId}`, {
+        machine_id: editFormData.machine_id,
+        order_sequence: parseInt(editFormData.order_sequence),
+        estimated_duration_minutes: editFormData.estimated_duration_minutes ? parseInt(editFormData.estimated_duration_minutes) : null,
+        notes: editFormData.notes
+      });
+      toast.success('Manufacturing step updated');
+      loadOrders();
+      setEditingId(null);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to save manufacturing order');
+      toast.error(err.response?.data?.error || 'Failed to update');
     }
   };
 
   const handleDeleteOrder = async (orderId) => {
-    if (!window.confirm('Delete this manufacturing order?')) return;
-
+    if (!window.confirm('Delete this manufacturing step?')) return;
     try {
       await api.delete(`/cnc-jobs/manufacturing-orders/${orderId}`);
-      toast.success('Manufacturing order deleted');
+      toast.success('Manufacturing step deleted');
       loadOrders();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to delete manufacturing order');
+      toast.error(err.response?.data?.error || 'Failed to delete');
     }
   };
 
@@ -134,33 +210,11 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
   const handleQualityCheck = async (orderId, newStatus) => {
     try {
       await api.put(`/cnc-jobs/manufacturing-orders/${orderId}`, { quality_check_status: newStatus });
-      toast.success('Quality check status updated');
+      toast.success('Quality check updated');
       loadOrders();
     } catch (err) {
       toast.error('Failed to update quality check');
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      machine_id: '',
-      order_sequence: getNextSequence().toString(),
-      estimated_duration_minutes: '',
-      notes: ''
-    });
-    setEditingId(null);
-    setShowAddForm(false);
-  };
-
-  const handleEditOrder = (order) => {
-    setFormData({
-      machine_id: order.machine_id,
-      order_sequence: order.order_sequence.toString(),
-      estimated_duration_minutes: order.estimated_duration_minutes?.toString() || '',
-      notes: order.notes || ''
-    });
-    setEditingId(order.id);
-    setShowAddForm(true);
   };
 
   const getMachineName = (machineId) => {
@@ -188,7 +242,7 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
       {orders.length > 0 && (
         <div className="manufacturing-summary">
           <div className="summary-item">
-            <span className="summary-label">Total Machines:</span>
+            <span className="summary-label">Total Steps:</span>
             <span className="summary-value">{orders.length}</span>
           </div>
           <div className="summary-item">
@@ -206,95 +260,166 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
         </div>
       )}
 
-      {/* Add/Edit Form */}
-      {/* Button always visible, but disabled for guests */}
-      <>
-        {!showAddForm && (
-          <button 
-            className="btn btn-primary" 
-            onClick={() => {
-              if (isGuest) {
-                toast.error('Guest users have read-only access');
-                return;
-              }
-              setShowAddForm(true);
-            }} 
-            style={{ marginBottom: '16px' }}
-            title={isGuest ? "Read-only access" : "Add a new manufacturing step"}
-          >
-            + Add Manufacturing Step
-          </button>
-        )}
+      {/* Add Button */}
+      {!showAddForm && !editingId && (
+        <button 
+          className="btn btn-primary" 
+          onClick={handleOpenAddForm} 
+          style={{ marginBottom: '16px' }}
+        >
+          + Add Manufacturing Step{machines.length > 1 ? 's' : ''}
+        </button>
+      )}
 
-        {showAddForm && !isGuest && (
-            <div className="manufacturing-form">
-              <h4>{editingId ? 'Edit Manufacturing Step' : 'Add New Manufacturing Step'}</h4>
-              <form onSubmit={handleAddOrder}>
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-                  <div className="form-group">
-                    <label>Machine *</label>
-                    <select
-                      value={formData.machine_id}
-                      onChange={(e) => setFormData({ ...formData, machine_id: e.target.value })}
-                      required
-                    >
-                      <option value="">Select Machine</option>
-                      {machines.map(m => (
-                        <option key={m.id} value={m.id}>{m.machine_name} ({m.machine_code})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Sequence # *</label>
-                    <input
-                      type="number"
-                      value={formData.order_sequence}
-                      onChange={(e) => setFormData({ ...formData, order_sequence: e.target.value })}
-                      placeholder="1, 2, 3..."
-                      required
-                      min="1"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Est. Duration (min)</label>
-                    <input
-                      type="number"
-                      value={formData.estimated_duration_minutes}
-                      onChange={(e) => setFormData({ ...formData, estimated_duration_minutes: e.target.value })}
-                      placeholder="e.g., 60"
-                      min="0"
-                    />
-                  </div>
+      {/* Multi-row Add Form */}
+      {showAddForm && (
+        <div className="manufacturing-form">
+          <h4>Add Manufacturing Steps</h4>
+          <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 12px' }}>
+            Add one or more machines to the manufacturing sequence
+          </p>
+          <form onSubmit={handleSaveAll}>
+            {addRows.map((row, idx) => (
+              <div key={row._key} className="multi-row" style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '8px', padding: '8px', background: '#f9fafb', borderRadius: '6px' }}>
+                <div className="form-group" style={{ flex: 2, margin: 0 }}>
+                  {idx === 0 && <label>Machine *</label>}
+                  <select
+                    value={row.machine_id}
+                    onChange={(e) => handleRowChange(idx, 'machine_id', e.target.value)}
+                    required
+                  >
+                    <option value="">Select Machine</option>
+                    {machines.map(m => (
+                      <option key={m.id} value={m.id}>{m.machine_name} ({m.machine_code})</option>
+                    ))}
+                  </select>
                 </div>
-                <div className="form-group">
-                  <label>Notes</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Add any notes for this step..."
-                    rows={2}
+                <div className="form-group" style={{ flex: 0.7, margin: 0 }}>
+                  {idx === 0 && <label>Seq #</label>}
+                  <input
+                    type="number"
+                    value={row.order_sequence}
+                    onChange={(e) => handleRowChange(idx, 'order_sequence', e.target.value)}
+                    required
+                    min="1"
                   />
                 </div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-success">Save</button>
-                  <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancel</button>
+                <div className="form-group" style={{ flex: 0.7, margin: 0 }}>
+                  {idx === 0 && <label>Duration (min)</label>}
+                  <input
+                    type="number"
+                    value={row.estimated_duration_minutes}
+                    onChange={(e) => handleRowChange(idx, 'estimated_duration_minutes', e.target.value)}
+                    placeholder="min"
+                    min="0"
+                  />
                 </div>
-              </form>
+                <div className="form-group" style={{ flex: 1.5, margin: 0 }}>
+                  {idx === 0 && <label>Notes</label>}
+                  <input
+                    type="text"
+                    value={row.notes}
+                    onChange={(e) => handleRowChange(idx, 'notes', e.target.value)}
+                    placeholder="Notes..."
+                  />
+                </div>
+                {addRows.length > 1 && (
+                  <button 
+                    type="button" 
+                    onClick={() => handleRemoveRow(idx)} 
+                    style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', padding: '6px 10px', cursor: 'pointer', height: '36px' }}
+                    title="Remove row"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="form-actions" style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button 
+                type="button" 
+                onClick={handleAddRow} 
+                className="btn btn-secondary"
+                style={{ fontSize: '13px' }}
+              >
+                + Add Another Machine
+              </button>
+              <div style={{ flex: 1 }} />
+              <button type="submit" className="btn btn-success" disabled={saving}>
+                {saving ? 'Saving...' : `Save ${addRows.length > 1 ? `(${addRows.length} steps)` : ''}`}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowAddForm(false); setAddRows([]); }}>Cancel</button>
             </div>
-          )}
-      </>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Form (single item) */}
+      {editingId && (
+        <div className="manufacturing-form">
+          <h4>Edit Manufacturing Step</h4>
+          <form onSubmit={handleUpdateOrder}>
+            <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+              <div className="form-group">
+                <label>Machine *</label>
+                <select
+                  value={editFormData.machine_id}
+                  onChange={(e) => setEditFormData({ ...editFormData, machine_id: e.target.value })}
+                  required
+                >
+                  <option value="">Select Machine</option>
+                  {machines.map(m => (
+                    <option key={m.id} value={m.id}>{m.machine_name} ({m.machine_code})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Sequence # *</label>
+                <input
+                  type="number"
+                  value={editFormData.order_sequence}
+                  onChange={(e) => setEditFormData({ ...editFormData, order_sequence: e.target.value })}
+                  required
+                  min="1"
+                />
+              </div>
+              <div className="form-group">
+                <label>Est. Duration (min)</label>
+                <input
+                  type="number"
+                  value={editFormData.estimated_duration_minutes}
+                  onChange={(e) => setEditFormData({ ...editFormData, estimated_duration_minutes: e.target.value })}
+                  min="0"
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label>Notes</label>
+              <textarea
+                value={editFormData.notes}
+                onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                rows={2}
+              />
+            </div>
+            <div className="form-actions">
+              <button type="submit" className="btn btn-success">Update</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingId(null)}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Orders List */}
-      {orders.length === 0 ? (
+      {orders.length === 0 && !showAddForm ? (
         <div className="manufacturing-empty">
           <p>📋 No manufacturing steps defined yet</p>
-          <p>Click "Add Manufacturing Step" to start building the manufacturing route</p>
+          <p>Click the button above to add machines to the manufacturing route</p>
         </div>
       ) : (
         <div className="manufacturing-list">
           {orders
             .sort((a, b) => a.order_sequence - b.order_sequence)
-            .map((order, idx) => (
+            .map((order) => (
               <div key={order.id} className={`manufacturing-card status-${order.status}`}>
                 <div className="card-header">
                   <div className="card-title">
@@ -302,32 +427,40 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
                     <h5>{getMachineName(order.machine_id)}</h5>
                   </div>
                   {!isGuest && (
-                    <button
-                      className="btn-delete"
-                      onClick={() => handleDeleteOrder(order.id)}
-                      title="Delete"
-                    >
-                      ✕
-                    </button>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        className="btn-edit-small"
+                        onClick={() => handleEditOrder(order)}
+                        title="Edit"
+                        style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        className="btn-delete"
+                        onClick={() => handleDeleteOrder(order.id)}
+                        title="Delete"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   )}
                 </div>
 
                 <div className="card-content">
-                  {/* Timing Info */}
                   {order.estimated_duration_minutes && (
                     <div className="info-row">
                       <span className="label">Est. Time:</span>
-                      <span className="value">{order.estimated_duration_minutes} minutes</span>
+                      <span className="value">{order.estimated_duration_minutes} min</span>
                     </div>
                   )}
 
-                  {/* Status Section */}
                   <div className="status-section">
                     <div className="status-group">
                       <label>Status:</label>
                       {isGuest ? (
                         <span className="status-badge" style={{ backgroundColor: statusColors[order.status] }}>
-                          {order.status.toUpperCase()}
+                          {order.status.replace('_', ' ').toUpperCase()}
                         </span>
                       ) : (
                         <select
@@ -347,11 +480,11 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
                       <label>Quality:</label>
                       {isGuest ? (
                         <span className="quality-badge" style={{ backgroundColor: qualityColors[order.quality_check_status] }}>
-                          {order.quality_check_status.toUpperCase()}
+                          {(order.quality_check_status || 'pending').toUpperCase()}
                         </span>
                       ) : (
                         <select
-                          value={order.quality_check_status}
+                          value={order.quality_check_status || 'pending'}
                           onChange={(e) => handleQualityCheck(order.id, e.target.value)}
                           className="quality-select"
                         >
@@ -364,7 +497,6 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
                     </div>
                   </div>
 
-                  {/* Operator Assignment */}
                   <div className="operator-row">
                     <span className="label">Operator:</span>
                     {isGuest ? (
@@ -386,23 +518,11 @@ export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
                     )}
                   </div>
 
-                  {/* Notes */}
                   {order.notes && (
                     <div className="notes-row">
                       <span className="label">Notes:</span>
                       <p>{order.notes}</p>
                     </div>
-                  )}
-
-                  {/* Edit Button */}
-                  {!isGuest && !editingId && (
-                    <button
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => handleEditOrder(order)}
-                      style={{ marginTop: '8px' }}
-                    >
-                      Edit
-                    </button>
                   )}
                 </div>
               </div>
