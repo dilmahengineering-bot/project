@@ -215,6 +215,16 @@
   background-color: #2563eb;
 }
 
+.btn-send {
+  background-color: #f59e0b;
+  color: white;
+  white-space: nowrap;
+}
+
+.btn-send:hover:not(:disabled) {
+  background-color: #d97706;
+}
+
 .btn-save {
   background-color: #059669;
   color: white;

@@ -226,4 +226,127 @@ router.post('/phone-numbers/bulk-update', authenticate, requireAdmin, async (req
   }
 });
 
+// Send manual dashboard summary (admin only)
+router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Get user and phone number
+    const userResult = await db.query(
+      'SELECT id, name, phone_number FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (!userResult.rows[0]) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+    if (!user.phone_number) {
+      return res.status(400).json({ error: 'User does not have a phone number configured' });
+    }
+
+    // Get task statistics
+    let taskStats = { total: 0, completed: 0, in_progress: 0, pending: 0 };
+    try {
+      const taskResult = await db.query(`
+        SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+          SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending
+        FROM tasks 
+        WHERE assigned_to_id = $1
+      `, [userId]);
+
+      if (taskResult.rows[0]) {
+        taskStats = {
+          total: parseInt(taskResult.rows[0].total) || 0,
+          completed: parseInt(taskResult.rows[0].completed) || 0,
+          in_progress: parseInt(taskResult.rows[0].in_progress) || 0,
+          pending: parseInt(taskResult.rows[0].pending) || 0
+        };
+      }
+    } catch (err) {
+      console.error('Error fetching task stats:', err);
+    }
+
+    // Get CNC job statistics
+    let cncStats = { total: 0, completed: 0, active: 0, pending: 0 };
+    try {
+      const cncResult = await db.query(`
+        SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending
+        FROM cnc_jobs 
+        WHERE assigned_to_id = $1
+      `, [userId]);
+
+      if (cncResult.rows[0]) {
+        cncStats = {
+          total: parseInt(cncResult.rows[0].total) || 0,
+          completed: parseInt(cncResult.rows[0].completed) || 0,
+          active: parseInt(cncResult.rows[0].active) || 0,
+          pending: parseInt(cncResult.rows[0].pending) || 0
+        };
+      }
+    } catch (err) {
+      console.error('Error fetching CNC stats:', err);
+    }
+
+    // Calculate completion rate
+    const completionRate = taskStats.total > 0 
+      ? Math.round((taskStats.completed / taskStats.total) * 100)
+      : 0;
+
+    // Format the summary message
+    const summary = {
+      userName: user.name,
+      timestamp: new Date().toLocaleString(),
+      tasks: taskStats,
+      cncJobs: cncStats,
+      completionRate: completionRate
+    };
+
+    // Send via WhatsApp
+    const whatsappService = require('../services/whatsappServiceWhapi');
+    const message = `📊 *Dashboard Summary for ${user.name}*
+${new Date().toLocaleString()}
+
+*📋 Your Tasks:*
+Total: ${taskStats.total}
+✅ Completed: ${taskStats.completed}
+🔄 In Progress: ${taskStats.in_progress}
+⏳ Pending: ${taskStats.pending}
+Completion Rate: ${completionRate}%
+
+*⚙️ CNC Jobs:*
+Total: ${cncStats.total}
+✅ Completed: ${cncStats.completed}
+🟢 Active: ${cncStats.active}
+⏳ Pending: ${cncStats.pending}
+
+Have a productive day! 💪`;
+
+    await whatsappService.sendWhatsAppMessage(user.phone_number, message);
+
+    // Log the manual send
+    await db.query(`
+      INSERT INTO whatsapp_logs (user_id, phone_number, message_type, status, sent_at)
+      VALUES ($1, $2, $3, $4, NOW())
+    `, [userId, user.phone_number, 'manual_summary', 'sent']);
+
+    res.json({ 
+      message: 'Summary sent successfully',
+      user: { id: user.id, name: user.name, phone: user.phone_number },
+      summary: summary
+    });
+  } catch (err) {
+    console.error('Error sending summary:', err);
+    res.status(500).json({ error: 'Failed to send summary: ' + err.message });
+  }
+});
+
 module.exports = router;

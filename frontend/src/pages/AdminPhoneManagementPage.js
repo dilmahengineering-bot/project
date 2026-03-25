@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/AdminPhoneManagement.css';
 import api from '../utils/api';
-import '../styles/AdminPhoneManagement.css';
 
 export default function AdminPhoneManagementPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [sendingUserId, setSendingUserId] = useState(null);
   const [editingUserId, setEditingUserId] = useState(null);
   const [phoneInput, setPhoneInput] = useState('');
   const [message, setMessage] = useState('');
@@ -98,6 +98,27 @@ export default function AdminPhoneManagementPage() {
       setMessageType('error');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleSendSummary = async (userId, userName) => {
+    try {
+      setSendingUserId(userId);
+      setMessage('');
+      
+      const response = await api.post(`/users/${userId}/send-summary`);
+      
+      setMessage(`✅ Summary sent to ${userName}! Check their phone.`);
+      setMessageType('success');
+      
+      // Clear message after 5 seconds
+      setTimeout(() => setMessage(''), 5000);
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to send summary';
+      setMessage(`❌ ${errorMsg}`);
+      setMessageType('error');
+    } finally {
+      setSendingUserId(null);
     }
   };
 
@@ -226,12 +247,21 @@ export default function AdminPhoneManagementPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => handleEditStart(user)}
-                    className="btn btn-edit"
-                  >
-                    Edit
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleEditStart(user)}
+                      className="btn btn-edit"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleSendSummary(user.id, user.name)}
+                      className="btn btn-send"
+                      disabled={sendingUserId === user.id}
+                    >
+                      {sendingUserId === user.id ? '📤 Sending...' : '📤 Send Summary'}
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
