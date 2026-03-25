@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/shared/Layout';
+import AutoPlanningPanel from '../components/planning/AutoPlanningPanel';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import './PlanningPage.css';
@@ -26,6 +27,7 @@ export default function PlanningPage() {
   const [stats, setStats] = useState({ total_planned: 0, active_machines: 0, completed: 0, in_progress: 0 });
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAutoPlanning, setShowAutoPlanning] = useState(false);
 
   // Add job modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -356,6 +358,12 @@ export default function PlanningPage() {
             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="date-picker" />
             <button className="btn btn-icon" onClick={() => navigateDate(1)}>▶</button>
             <button className="btn btn-secondary" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>Today</button>
+            <AutoPlanningPanel
+              isOpen={showAutoPlanning}
+              onClose={() => { setShowAutoPlanning(false); loadData(); }}
+              isAdmin={isAdmin}
+            />
+            <button className="btn btn-primary" onClick={() => setShowAutoPlanning(true)}>🤖 Auto-Plan</button>
           </div>
         </div>
 

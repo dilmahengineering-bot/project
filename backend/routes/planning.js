@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const PDFDocument = require('pdfkit');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const PlanningEngine = require('../services/planningEngine');
 
 // ==================== MACHINES (Machine Master) ====================
 
@@ -986,6 +987,182 @@ router.get('/production-report-pdf', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error generating production report PDF:', error);
     if (!res.headersSent) res.status(500).json({ error: 'Failed to generate report' });
+  }
+});
+
+// ==================== AUTOMATED INTELLIGENT PLANNING ====================
+
+/**
+ * Generate automatic intelligent plan for a single job card
+ * Takes manufacturing orders, calculates optimal schedule, loads into planning board
+ */
+router.post('/auto-plan/job/:jobCardId', authenticate, async (req, res) => {
+  try {
+    const { jobCardId } = req.params;
+    const {
+      start_date = new Date().toISOString().split('T')[0],
+      preferred_shift = 'day', // 'day', 'night', 'both'
+      assign_operator = true
+    } = req.body;
+
+    console.log(`\n📊 AUTO-PLAN REQUEST for job: ${jobCardId}`);
+    console.log(`   User: ${req.user.id}`);
+
+    // Verify job card exists and has manufacturing orders
+    const jobCheck = await db.query(
+      'SELECT id, job_name FROM cnc_job_cards WHERE id = $1',
+      [jobCardId]
+    );
+
+    if (jobCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Job card not found' });
+    }
+
+    const orderCheck = await db.query(
+      'SELECT COUNT(*) as count FROM manufacturing_orders WHERE job_card_id = $1 AND status != \'skipped\'',
+      [jobCardId]
+    );
+
+    if (orderCheck.rows[0].count === 0) {
+      return res.status(400).json({ 
+        error: 'No manufacturing orders found. Please define manufacturing steps first.' 
+      });
+    }
+
+    // Generate the plan
+    const result = await PlanningEngine.generateAutoPlan(jobCardId, {
+      start_date,
+      preferredShift: preferred_shift,
+      assignOperator: assign_operator
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Error in auto-plan endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Generate automatic plans for all unscheduled active jobs
+ */
+router.post('/auto-plan/bulk', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const {
+      preferred_shift = 'day',
+      assign_operator = true
+    } = req.body;
+
+    console.log(`\n📊 BULK AUTO-PLAN REQUEST by admin: ${req.user.id}\n`);
+
+    const result = await PlanningEngine.generateBulkAutoPlans({
+      preferredShift: preferred_shift,
+      assignOperator: assign_operator
+    });
+
+    res.json({
+      success: true,
+      ...result,
+      message: `Bulk auto-planning complete: ${result.successful} successful, ${result.failed} failed`
+    });
+
+  } catch (error) {
+    console.error('Error in bulk auto-plan endpoint:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get auto-plan recommendations without applying them
+ * (Preview what the automatic planner would do)
+ */
+router.get('/auto-plan/preview/:jobCardId', authenticate, async (req, res) => {
+  try {
+    const { jobCardId } = req.params;
+    const {
+      start_date = new Date().toISOString().split('T')[0],
+      preferred_shift = 'day'
+    } = req.query;
+
+    const jobResult = await db.query(
+      'SELECT * FROM cnc_job_cards WHERE id = $1',
+      [jobCardId]
+    );
+
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Job card not found' });
+    }
+
+    const job = jobResult.rows[0];
+
+    // Get manufacturing orders
+    const ordersResult = await db.query(
+      `SELECT mo.*, m.machine_name, m.machine_code
+       FROM manufacturing_orders mo
+       LEFT JOIN machines m ON mo.machine_id = m.id
+       WHERE mo.job_card_id = $1 AND mo.status != 'skipped'
+       ORDER BY mo.order_sequence ASC`,
+      [jobCardId]
+    );
+
+    const orders = ordersResult.rows;
+    const totalMinutes = orders.reduce((sum, mo) => sum + (mo.estimated_duration_minutes || 0), 0);
+    const estimatedEndDate = PlanningEngine._calculateEstimatedEndDate(start_date, totalMinutes, preferred_shift);
+
+    res.json({
+      jobCard: {
+        id: job.id,
+        job_name: job.job_name,
+        job_card_number: job.job_card_number
+      },
+      manufacturingOrders: orders.map(o => ({
+        sequence: o.order_sequence,
+        machine: o.machine_name,
+        machineCode: o.machine_code,
+        estimatedDurationMinutes: o.estimated_duration_minutes
+      })),
+      recommendations: {
+        startDate: start_date,
+        estimatedEndDate,
+        totalMinutes,
+        totalHours: (totalMinutes / 60).toFixed(1),
+        preferredShift,
+        machineSequence: orders.map((o, i) => ({
+          step: i + 1,
+          machine: o.machine_name,
+          duration: `${o.estimated_duration_minutes} min`
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting auto-plan preview:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Clear existing plan entries for a job (before regenerating)
+ */
+router.delete('/auto-plan/clear/:jobCardId', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { jobCardId } = req.params;
+
+    const result = await db.query(
+      'DELETE FROM cnc_plan_entries WHERE job_card_id = $1 RETURNING id',
+      [jobCardId]
+    );
+
+    res.json({
+      success: true,
+      deletedEntries: result.rows.length,
+      message: `Deleted ${result.rows.length} plan entries for job card`
+    });
+
+  } catch (error) {
+    console.error('Error clearing plan entries:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
