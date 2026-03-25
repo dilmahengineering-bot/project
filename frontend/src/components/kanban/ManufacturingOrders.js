@@ -4,8 +4,6 @@ import toast from 'react-hot-toast';
 import './ManufacturingOrders.css';
 
 export default function ManufacturingOrders({ jobCard, isGuest, isAdmin }) {
-  console.log('[ManufacturingOrders] Props received:', { jobCard: jobCard?.id, isGuest, isAdmin });
-  
   const [orders, setOrders] = useState([]);
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(false);

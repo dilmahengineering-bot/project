@@ -9,15 +9,74 @@ const fs = require('fs');
 const PDFDocument = require('pdfkit');
 const crypto = require('crypto');
 
-console.log('🔧 Loading CNC Jobs routes...');
-
-// QUICK TEST: Simple POST route to verify POST method works
-router.post('/:jobCardId/manufacturing-orders', async (req, res) => {
-  console.log('✅ SIMPLE POST manufacturing-orders route HIT!');
-  res.json({ message: 'Simple POST works', params: req.params, body: req.body });
+// Manufacturing Orders - POST (placed at top to ensure route matching)
+router.post('/:jobCardId/manufacturing-orders', authenticate, denyGuest, async (req, res) => {
+  try {
+    const { jobCardId } = req.params;
+    const { machine_id, order_sequence, estimated_duration_minutes, notes } = req.body;
+    
+    if (!machine_id || order_sequence === undefined) {
+      return res.status(400).json({ error: 'Machine and sequence are required' });
+    }
+    
+    // Check if job card exists
+    const jobResult = await db.query('SELECT id FROM cnc_job_cards WHERE id = $1', [jobCardId]);
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Job card not found' });
+    }
+    
+    // Check if machine exists
+    const machineResult = await db.query('SELECT id FROM machines WHERE id = $1', [machine_id]);
+    if (machineResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Machine not found' });
+    }
+    
+    // Insert manufacturing order
+    const result = await db.query(`
+      INSERT INTO manufacturing_orders 
+      (job_card_id, machine_id, order_sequence, estimated_duration_minutes, notes, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [jobCardId, machine_id, order_sequence, estimated_duration_minutes, notes, req.user.id]);
+    
+    // Log history
+    await db.query(`
+      INSERT INTO manufacturing_order_history (manufacturing_order_id, action_type, user_id, notes)
+      VALUES ($1, 'created', $2, $3)
+    `, [result.rows[0].id, req.user.id, 'Added machine to manufacturing sequence']);
+    
+    res.status(201).json({ data: result.rows[0] });
+  } catch (error) {
+    console.error('Error adding manufacturing order:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// QUICK TEST: Test routes
+// Manufacturing Orders - Reorder (placed at top to ensure route matching)
+router.post('/:jobCardId/manufacturing-orders/reorder', authenticate, denyGuest, async (req, res) => {
+  try {
+    const { jobCardId } = req.params;
+    const { orders } = req.body;
+    
+    if (!Array.isArray(orders)) {
+      return res.status(400).json({ error: 'Orders must be an array' });
+    }
+    
+    for (const order of orders) {
+      await db.query(
+        'UPDATE manufacturing_orders SET order_sequence = $1 WHERE id = $2',
+        [order.newSequence, order.id]
+      );
+    }
+    
+    res.json({ message: 'Manufacturing sequence updated' });
+  } catch (error) {
+    console.error('Error reordering manufacturing orders:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// File upload config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, '..', 'uploads');
@@ -42,21 +101,6 @@ const upload = multer({
       cb(new Error('File type not allowed'));
     }
   }
-});
-
-// Debug middleware - log all requests to manufacturing-orders
-router.use((req, res, next) => {
-  if (req.path.includes('manufacturing-orders')) {
-    console.log(`[DEBUG] Incoming ${req.method} request to manufacturing-orders:`, {
-      path: req.path,
-      fullUrl: req.originalUrl,
-      method: req.method,
-      jobCardId: req.params.jobCardId,
-      orderId: req.params.orderId,
-      headers: { 'content-type': req.headers['content-type'] }
-    });
-  }
-  next();
 });
 
 // Helper to log CNC job card history
@@ -1408,12 +1452,6 @@ router.get(
   }
 );
 
-// Manufacturing Orders Routes Log
-console.log('✅ Manufacturing Orders routes registered:');
-console.log('  - GET    /:jobCardId/manufacturing-orders');
-console.log('  - PUT    /manufacturing-orders/:orderId');
-console.log('  - DELETE /manufacturing-orders/:orderId');
-
 // Update manufacturing order
 router.put(
   '/manufacturing-orders/:orderId',
@@ -1520,36 +1558,6 @@ router.delete(
       res.json({ message: 'Manufacturing order deleted' });
     } catch (error) {
       console.error('Error deleting manufacturing order:', error);
-      res.status(500).json({ error: error.message });
-    }
-  }
-);
-
-// Reorder manufacturing sequence
-router.post(
-  '/:jobCardId/manufacturing-orders/reorder',
-  authenticate,
-  denyGuest,
-  async (req, res) => {
-    try {
-      const { jobCardId } = req.params;
-      const { orders } = req.body; // Array of { id, newSequence }
-      
-      if (!Array.isArray(orders)) {
-        return res.status(400).json({ error: 'Orders must be an array' });
-      }
-      
-      // Update all orders
-      for (const order of orders) {
-        await db.query(
-          'UPDATE manufacturing_orders SET order_sequence = $1 WHERE id = $2',
-          [order.newSequence, order.id]
-        );
-      }
-      
-      res.json({ message: 'Manufacturing sequence updated' });
-    } catch (error) {
-      console.error('Error reordering manufacturing orders:', error);
       res.status(500).json({ error: error.message });
     }
   }
