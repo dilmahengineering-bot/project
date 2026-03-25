@@ -1348,4 +1348,230 @@ router.use((error, req, res, next) => {
   res.status(500).json({ error: 'Unknown error occurred' });
 });
 
+// ========================================
+// MANUFACTURING ORDERS ENDPOINTS
+// ========================================
+
+// Get manufacturing orders for a job card
+router.get(
+  '/:jobCardId/manufacturing-orders',
+  authenticate,
+  async (req, res) => {
+    try {
+      const { jobCardId } = req.params;
+      
+      const result = await db.query(`
+        SELECT 
+          mo.*,
+          m.machine_name,
+          m.machine_code,
+          m.machine_type,
+          m.status as machine_status,
+          op.name as operator_name,
+          creator.name as created_by_name
+        FROM manufacturing_orders mo
+        LEFT JOIN machines m ON mo.machine_id = m.id
+        LEFT JOIN users op ON mo.assigned_operator = op.id
+        LEFT JOIN users creator ON mo.created_by = creator.id
+        WHERE mo.job_card_id = $1
+        ORDER BY mo.order_sequence ASC
+      `, [jobCardId]);
+      
+      res.json({ data: result.rows });
+    } catch (error) {
+      console.error('Error fetching manufacturing orders:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Add manufacturing order
+router.post(
+  '/:jobCardId/manufacturing-orders',
+  authenticate,
+  denyGuest,
+  async (req, res) => {
+    try {
+      const { jobCardId } = req.params;
+      const { machine_id, order_sequence, estimated_duration_minutes, notes } = req.body;
+      
+      if (!machine_id || order_sequence === undefined) {
+        return res.status(400).json({ error: 'Machine and sequence are required' });
+      }
+      
+      // Check if job card exists
+      const jobResult = await db.query('SELECT id FROM cnc_job_cards WHERE id = $1', [jobCardId]);
+      if (jobResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Job card not found' });
+      }
+      
+      // Check if machine exists
+      const machineResult = await db.query('SELECT id FROM machines WHERE id = $1', [machine_id]);
+      if (machineResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Machine not found' });
+      }
+      
+      // Insert manufacturing order
+      const result = await db.query(`
+        INSERT INTO manufacturing_orders 
+        (job_card_id, machine_id, order_sequence, estimated_duration_minutes, notes, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `, [jobCardId, machine_id, order_sequence, estimated_duration_minutes, notes, req.user.id]);
+      
+      // Log history
+      await db.query(`
+        INSERT INTO manufacturing_order_history (manufacturing_order_id, action_type, user_id, notes)
+        VALUES ($1, 'created', $2, $3)
+      `, [result.rows[0].id, req.user.id, `Added machine to manufacturing sequence`]);
+      
+      res.status(201).json({ data: result.rows[0] });
+    } catch (error) {
+      console.error('Error adding manufacturing order:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Update manufacturing order
+router.put(
+  '/manufacturing-orders/:orderId',
+  authenticate,
+  denyGuest,
+  async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      const { order_sequence, estimated_duration_minutes, status, quality_check_status, assigned_operator, notes } = req.body;
+      
+      // Get current order
+      const currentResult = await db.query('SELECT * FROM manufacturing_orders WHERE id = $1', [orderId]);
+      if (currentResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Manufacturing order not found' });
+      }
+      
+      const current = currentResult.rows[0];
+      
+      // Build update query
+      const updates = [];
+      const values = [orderId];
+      let paramCount = 2;
+      
+      if (order_sequence !== undefined && order_sequence !== null) {
+        updates.push(`order_sequence = $${paramCount}`);
+        values.push(order_sequence);
+        paramCount++;
+      }
+      
+      if (estimated_duration_minutes !== undefined && estimated_duration_minutes !== null) {
+        updates.push(`estimated_duration_minutes = $${paramCount}`);
+        values.push(estimated_duration_minutes);
+        paramCount++;
+      }
+      
+      if (status) {
+        updates.push(`status = $${paramCount}`);
+        values.push(status);
+        paramCount++;
+      }
+      
+      if (quality_check_status) {
+        updates.push(`quality_check_status = $${paramCount}`);
+        values.push(quality_check_status);
+        paramCount++;
+      }
+      
+      if (assigned_operator !== undefined) {
+        updates.push(`assigned_operator = $${paramCount}`);
+        values.push(assigned_operator);
+        paramCount++;
+      }
+      
+      if (notes !== undefined && notes !== null) {
+        updates.push(`notes = $${paramCount}`);
+        values.push(notes);
+        paramCount++;
+      }
+      
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
+      }
+      
+      const result = await db.query(`
+        UPDATE manufacturing_orders
+        SET ${updates.join(', ')}
+        WHERE id = $1
+        RETURNING *
+      `, values);
+      
+      // Log status change
+      if (status && status !== current.status) {
+        await db.query(`
+          INSERT INTO manufacturing_order_history (manufacturing_order_id, action_type, from_status, to_status, user_id)
+          VALUES ($1, 'status_changed', $2, $3, $4)
+        `, [orderId, current.status, status, req.user.id]);
+      }
+      
+      res.json({ data: result.rows[0] });
+    } catch (error) {
+      console.error('Error updating manufacturing order:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Delete manufacturing order
+router.delete(
+  '/manufacturing-orders/:orderId',
+  authenticate,
+  denyGuest,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      
+      // Check if order exists
+      const result = await db.query('SELECT id FROM manufacturing_orders WHERE id = $1', [orderId]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Manufacturing order not found' });
+      }
+      
+      await db.query('DELETE FROM manufacturing_orders WHERE id = $1', [orderId]);
+      res.json({ message: 'Manufacturing order deleted' });
+    } catch (error) {
+      console.error('Error deleting manufacturing order:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Reorder manufacturing sequence
+router.post(
+  '/:jobCardId/manufacturing-orders/reorder',
+  authenticate,
+  denyGuest,
+  async (req, res) => {
+    try {
+      const { jobCardId } = req.params;
+      const { orders } = req.body; // Array of { id, newSequence }
+      
+      if (!Array.isArray(orders)) {
+        return res.status(400).json({ error: 'Orders must be an array' });
+      }
+      
+      // Update all orders
+      for (const order of orders) {
+        await db.query(
+          'UPDATE manufacturing_orders SET order_sequence = $1 WHERE id = $2',
+          [order.newSequence, order.id]
+        );
+      }
+      
+      res.json({ message: 'Manufacturing sequence updated' });
+    } catch (error) {
+      console.error('Error reordering manufacturing orders:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
 module.exports = router;

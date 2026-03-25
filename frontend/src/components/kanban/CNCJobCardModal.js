@@ -4,6 +4,7 @@ import cncJobService from '../../services/cncJobService';
 import api from '../../utils/api';
 import { formatDate, timeAgo } from '../../utils/helpers';
 import toast from 'react-hot-toast';
+import ManufacturingOrders from './ManufacturingOrders';
 import './CNCJobCardModal.css';
 
 export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, isCompletedRecord = false }) {
@@ -312,6 +313,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
         {jobCard && (
           <div className="modal-tabs">
             <button className={`tab ${activeTab === 'details' ? 'active' : ''}`} onClick={() => setActiveTab('details')}>📋 Details</button>
+            <button className={`tab ${activeTab === 'manufacturing' ? 'active' : ''}`} onClick={() => setActiveTab('manufacturing')}>⚙️ Manufacturing</button>
             <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>📜 History</button>
             <button className={`tab ${activeTab === 'extensions' ? 'active' : ''}`} onClick={() => setActiveTab('extensions')}>
               🕐 Extensions {detail?.extensions?.filter(e => e.approval_status === 'pending').length > 0 && <span className="tab-badge">{detail.extensions.filter(e => e.approval_status === 'pending').length}</span>}
@@ -645,6 +647,16 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'manufacturing' && (
+          <div style={{padding:'24px',maxHeight:'60vh',overflowY:'auto'}}>
+            <ManufacturingOrders 
+              jobCard={jobCard} 
+              isGuest={isGuest} 
+              isAdmin={isAdmin}
+            />
           </div>
         )}
 
