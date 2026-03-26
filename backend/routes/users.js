@@ -302,7 +302,7 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
       const overdueResult = await db.query(
         `SELECT COUNT(*) as count FROM tasks 
          WHERE assigned_to = $1 
-         AND due_date < NOW() 
+         AND deadline < NOW()::date 
          AND status != 'completed'`,
         [userId]
       );
@@ -317,8 +317,8 @@ router.post('/:userId/send-summary', authenticate, requireAdmin, async (req, res
       const dueSoonResult = await db.query(
         `SELECT COUNT(*) as count FROM tasks 
          WHERE assigned_to = $1 
-         AND due_date >= NOW() 
-         AND due_date <= NOW() + INTERVAL '5 days'
+         AND deadline >= NOW()::date 
+         AND deadline <= NOW()::date + INTERVAL '5 days'
          AND status != 'completed'`,
         [userId]
       );

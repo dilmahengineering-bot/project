@@ -1,6 +1,7 @@
 require('dotenv').config();
 const db = require('./db');
 const whatsappService = require('./services/whatsappServiceWaSender');
+const SYSTEM_TIMEZONE = process.env.SYSTEM_TIMEZONE || 'UTC';
 
 async function sendDetailedSummaryToAllUsers() {
   try {
@@ -68,7 +69,7 @@ async function sendDetailedSummaryToAllUsers() {
           const overdueResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
-             AND due_date < NOW() 
+             AND deadline < (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date 
              AND status != 'completed'`,
             [user.id]
           );
@@ -83,8 +84,8 @@ async function sendDetailedSummaryToAllUsers() {
           const dueSoonResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
-             AND due_date >= NOW() 
-             AND due_date <= NOW() + INTERVAL '3 days'
+             AND deadline >= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date 
+             AND deadline <= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date + INTERVAL '3 days'
              AND status != 'completed'`,
             [user.id]
           );

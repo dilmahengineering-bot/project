@@ -89,7 +89,7 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
           const overdueResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
-             AND due_date < (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date
+             AND deadline < (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date
              AND status != 'completed'`,
             [user.id]
           );
@@ -104,8 +104,8 @@ async function sendDailySummariesToAll(timeOfDay = 'morning') {
           const dueSoonResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
-             AND due_date >= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date
-             AND due_date <= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date + INTERVAL '5 days'
+             AND deadline >= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date
+             AND deadline <= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date + INTERVAL '5 days'
              AND status != 'completed'`,
             [user.id]
           );

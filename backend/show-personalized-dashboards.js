@@ -1,5 +1,6 @@
 require('dotenv').config();
 const db = require('./db');
+const SYSTEM_TIMEZONE = process.env.SYSTEM_TIMEZONE || 'UTC';
 
 async function showPersonalizedDashboards() {
   try {
@@ -67,7 +68,7 @@ async function showPersonalizedDashboards() {
           const overdueResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
-             AND due_date < NOW() 
+             AND deadline < (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date 
              AND status != 'completed'`,
             [user.id]
           );
@@ -82,8 +83,8 @@ async function showPersonalizedDashboards() {
           const dueSoonResult = await db.query(
             `SELECT COUNT(*) as count FROM tasks 
              WHERE assigned_to = $1 
-             AND due_date >= NOW() 
-             AND due_date <= NOW() + INTERVAL '5 days'
+             AND deadline >= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date 
+             AND deadline <= (NOW() AT TIME ZONE '${SYSTEM_TIMEZONE}')::date + INTERVAL '5 days'
              AND status != 'completed'`,
             [user.id]
           );
