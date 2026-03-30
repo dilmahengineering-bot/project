@@ -811,7 +811,7 @@ router.put('/extensions/:extId', authenticate, requireAdmin, async (req, res) =>
 
     if (approval_status === 'approved') {
       await db.query(
-        'UPDATE cnc_job_cards SET extended_estimate_end_date=$1 WHERE id=$2',
+        'UPDATE cnc_job_cards SET estimate_end_date=$1 WHERE id=$2',
         [ext.rows[0].new_deadline, ext.rows[0].job_card_id]
       );
       await logCncHistory(ext.rows[0].job_card_id, 'extension_approved', req.user.id, `Extension approved to ${ext.rows[0].new_deadline}`);
