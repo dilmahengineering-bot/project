@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getNowInSLST } from '../utils/timezoneHelper';
 import cncJobService from '../services/cncJobService';
 import workflowService from '../services/workflowService';
+import socketService from '../services/socket';
 import CNCJobCardModal from '../components/kanban/CNCJobCardModal';
 import './CNCKanbanPage.css';
 
@@ -101,9 +102,29 @@ export default function CNCKanbanPage() {
     return () => window.removeEventListener('settingsChanged', handleSettingsChanged);
   }, [selectedWorkflow]);
 
+  // Listen for CNC extension approval events and reload job cards
+  useEffect(() => {
+    const handleExtensionApproved = (data) => {
+      console.log('Extension approved for job card:', data.jobCardId);
+      if (selectedWorkflow) {
+        loadJobCards(selectedWorkflow.id);
+      }
+    };
+
+    socketService.on('cnc:extension:approved', handleExtensionApproved);
+
+    return () => {
+      socketService.off('cnc:extension:approved', handleExtensionApproved);
+    };
+  }, [selectedWorkflow]);
+
   // Load workflows and job cards
   useEffect(() => {
     loadData();
+    // Initialize socket connection if user is logged in
+    if (user?.token && !socketService.socket?.connected) {
+      socketService.connect(user.token);
+    }
   }, []);
 
   useEffect(() => {
