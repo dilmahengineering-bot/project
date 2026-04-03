@@ -345,6 +345,144 @@ router.get('/extensions/all', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ==================== PROCUREMENT ====================
+
+// Get procurement summary for all job cards
+router.get('/procurement/summary', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT 
+        id,
+        job_card_number,
+        job_name,
+        material,
+        item_code,
+        dimension,
+        quantity,
+        pr_number,
+        po_number,
+        estimated_delivery_date,
+        workflow_id,
+        created_at
+      FROM cnc_job_cards
+      WHERE material IS NOT NULL OR item_code IS NOT NULL OR po_number IS NOT NULL
+      ORDER BY job_card_number ASC`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching procurement summary:', error);
+    res.status(500).json({ error: 'Failed to fetch procurement summary' });
+  }
+});
+
+// Generate procurement report PDF
+router.get('/procurement/report', authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT 
+        id,
+        job_card_number,
+        job_name,
+        material,
+        item_code,
+        dimension,
+        quantity,
+        pr_number,
+        po_number,
+        estimated_delivery_date
+      FROM cnc_job_cards
+      WHERE material IS NOT NULL OR item_code IS NOT NULL OR po_number IS NOT NULL
+      ORDER BY job_card_number ASC`
+    );
+
+    const data = result.rows;
+    const doc = new PDFDocument({ size: 'A4', margin: 30 });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Procurement-Report-${new Date().toISOString().split('T')[0]}.pdf"`);
+
+    doc.pipe(res);
+
+    // Title
+    doc.fontSize(20).font('Helvetica-Bold').text('PROCUREMENT SUMMARY REPORT', { align: 'center' });
+    doc.fontSize(10).text(`Generated on ${new Date().toLocaleDateString()}`, { align: 'center' });
+    doc.moveDown(0.5);
+
+    // Summary statistics
+    const totalItems = data.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const uniqueMaterials = new Set(data.map(item => item.material).filter(Boolean)).size;
+    const uniquePos = new Set(data.map(item => item.po_number).filter(Boolean)).size;
+
+    doc.fontSize(11).font('Helvetica-Bold').text('Summary Statistics:', { underline: true });
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Items: ${totalItems}`);
+    doc.text(`Unique Materials: ${uniqueMaterials}`);
+    doc.text(`Purchase Orders: ${uniquePos}`);
+    doc.text(`Job Cards: ${data.length}`);
+    doc.moveDown(1);
+
+    // Table header
+    const pageWidth = doc.page.width - 60;
+    const colWidth = pageWidth / 6;
+    const tableTop = doc.y;
+
+    doc.fontSize(9).font('Helvetica-Bold');
+    const headers = ['Job #', 'Material', 'Item Code', 'Dimension', 'Qty', 'PO #'];
+    let xPos = 30;
+    headers.forEach(header => {
+      doc.text(header, xPos, tableTop, { width: colWidth, align: 'left' });
+      xPos += colWidth;
+    });
+
+    doc.moveTo(30, tableTop + 15).lineTo(doc.page.width - 30, tableTop + 15).stroke();
+    doc.moveDown(1.2);
+
+    // Table rows
+    doc.fontSize(8).font('Helvetica');
+    let rowY = doc.y;
+
+    data.forEach((item, idx) => {
+      const itemY = rowY;
+      const rowHeight = 20;
+
+      // Check if we need a new page
+      if (itemY + rowHeight > doc.page.height - 40) {
+        doc.addPage();
+        rowY = 50;
+      }
+
+      xPos = 30;
+      const values = [
+        item.job_card_number || '—',
+        item.material || '—',
+        item.item_code || '—',
+        item.dimension || '—',
+        (item.quantity || '—').toString(),
+        item.po_number || '—'
+      ];
+
+      values.forEach(value => {
+        doc.text(value, xPos, rowY, { width: colWidth, align: 'left', ellipsis: true });
+        xPos += colWidth;
+      });
+
+      rowY += rowHeight;
+    });
+
+    doc.moveTo(30, rowY - 5).lineTo(doc.page.width - 30, rowY - 5).stroke();
+
+    // Footer
+    doc.fontSize(8).text('This is an automatically generated report from TaskFlow CNC System', 
+      30, doc.page.height - 30, { align: 'center', color: '#999' });
+
+    doc.end();
+  } catch (error) {
+    console.error('Error generating procurement report:', error);
+    res.status(500).json({ error: 'Failed to generate procurement report' });
+  }
+});
+
 // Get single job card
 router.get('/:id', authenticate, async (req, res) => {
   try {

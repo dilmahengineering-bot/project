@@ -7,6 +7,7 @@ import DashboardPage from './components/dashboard/DashboardPage';
 import TasksPage from './pages/TasksPage';
 import KanbanPage from './pages/KanbanPage';
 import CNCKanbanPage from './pages/CNCKanbanPage';
+import ProcurementSummaryPage from './pages/ProcurementSummaryPage';
 import CompletedRecordsPage from './pages/CompletedRecordsPage';
 import CSVJobImportPage from './pages/CSVJobImportPage';
 import UsersPage from './pages/UsersPage';
@@ -48,6 +49,7 @@ function AppRoutes() {
       <Route path="/tasks" element={<PrivateRoute denyGuest><TasksPage /></PrivateRoute>} />
       <Route path="/kanban" element={<PrivateRoute denyGuest><KanbanPage /></PrivateRoute>} />
       <Route path="/cnc-kanban" element={<PrivateRoute><CNCKanbanPage /></PrivateRoute>} />
+      <Route path="/procurement-summary" element={<PrivateRoute denyGuest><ProcurementSummaryPage /></PrivateRoute>} />
       <Route path="/display-rotation" element={<PrivateRoute denyGuest={false}><DisplayRotationPage /></PrivateRoute>} />
       <Route path="/planning" element={<PrivateRoute denyGuest><PlanningPage /></PrivateRoute>} />
       <Route path="/gantt" element={<PrivateRoute denyGuest><GanttPage /></PrivateRoute>} />
