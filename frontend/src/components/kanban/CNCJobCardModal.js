@@ -59,6 +59,7 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [referenceImage, setReferenceImage] = useState(null);
+  const [relatedTasks, setRelatedTasks] = useState([]);
   const [submitError, setSubmitError] = useState(null);
   const [extForm, setExtForm] = useState({ new_deadline: '', reason: '' });
   const [currentStageId, setCurrentStageId] = useState(jobCard?.current_stage_id || '');
@@ -110,6 +111,15 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
       } catch (err) {
         // No reference image found, that's okay
         setReferenceImage(null);
+      }
+
+      // Load related tasks
+      try {
+        const tasksRes = await api.get(`/tasks/by-job-card/${jobCard.id}`);
+        setRelatedTasks(tasksRes.data || []);
+      } catch (err) {
+        console.log('No tasks endpoint or no tasks found');
+        setRelatedTasks([]);
       }
     } catch (err) {
       console.error('Error loading job card details:', err);
@@ -388,6 +398,9 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
           <div className="modal-tabs">
             <button className={`tab ${activeTab === 'details' ? 'active' : ''}`} onClick={() => setActiveTab('details')}>📋 Details</button>
             <button className={`tab ${activeTab === 'manufacturing' ? 'active' : ''}`} onClick={() => setActiveTab('manufacturing')}>⚙️ Manufacturing</button>
+            <button className={`tab ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
+              ✓ Tasks {relatedTasks.length > 0 && <span className="tab-badge">{relatedTasks.length}</span>}
+            </button>
             <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>📜 History</button>
             <button className={`tab ${activeTab === 'extensions' ? 'active' : ''}`} onClick={() => setActiveTab('extensions')}>
               🕐 Extensions {detail?.extensions?.filter(e => e.approval_status === 'pending').length > 0 && <span className="tab-badge">{detail.extensions.filter(e => e.approval_status === 'pending').length}</span>}
@@ -790,6 +803,70 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
               isGuest={isGuest} 
               isAdmin={isAdmin}
             />
+          </div>
+        )}
+
+        {activeTab === 'tasks' && (
+          <div style={{padding:'24px',maxHeight:'60vh',overflowY:'auto'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
+              <h4 style={{margin:0}}>Related Tasks for this Job Card</h4>
+              {!isGuest && !isCompletedRecord && (
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  style={{fontSize:'12px',padding:'6px 12px'}}
+                  onClick={() => {
+                    // Open task creation in new tab/modal
+                    window.open(`/tasks?job_card_id=${jobCard.id}`, '_blank');
+                  }}
+                  title="Create new task for this job card"
+                >
+                  ➕ New Task
+                </button>
+              )}
+            </div>
+            {relatedTasks.length === 0 ? (
+              <div className="empty-attachments">
+                <p>📝 No tasks yet</p>
+                <p className="hint">Create tasks to track work related to this job card</p>
+              </div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+                {relatedTasks.map(task => (
+                  <div key={task.id} style={{padding:'12px',border:'1px solid var(--border)',borderRadius:'6px',display:'flex',justifyContent:'space-between',alignItems:'start'}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
+                        <span style={{fontSize:'13px',fontWeight:'600',color:'var(--text)'}}>{task.title}</span>
+                        <span style={{fontSize:'11px',fontWeight:'600',padding:'2px 8px',borderRadius:'10px',
+                          background: task.status === 'completed' ? '#dcfce7' : task.status === 'in_progress' ? '#dbeafe' : '#f3f4f6',
+                          color: task.status === 'completed' ? '#16a34a' : task.status === 'in_progress' ? '#0284c7' : '#6b7280'}}>
+                          {task.status}
+                        </span>
+                      </div>
+                      <p style={{fontSize:'12px',color:'var(--text-muted)',margin:'4px 0',maxHeight:'40px',overflow:'hidden',textOverflow:'ellipsis'}}>{task.description}</p>
+                      <div style={{fontSize:'11px',color:'var(--text-muted)',marginTop:'6px',display:'flex',gap:'16px'}}>
+                        <span>👤 {task.assigned_to_name || 'Unassigned'}</span>
+                        <span>📅 {formatDate(task.deadline)}</span>
+                        {task.priority && (
+                          <span>⚡ {task.priority}</span>
+                        )}
+                      </div>
+                    </div>
+                    {!isGuest && (
+                      <button 
+                        type="button" 
+                        className="btn btn-ghost" 
+                        style={{fontSize:'12px',padding:'4px 8px',marginLeft:'12px'}}
+                        onClick={() => window.open(`/tasks/${task.id}`, '_blank')}
+                        title="View/edit task"
+                      >
+                        📖 View
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

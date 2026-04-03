@@ -95,8 +95,6 @@ export default function KanbanPage() {
   const [cncLoading, setCncLoading] = useState(false);
   const [cncViewBy, setCncViewBy] = useState('stage'); // 'stage', 'status', 'user'
   const [cncStages, setCncStages] = useState([]);
-  const [procurementData, setProcurementData] = useState([]);
-  const [procurementLoading, setProcurementLoading] = useState(false);
 
   const load = async () => {
     try {
@@ -144,38 +142,6 @@ export default function KanbanPage() {
     finally { setCncLoading(false); }
   }, [isAdmin]);
 
-  const loadProcurement = useCallback(async () => {
-    setProcurementLoading(true);
-    try {
-      const res = isAdmin
-        ? await cncJobService.getAllJobsAdmin('all')
-        : await cncJobService.getMyJobs('all');
-      const jobs = res.data.data || [];
-      
-      // Extract procurement data from jobs
-      const procItems = [];
-      jobs.forEach(job => {
-        if (job.material || job.po_number || job.item_code) {
-          procItems.push({
-            id: job.id,
-            job_card_number: job.job_card_number,
-            job_name: job.job_name,
-            material: job.material || '—',
-            item_code: job.item_code || '—',
-            quantity: job.quantity || 1,
-            po_number: job.po_number || '—',
-            pr_number: job.pr_number || '—',
-            estimated_delivery_date: job.estimated_delivery_date,
-            status: job.status,
-            dimension: job.dimension || '—'
-          });
-        }
-      });
-      setProcurementData(procItems);
-    } catch (err) { console.error(err); }
-    finally { setProcurementLoading(false); }
-  }, [isAdmin]);
-
   const onUserReorderDragEnd = (result) => {
     const { destination, source, index } = result;
     if (!destination) return;
@@ -189,7 +155,6 @@ export default function KanbanPage() {
 
   useEffect(() => { load(); }, []);
   useEffect(() => { if (activeTab === 'cnc') loadCncJobs(); }, [activeTab, loadCncJobs]);
-  useEffect(() => { if (activeTab === 'procurement') loadProcurement(); }, [activeTab, loadProcurement]);
 
   // Real-time updates from Socket.io
   useEffect(() => {
@@ -358,17 +323,6 @@ export default function KanbanPage() {
             transition:'all 0.2s'
           }}>
           ⚙️ CNC Jobs
-        </button>
-        <button
-          onClick={() => setActiveTab('procurement')}
-          style={{
-            padding:'8px 20px',borderRadius:'6px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'13px',
-            background: activeTab === 'procurement' ? 'white' : 'transparent',
-            color: activeTab === 'procurement' ? 'var(--primary)' : 'var(--text-muted)',
-            boxShadow: activeTab === 'procurement' ? 'var(--shadow-sm)' : 'none',
-            transition:'all 0.2s'
-          }}>
-          📦 Procurement
         </button>
       </div>
 
@@ -673,89 +627,6 @@ export default function KanbanPage() {
                   </div>
                 );
               })}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ============ PROCUREMENT TAB ============ */}
-      {activeTab === 'procurement' && (
-        <>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px',flexWrap:'wrap',gap:'12px'}}>
-            <div>
-              <p style={{color:'var(--text-muted)',fontSize:'14px'}}>{procurementData.length} procurement items</p>
-            </div>
-          </div>
-
-          {procurementLoading ? (
-            <div className="loading-center"><div className="spinner"></div></div>
-          ) : procurementData.length === 0 ? (
-            <div style={{textAlign:'center',padding:'40px 20px',color:'var(--text-muted)',fontSize:'14px'}}>
-              📦 No procurement data available
-            </div>
-          ) : (
-            <div style={{overflowX:'auto'}}>
-              <table style={{
-                width:'100%',fontSize:'12px',borderCollapse:'collapse',background:'white',borderRadius:'8px',overflow:'hidden',boxShadow:'var(--shadow-sm)'
-              }}>
-                <thead>
-                  <tr style={{background:'var(--surface2)',borderBottom:'2px solid var(--border)'}}>
-                    <th style={{padding:'12px',textAlign:'left',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>Job Card</th>
-                    <th style={{padding:'12px',textAlign:'left',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>Material</th>
-                    <th style={{padding:'12px',textAlign:'left',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>Item Code</th>
-                    <th style={{padding:'12px',textAlign:'left',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>Dimension</th>
-                    <th style={{padding:'12px',textAlign:'center',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>Qty</th>
-                    <th style={{padding:'12px',textAlign:'left',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>PO Number</th>
-                    <th style={{padding:'12px',textAlign:'left',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>PR Number</th>
-                    <th style={{padding:'12px',textAlign:'left',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>Est. Delivery</th>
-                    <th style={{padding:'12px',textAlign:'center',fontWeight:'600',color:'var(--text-muted)',textTransform:'uppercase'}}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {procurementData.map((item, idx) => {
-                    const deliveryDays = item.estimated_delivery_date 
-                      ? Math.ceil((new Date(item.estimated_delivery_date) - new Date()) / (1000 * 60 * 60 * 24))
-                      : null;
-                    const deliveryStatus = deliveryDays === null ? 'no-date' : deliveryDays < 0 ? 'overdue' : deliveryDays <= 3 ? 'urgent' : 'normal';
-                    
-                    return (
-                      <tr key={item.id} style={{
-                        borderBottom:'1px solid var(--border)',
-                        background: idx % 2 === 0 ? 'white' : 'var(--surface2)',
-                        transition:'background 0.2s'
-                      }}>
-                        <td style={{padding:'12px',fontSize:'12px',fontWeight:'600',color:'var(--primary)',cursor:'pointer'}} onClick={() => navigate('/cnc-kanban')}>
-                          {item.job_card_number}
-                        </td>
-                        <td style={{padding:'12px'}}>{item.material}</td>
-                        <td style={{padding:'12px',fontFamily:'monospace',fontSize:'11px'}}>{item.item_code}</td>
-                        <td style={{padding:'12px',fontSize:'11px',color:'var(--text-muted)'}}>{item.dimension}</td>
-                        <td style={{padding:'12px',textAlign:'center',fontWeight:'600'}}>{item.quantity}</td>
-                        <td style={{padding:'12px',fontSize:'11px',fontFamily:'monospace',color:'#0891b2'}}>{item.po_number}</td>
-                        <td style={{padding:'12px',fontSize:'11px',fontFamily:'monospace',color:'#7c3aed'}}>{item.pr_number}</td>
-                        <td style={{padding:'12px',fontSize:'11px'}}>
-                          {item.estimated_delivery_date ? new Date(item.estimated_delivery_date).toLocaleDateString() : '—'}
-                          {deliveryDays !== null && (
-                            <div style={{fontSize:'10px',color: deliveryStatus === 'overdue' ? '#dc2626' : deliveryStatus === 'urgent' ? '#f59e0b' : 'var(--text-muted)',marginTop:'2px'}}>
-                              {deliveryStatus === 'overdue' ? `${Math.abs(deliveryDays)}d overdue` : deliveryStatus === 'urgent' ? `${deliveryDays}d left` : `${deliveryDays}d left`}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{padding:'12px',textAlign:'center'}}>
-                          <span style={{
-                            fontSize:'11px',fontWeight:'600',padding:'4px 8px',borderRadius:'12px',
-                            background: item.status === 'completed' ? '#d1fae5' : '#dbeafe',
-                            color: item.status === 'completed' ? '#065f46' : '#0c4a6e',
-                            textTransform:'uppercase'
-                          }}>
-                            {item.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
             </div>
           )}
         </>
