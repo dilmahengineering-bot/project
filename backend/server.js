@@ -319,6 +319,20 @@ const initDB = async () => {
       )
     `);
 
+    // CNC Job Reference Images table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS cnc_job_reference_images (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        job_card_id UUID UNIQUE REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
+        stored_filename VARCHAR(500) NOT NULL,
+        original_name VARCHAR(500) NOT NULL,
+        file_type VARCHAR(100),
+        file_size INTEGER,
+        uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     // CNC Job Card History table
     await db.query(`
       CREATE TABLE IF NOT EXISTS cnc_job_card_history (

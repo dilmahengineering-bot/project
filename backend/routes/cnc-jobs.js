@@ -836,6 +836,120 @@ router.put('/extensions/:extId', authenticate, requireAdmin, async (req, res) =>
   }
 });
 
+// ==================== REFERENCE IMAGE ====================
+
+// Upload reference image for job card
+router.post(
+  '/:id/reference-image',
+  authenticate,
+  upload.single('reference_image'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Verify job card exists
+      const jobCheck = await db.query('SELECT id FROM cnc_job_cards WHERE id = $1', [id]);
+      if (jobCheck.rows.length === 0) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        return res.status(404).json({ error: 'Job card not found' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No image uploaded' });
+      }
+
+      // Check if reference image already exists and delete it
+      const existingImage = await db.query(
+        'SELECT stored_filename FROM cnc_job_reference_images WHERE job_card_id = $1',
+        [id]
+      );
+
+      if (existingImage.rows.length > 0) {
+        const oldPath = path.join(__dirname, '..', 'uploads', existingImage.rows[0].stored_filename);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+        // Delete old record
+        await db.query('DELETE FROM cnc_job_reference_images WHERE job_card_id = $1', [id]);
+      }
+
+      // Insert new reference image
+      const result = await db.query(
+        `INSERT INTO cnc_job_reference_images (job_card_id, stored_filename, original_name, file_type, file_size, uploaded_by)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [id, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, req.user.id]
+      );
+
+      await logCncHistory(id, 'reference_image_uploaded', req.user.id, `Reference image uploaded: ${req.file.originalname}`);
+
+      res.status(201).json({
+        reference_image_url: `/cnc-jobs/reference-image/${id}`
+      });
+    } catch (error) {
+      console.error('Error uploading reference image:', error);
+      if (req.file) fs.unlinkSync(req.file.path);
+      res.status(500).json({ error: 'Failed to upload reference image' });
+    }
+  }
+);
+
+// Get reference image for job card
+router.get('/:id/reference-image', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query(
+      'SELECT stored_filename, original_name FROM cnc_job_reference_images WHERE job_card_id = $1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No reference image found' });
+    }
+
+    const image = result.rows[0];
+    const filePath = path.join(__dirname, '..', 'uploads', image.stored_filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Image file not found' });
+    }
+
+    res.setHeader('Content-Type', 'image/*');
+    fs.createReadStream(filePath).pipe(res);
+  } catch (error) {
+    console.error('Error retrieving reference image:', error);
+    res.status(500).json({ error: 'Failed to retrieve reference image' });
+  }
+});
+
+// Delete reference image for job card
+router.delete('/:id/reference-image', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query(
+      'SELECT stored_filename FROM cnc_job_reference_images WHERE job_card_id = $1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Reference image not found' });
+    }
+
+    const imagePath = path.join(__dirname, '..', 'uploads', result.rows[0].stored_filename);
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+    }
+
+    await db.query('DELETE FROM cnc_job_reference_images WHERE job_card_id = $1', [id]);
+    await logCncHistory(id, 'reference_image_deleted', req.user.id, 'Reference image deleted');
+
+    res.json({ message: 'Reference image deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting reference image:', error);
+    res.status(500).json({ error: 'Failed to delete reference image' });
+  }
+});
+
 // ==================== ATTACHMENTS ====================
 
 // Upload attachment to job card

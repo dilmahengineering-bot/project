@@ -24,6 +24,7 @@ const extractDateString = (dateValue) => {
 export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, isCompletedRecord = false }) {
   const { user, isAdmin, isGuest } = useAuth();
   const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState('details');
   const [formData, setFormData] = useState({
     job_name: '',
@@ -56,6 +57,8 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [referenceImage, setReferenceImage] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [extForm, setExtForm] = useState({ new_deadline: '', reason: '' });
   const [currentStageId, setCurrentStageId] = useState(jobCard?.current_stage_id || '');
@@ -98,6 +101,16 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
       const res = await cncJobService.getJobCard(jobCard.id);
       setDetail(res.data);
       setAttachments(res.data.attachments || []);
+      
+      // Load reference image if it exists
+      try {
+        const imageRes = await api.get(`/cnc-jobs/${jobCard.id}/reference-image`, { responseType: 'blob' });
+        const blobUrl = window.URL.createObjectURL(new Blob([imageRes.data]));
+        setReferenceImage(blobUrl);
+      } catch (err) {
+        // No reference image found, that's okay
+        setReferenceImage(null);
+      }
     } catch (err) {
       console.error('Error loading job card details:', err);
     }
@@ -148,6 +161,53 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
     } finally {
       setUploadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !jobCard) return;
+
+    // Validate file is an image
+    if (!file.type.startsWith('image/')) {
+      setSubmitError('Please upload a valid image file');
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      
+      // Create FormData for image upload
+      const formData = new FormData();
+      formData.append('reference_image', file);
+
+      // Upload to a dedicated endpoint
+      const response = await api.post(`/cnc-jobs/${jobCard.id}/reference-image`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setReferenceImage(response.data.reference_image_url);
+      toast.success('Reference image uploaded successfully');
+    } catch (err) {
+      setSubmitError(err.response?.data?.error || 'Failed to upload image');
+      console.error('Error uploading image:', err);
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    if (!window.confirm('Delete this reference image?')) return;
+    
+    try {
+      await api.delete(`/cnc-jobs/${jobCard.id}/reference-image`);
+      setReferenceImage(null);
+      toast.success('Reference image deleted');
+    } catch (err) {
+      setSubmitError(err.response?.data?.error || 'Failed to delete image');
     }
   };
 
@@ -349,6 +409,65 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
           <form onSubmit={handleSubmit} className="job-card-form">
             <div className="form-section">
               <h4>Job Information {(!isNew && !isAdmin) || isCompletedRecord ? <span style={{fontSize:'11px',color:'#6b7280',fontWeight:'normal'}}>(🔒 Read-only)</span> : ''}</h4>
+              
+              {/* Reference Image */}
+              {jobCard && (
+                <div className="reference-image-section">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    onChange={handleImageUpload}
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                  />
+                  {referenceImage ? (
+                    <div className="reference-image-container">
+                      <div className="reference-image-wrapper">
+                        <img src={referenceImage} alt="Reference" className="reference-image" />
+                      </div>
+                      {!isCompletedRecord && !isGuest && (
+                        <div className="reference-image-actions">
+                          <button
+                            type="button"
+                            className="btn btn-small"
+                            onClick={() => imageInputRef.current?.click()}
+                            disabled={uploadingImage}
+                            title="Change image"
+                          >
+                            {uploadingImage ? '⏳' : '📷'} Change Image
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-small btn-danger"
+                            onClick={handleDeleteImage}
+                            title="Delete image"
+                          >
+                            🗑️ Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="reference-image-empty">
+                      {!isCompletedRecord && !isGuest && (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => imageInputRef.current?.click()}
+                          disabled={uploadingImage}
+                          title="Upload reference image"
+                        >
+                          {uploadingImage ? '⏳ Uploading...' : '🖼️ Upload Reference Image'}
+                        </button>
+                      )}
+                      <p className="reference-image-hint">
+                        {isCompletedRecord ? '📷 No reference image' : 'Add a drawing or photo for reference'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="form-grid">
                 <div className="form-group">
                   <label>Job Name *</label>
