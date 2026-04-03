@@ -860,12 +860,12 @@ router.post(
 
       // Check if reference image already exists and delete it
       const existingImage = await db.query(
-        'SELECT stored_filename FROM cnc_job_reference_images WHERE job_card_id = $1',
+        'SELECT file_name FROM cnc_job_reference_images WHERE job_card_id = $1',
         [id]
       );
 
       if (existingImage.rows.length > 0) {
-        const oldPath = path.join(__dirname, '..', 'uploads', existingImage.rows[0].stored_filename);
+        const oldPath = path.join(__dirname, '..', 'uploads', existingImage.rows[0].file_name);
         if (fs.existsSync(oldPath)) {
           fs.unlinkSync(oldPath);
         }
@@ -875,7 +875,7 @@ router.post(
 
       // Insert new reference image
       const result = await db.query(
-        `INSERT INTO cnc_job_reference_images (job_card_id, stored_filename, original_name, file_type, file_size, uploaded_by)
+        `INSERT INTO cnc_job_reference_images (job_card_id, file_name, original_name, file_type, file_size, uploaded_by)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
         [id, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, req.user.id]
       );
@@ -898,7 +898,7 @@ router.get('/:id/reference-image', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await db.query(
-      'SELECT stored_filename, original_name FROM cnc_job_reference_images WHERE job_card_id = $1',
+      'SELECT file_name, original_name FROM cnc_job_reference_images WHERE job_card_id = $1',
       [id]
     );
 
@@ -907,7 +907,7 @@ router.get('/:id/reference-image', authenticate, async (req, res) => {
     }
 
     const image = result.rows[0];
-    const filePath = path.join(__dirname, '..', 'uploads', image.stored_filename);
+    const filePath = path.join(__dirname, '..', 'uploads', image.file_name);
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Image file not found' });
@@ -927,7 +927,7 @@ router.delete('/:id/reference-image', authenticate, async (req, res) => {
     const { id } = req.params;
 
     const result = await db.query(
-      'SELECT stored_filename FROM cnc_job_reference_images WHERE job_card_id = $1',
+      'SELECT file_name FROM cnc_job_reference_images WHERE job_card_id = $1',
       [id]
     );
 
@@ -935,7 +935,7 @@ router.delete('/:id/reference-image', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Reference image not found' });
     }
 
-    const imagePath = path.join(__dirname, '..', 'uploads', result.rows[0].stored_filename);
+    const imagePath = path.join(__dirname, '..', 'uploads', result.rows[0].file_name);
     if (fs.existsSync(imagePath)) {
       fs.unlinkSync(imagePath);
     }
@@ -974,7 +974,7 @@ router.post(
       }
 
       const result = await db.query(
-        `INSERT INTO cnc_job_attachments (job_card_id, stored_filename, original_name, file_type, file_size, uploaded_by)
+        `INSERT INTO cnc_job_attachments (job_card_id, file_name, original_name, file_type, file_size, uploaded_by)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
         [id, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, req.user.id]
       );
@@ -993,14 +993,14 @@ router.get('/attachments/:attachmentId/download', authenticate, async (req, res)
   try {
     const { attachmentId } = req.params;
     const result = await db.query(
-      'SELECT stored_filename, original_name, file_type FROM cnc_job_attachments WHERE id = $1',
+      'SELECT file_name, original_name, file_type FROM cnc_job_attachments WHERE id = $1',
       [attachmentId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Attachment not found' });
     }
     const att = result.rows[0];
-    const filePath = path.join(__dirname, '..', 'uploads', att.stored_filename);
+    const filePath = path.join(__dirname, '..', 'uploads', att.file_name);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found on server' });
     }
@@ -1046,7 +1046,7 @@ router.delete('/attachments/:attachmentId', authenticate, denyGuest, async (req,
     }
 
     // Delete physical file
-    const filePath = path.join(__dirname, '..', 'uploads', result.rows[0].stored_filename);
+    const filePath = path.join(__dirname, '..', 'uploads', result.rows[0].file_name);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
