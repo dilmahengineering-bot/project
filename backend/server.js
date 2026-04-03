@@ -324,7 +324,7 @@ const initDB = async () => {
       CREATE TABLE IF NOT EXISTS cnc_job_reference_images (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         job_card_id UUID UNIQUE REFERENCES cnc_job_cards(id) ON DELETE CASCADE,
-        file_name VARCHAR(500) NOT NULL,
+        stored_filename VARCHAR(500) NOT NULL,
         original_name VARCHAR(500) NOT NULL,
         file_type VARCHAR(100),
         file_size INTEGER,
