@@ -900,28 +900,45 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
                   <input type="date" name="estimated_delivery_date" value={formData.estimated_delivery_date} onChange={handleChange} disabled={isCompletedRecord || isGuest} />
                 </div>
               </div>
+              {submitError && activeTab === 'procurement' && (
+                <div className="form-error" style={{ marginTop: '12px' }}>
+                  ✕ {submitError}
+                </div>
+              )}
               {!isCompletedRecord && !isGuest && (
-                <button type="button" className="btn btn-primary" style={{marginTop:'16px'}} disabled={loading} onClick={async () => {
-                  try {
-                    setLoading(true);
-                    await cncJobService.updateJobCard(jobCard.id, {
-                      ...formData,
-                      material: formData.material || null,
-                      item_code: formData.item_code || null,
-                      dimension: formData.dimension || null,
-                      pr_number: formData.pr_number || null,
-                      po_number: formData.po_number || null,
-                      estimated_delivery_date: formData.estimated_delivery_date || null
-                    });
-                    toast.success('Procurement details saved');
-                    onSave?.();
-                  } catch (err) {
-                    toast.error(err.response?.data?.error || 'Failed to save');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}>
-                  {loading ? 'Saving...' : '💾 Save Procurement Details'}
+                <button 
+                  type="button" 
+                  className="btn btn-primary" 
+                  style={{marginTop:'24px', width: '100%', padding: '10px 16px', fontWeight: '600'}} 
+                  disabled={loading} 
+                  onClick={async () => {
+                    try {
+                      setSubmitError(null);
+                      setLoading(true);
+                      
+                      const updateData = {
+                        material: formData.material || null,
+                        item_code: formData.item_code || null,
+                        dimension: formData.dimension || null,
+                        pr_number: formData.pr_number || null,
+                        po_number: formData.po_number || null,
+                        estimated_delivery_date: formData.estimated_delivery_date || null
+                      };
+                      
+                      await cncJobService.updateJobCard(jobCard.id, updateData);
+                      toast.success('✓ Procurement details saved successfully');
+                      onSave?.();
+                    } catch (err) {
+                      const errorMsg = err.response?.data?.error || err.message || 'Failed to save procurement details';
+                      setSubmitError(errorMsg);
+                      toast.error(errorMsg);
+                      console.error('Procurement save error:', err);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  {loading ? '⏳ Saving...' : '💾 Save Procurement Details'}
                 </button>
               )}
             </div>
