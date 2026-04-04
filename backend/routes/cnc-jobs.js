@@ -7,6 +7,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
+const { PDFDocument: PDFLibDocument, StandardFonts, rgb } = require('pdf-lib');
 const crypto = require('crypto');
 
 // Manufacturing Orders - POST (placed at top to ensure route matching)
@@ -1836,11 +1837,11 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
 
     // Fetch active template
     const templateResult = await db.query(
-      'SELECT * FROM machine_job_card_templates WHERE is_active = true LIMIT 1'
+      'SELECT id, name, template_content, is_pdf_based, pdf_template_base64, variables FROM machine_job_card_templates WHERE is_active = true LIMIT 1'
     );
 
     if (templateResult.rows.length === 0) {
-      return res.status(404).json({ error: 'No active template found' });
+      return res.status(404).json({ error: 'No active template found. Please set up a template in Template Management.' });
     }
 
     const template = templateResult.rows[0];
@@ -1882,133 +1883,220 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
 
     // Helper function to format dates
     const formatDate = (date) => {
-      if (!date) return '—';
+      if (!date) return '';
       return new Date(date).toLocaleDateString();
     };
 
-    // Build manufacturing orders table
-    let mfgTableContent = mfgOrders.length > 0 ? 'MANUFACTURING SEQUENCE:\n' : '';
+    // Build manufacturing orders text
+    let mfgText = '';
     mfgOrders.forEach((order, idx) => {
-      mfgTableContent += `${idx + 1}. ${order.machine_name || '—'} - ${order.estimated_duration_minutes ? order.estimated_duration_minutes + ' min' : '—'}\n`;
+      mfgText += `${idx + 1}. ${order.machine_name || ''} - ${order.estimated_duration_minutes ? order.estimated_duration_minutes + ' min' : ''}\n`;
     });
 
-    // Replace template variables (supports both text and PDF templates)
-    let filledContent = template.template_content || '';
-    
+    // Build variable map
     const variables = {
-      '{{job_card_number}}': job.job_card_number || '—',
-      '{{job_name}}': job.job_name || '—',
+      '{{job_card_number}}': job.job_card_number || '',
+      '{{job_name}}': job.job_name || '',
       '{{job_date}}': formatDate(job.job_date),
-      '{{part_number}}': job.part_number || '—',
-      '{{item_code}}': job.item_code || '—',
-      '{{drawing_number}}': job.drawing_number || '—',
-      '{{machine_name}}': job.machine_name || '—',
-      '{{client_name}}': job.client_name || '—',
+      '{{part_number}}': job.part_number || '',
+      '{{item_code}}': job.item_code || '',
+      '{{drawing_number}}': job.drawing_number || '',
+      '{{machine_name}}': job.machine_name || '',
+      '{{client_name}}': job.client_name || '',
       '{{priority}}': (job.priority || 'medium').toUpperCase(),
       '{{manufacturing_type}}': job.manufacturing_type === 'internal' ? 'Internal' : 'External',
-      '{{estimated_delivery_date}}': formatDate(job.estimated_delivery_date),
-      '{{quantity}}': (job.quantity || '—').toString(),
-      '{{material}}': job.material || '—',
-      '{{dimension}}': job.dimension || '—',
-      '{{tolerance}}': job.tolerance || '—',
-      '{{surface_finish}}': job.surface_finish || '—',
-      '{{pr_number}}': job.pr_number || '—',
-      '{{po_number}}': job.po_number || '—',
-      '{{manufacturing_orders}}': mfgTableContent,
-      '{{generated_date}}': new Date().toLocaleString()
+      '{{estimated_delivery_date}}': formatDate(job.estimated_delivery_date || job.estimate_end_date),
+      '{{quantity}}': (job.quantity || '').toString(),
+      '{{material}}': job.material || '',
+      '{{dimension}}': job.dimension || '',
+      '{{tolerance}}': job.tolerance || '',
+      '{{surface_finish}}': job.surface_finish || '',
+      '{{pr_number}}': job.pr_number || '',
+      '{{po_number}}': job.po_number || '',
+      '{{manufacturing_orders}}': mfgText.trim(),
+      '{{generated_date}}': new Date().toLocaleString(),
+      '{{subjob_card_number}}': job.subjob_card_number || '',
+      '{{status}}': (job.status || '').toUpperCase(),
+      '{{notes}}': job.notes || '',
+      '{{assigned_to}}': job.assigned_user_name || '',
+      '{{workflow_name}}': job.workflow_name || '',
+      '{{stage_name}}': job.stage_name || '',
     };
 
-    // Replace all variables in template
-    for (const [key, value] of Object.entries(variables)) {
-      filledContent = filledContent.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
-    }
-
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
 
-    // Check if this is a PDF-based template
-    if (template.is_pdf_based && template.pdf_template_file_path) {
-      // For PDF templates, use the PDF as a reference and generate output
-      // This creates a new PDF with the filled content
-      const templateFilePath = path.join(__dirname, '..', 'uploads', 'templates', template.pdf_template_file_path);
+    // If template has an uploaded PDF, use pdf-lib to fill variables in the PDF
+    if (template.is_pdf_based && template.pdf_template_base64) {
+      console.log('[JobCard] Generating from PDF template:', template.name);
       
-      if (!fs.existsSync(templateFilePath)) {
-        return res.status(404).json({ error: 'PDF template file not found' });
+      try {
+        // Load the uploaded PDF template
+        const pdfBytes = Buffer.from(template.pdf_template_base64, 'base64');
+        const pdfDoc = await PDFLibDocument.load(pdfBytes, { ignoreEncryption: true });
+        
+        // Get all pages
+        const pages = pdfDoc.getPages();
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        
+        // For each page, extract text operators and replace variables
+        for (const page of pages) {
+          // Get the content stream
+          const { width, height } = page.getSize();
+          
+          // Access the raw content stream to find and replace text
+          const contents = page.node.Contents();
+          if (!contents) continue;
+          
+          // Get the raw PDF content streams
+          let contentRefs = [];
+          if (contents.constructor.name === 'PDFArray') {
+            for (let i = 0; i < contents.size(); i++) {
+              contentRefs.push(contents.get(i));
+            }
+          } else {
+            contentRefs.push(contents);
+          }
+          
+          for (const ref of contentRefs) {
+            const stream = pdfDoc.context.lookup(ref);
+            if (!stream || !stream.getContents) continue;
+            
+            let streamContent = Buffer.from(stream.getContents()).toString('latin1');
+            let modified = false;
+            
+            // Replace {{variable}} patterns in the PDF content stream
+            for (const [varKey, varValue] of Object.entries(variables)) {
+              // PDF text can appear in different encodings
+              // Try direct replacement in text showing operators
+              const varPattern = varKey.replace(/[{}]/g, match => {
+                // Escape for PDF content streams
+                return match;
+              });
+              
+              if (streamContent.includes(varPattern)) {
+                // Clean the value for PDF content stream (escape special PDF chars)
+                const safeValue = varValue
+                  .replace(/\\/g, '\\\\')
+                  .replace(/\(/g, '\\(')
+                  .replace(/\)/g, '\\)')
+                  .replace(/\n/g, ' ');
+                  
+                streamContent = streamContent.split(varPattern).join(safeValue);
+                modified = true;
+              }
+            }
+            
+            if (modified) {
+              // Write back modified content
+              const newContents = Buffer.from(streamContent, 'latin1');
+              stream.setContents(newContents);
+            }
+          }
+        }
+        
+        // Save the modified PDF
+        const modifiedPdfBytes = await pdfDoc.save();
+        res.send(Buffer.from(modifiedPdfBytes));
+        
+      } catch (pdfError) {
+        console.error('[JobCard] PDF-lib error:', pdfError.message);
+        console.log('[JobCard] Falling back to text-based PDF generation');
+        
+        // Fallback: generate a new PDF with filled content
+        generateTextPDF(res, template, variables, job);
       }
-
-      // Generate PDF with filled content
-      const doc = new PDFDocument({ size: 'A4', margin: 40 });
-      doc.pipe(res);
-
-      // Add filled content as new PDF
-      const lines = filledContent.split('\n');
-      doc.fontSize(11).font('Helvetica');
       
-      lines.forEach(line => {
-        if (line.toUpperCase() === line && line.length > 0 && line.includes(':')) {
-          doc.fontSize(11).font('Helvetica-Bold').fillColor('#003d82').text(line);
-          doc.moveDown(0.3);
-        } else if (line.trim() === '') {
-          doc.moveDown(0.5);
-        } else {
-          doc.fontSize(10).font('Helvetica').fillColor('#000').text(line);
-          doc.moveDown(0.2);
-        }
-
-        if (doc.y > doc.page.height - 40) {
-          doc.addPage();
-          doc.fontSize(10).font('Helvetica').fillColor('#000');
-        }
-      });
-
-      // Footer
-      doc.fontSize(8).fillColor('#999').text(
-        `Generated from template: ${template.name} | ${new Date().toLocaleString()}`,
-        40,
-        doc.page.height - 30,
-        { align: 'center' }
-      );
-
-      doc.end();
     } else {
-      // For text-based templates, generate PDF from text
-      const doc = new PDFDocument({ size: 'A4', margin: 40 });
-      doc.pipe(res);
-
-      const lines = filledContent.split('\n');
-      doc.fontSize(11).font('Helvetica');
-      
-      lines.forEach(line => {
-        if (line.toUpperCase() === line && line.length > 0 && line.includes(':')) {
-          doc.fontSize(11).font('Helvetica-Bold').fillColor('#003d82').text(line);
-          doc.moveDown(0.3);
-        } else if (line.trim() === '') {
-          doc.moveDown(0.5);
-        } else {
-          doc.fontSize(10).font('Helvetica').fillColor('#000').text(line);
-          doc.moveDown(0.2);
-        }
-
-        if (doc.y > doc.page.height - 40) {
-          doc.addPage();
-          doc.fontSize(10).font('Helvetica').fillColor('#000');
-        }
-      });
-
-      // Footer
-      doc.fontSize(8).fillColor('#999').text(
-        `Template: ${template.name} | ${new Date().toLocaleString()}`,
-        40,
-        doc.page.height - 30,
-        { align: 'center' }
-      );
-
-      doc.end();
+      // Text-based template: generate PDF from scratch using PDFKit
+      console.log('[JobCard] Generating from text template:', template.name);
+      generateTextPDF(res, template, variables, job);
     }
+
   } catch (error) {
     console.error('Error generating machine job card:', error);
-    res.status(500).json({ error: 'Failed to generate machine job card' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to generate machine job card' });
+    }
   }
 });
+
+// Helper: Generate PDF from text template using PDFKit
+function generateTextPDF(res, template, variables, job) {
+  let filledContent = template.template_content || '';
+  
+  // Replace all variables in template text
+  for (const [key, value] of Object.entries(variables)) {
+    filledContent = filledContent.replace(
+      new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), 
+      value
+    );
+  }
+
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  doc.pipe(res);
+
+  // Title header
+  doc.rect(0, 0, doc.page.width, 60).fill('#003d82');
+  doc.fontSize(18).font('Helvetica-Bold').fillColor('#fff')
+    .text('MACHINE JOB CARD', 40, 20, { align: 'center' });
+
+  doc.moveDown(2);
+  doc.y = 80;
+
+  const lines = filledContent.split('\n');
+  doc.fontSize(10).font('Helvetica').fillColor('#000');
+  
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    
+    // Section headers (all caps with colon)
+    if (trimmed === trimmed.toUpperCase() && trimmed.length > 0 && trimmed.includes(':')) {
+      doc.moveDown(0.5);
+      doc.fontSize(11).font('Helvetica-Bold').fillColor('#003d82').text(trimmed);
+      doc.moveDown(0.3);
+    } 
+    // Title lines (all caps, no colon) 
+    else if (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.includes(':')) {
+      doc.fontSize(12).font('Helvetica-Bold').fillColor('#003d82').text(trimmed, { align: 'center' });
+      doc.moveDown(0.3);
+    }
+    // Empty lines
+    else if (trimmed === '') {
+      doc.moveDown(0.4);
+    } 
+    // Key-value lines
+    else if (trimmed.includes(':')) {
+      const [label, ...rest] = trimmed.split(':');
+      const value = rest.join(':').trim();
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#333').text(label + ': ', {
+        continued: true
+      });
+      doc.font('Helvetica').fillColor('#000').text(value);
+      doc.moveDown(0.15);
+    }
+    // Normal text
+    else {
+      doc.fontSize(10).font('Helvetica').fillColor('#000').text(trimmed);
+      doc.moveDown(0.15);
+    }
+
+    // Page break if needed
+    if (doc.y > doc.page.height - 60) {
+      doc.addPage();
+      doc.fontSize(10).font('Helvetica').fillColor('#000');
+    }
+  });
+
+  // Footer
+  doc.fontSize(8).fillColor('#999').text(
+    `Template: ${template.name} | Generated: ${new Date().toLocaleString()}`,
+    40,
+    doc.page.height - 30,
+    { align: 'center' }
+  );
+
+  doc.end();
+}
 
 module.exports = router;
