@@ -267,6 +267,31 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
     }
   };
 
+  const handleGenerateMachineJobCard = async () => {
+    if (!jobCard) return;
+    try {
+      setLoading(true);
+      toast.loading('Generating Machine Job Card...');
+      const response = await api.get(`/cnc-jobs/${jobCard.id}/machine-job-card`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `MachineJobCard-${jobCard.job_card_number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.dismiss();
+      toast.success('Machine Job Card generated successfully');
+    } catch (err) {
+      toast.dismiss();
+      toast.error('Failed to generate machine job card');
+      console.error('Error generating machine job card:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError(null);
@@ -388,6 +413,11 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
             {jobCard && (
               <button type="button" className="btn btn-report" onClick={handleDownloadReport} disabled={loading} title="Download PDF Report">
                 📥 Report
+              </button>
+            )}
+            {jobCard && (
+              <button type="button" className="btn btn-report" onClick={handleGenerateMachineJobCard} disabled={loading} title="Generate official machine job card">
+                🏷️ Machine Job Card
               </button>
             )}
             <button className="close-btn" onClick={onClose}>×</button>
