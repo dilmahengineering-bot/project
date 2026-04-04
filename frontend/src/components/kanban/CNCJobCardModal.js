@@ -273,16 +273,10 @@ export default function CNCJobCardModal({ jobCard, workflow, onClose, onSave, is
       setLoading(true);
       toast.loading('Generating Machine Job Card...');
       const response = await api.get(`/cnc-jobs/${jobCard.id}/machine-job-card`, { responseType: 'blob' });
-      
-      // Detect file type from response content-type
-      const contentType = response.headers['content-type'] || '';
-      const isDocx = contentType.includes('wordprocessingml') || contentType.includes('openxmlformats');
-      const ext = isDocx ? 'docx' : 'pdf';
-      
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `MachineJobCard-${jobCard.job_card_number}.${ext}`);
+      link.setAttribute('download', `MachineJobCard-${jobCard.job_card_number}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();

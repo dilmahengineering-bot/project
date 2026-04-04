@@ -1925,9 +1925,13 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
       '{{stage_name}}': job.stage_name || '',
     };
 
-    // If template has an uploaded .docx, use docxtemplater to fill variables
+    // Always output PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
+
+    // If template has an uploaded .docx, fill variables with docxtemplater then convert to PDF
     if (template.is_pdf_based && template.pdf_template_base64) {
-      console.log('[JobCard] Generating from Word (.docx) template:', template.name);
+      console.log('[JobCard] Generating PDF from Word (.docx) template:', template.name);
       
       try {
         const docxBuffer = Buffer.from(template.pdf_template_base64, 'base64');
@@ -1947,30 +1951,23 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
 
         doc.render(data);
 
-        const filledDocx = doc.getZip().generate({
-          type: 'nodebuffer',
-          compression: 'DEFLATE',
-        });
-
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-        res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.docx"`);
-        res.send(filledDocx);
+        // Extract text content from filled docx XML and render as PDF
+        const filledZip = doc.getZip();
+        const documentXml = filledZip.file('word/document.xml').asText();
+        const paragraphs = parseDocxXml(documentXml);
+        generateDocxPDF(res, paragraphs, template, job);
         
       } catch (docxError) {
         console.error('[JobCard] Docxtemplater error:', docxError.message);
         console.log('[JobCard] Falling back to text-based PDF generation');
-        
-        // Fallback: generate a new PDF with filled content
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
-        generateTextPDF(res, template, variables, job);
+        if (!res.headersSent) {
+          generateTextPDF(res, template, variables, job);
+        }
       }
       
     } else {
       // Text-based template: generate PDF from scratch using PDFKit
       console.log('[JobCard] Generating from text template:', template.name);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
       generateTextPDF(res, template, variables, job);
     }
 
@@ -2048,6 +2045,153 @@ function generateTextPDF(res, template, variables, job) {
       doc.fontSize(10).font('Helvetica').fillColor('#000');
     }
   });
+
+  // Footer
+  doc.fontSize(8).fillColor('#999').text(
+    `Template: ${template.name} | Generated: ${new Date().toLocaleString()}`,
+    40,
+    doc.page.height - 30,
+    { align: 'center' }
+  );
+
+  doc.end();
+}
+
+// Helper: Parse docx document.xml to extract paragraph content with basic formatting
+function parseDocxXml(xml) {
+  const paragraphs = [];
+  
+  // Match each paragraph <w:p>...</w:p>
+  const pRegex = /<w:p[\s>][\s\S]*?<\/w:p>/g;
+  let pMatch;
+  
+  while ((pMatch = pRegex.exec(xml)) !== null) {
+    const pXml = pMatch[0];
+    const para = { runs: [], alignment: 'left', isBold: false, fontSize: null };
+    
+    // Check paragraph-level alignment
+    const alignMatch = pXml.match(/<w:jc\s+w:val="([^"]+)"/);
+    if (alignMatch) para.alignment = alignMatch[1];
+    
+    // Check paragraph-level bold (in pPr > rPr)
+    const pPrMatch = pXml.match(/<w:pPr>([\s\S]*?)<\/w:pPr>/);
+    if (pPrMatch && /<w:b\s*\/>|<w:b\s+w:val="true"/.test(pPrMatch[1])) {
+      para.isBold = true;
+    }
+    
+    // Check paragraph-level font size
+    if (pPrMatch) {
+      const pSzMatch = pPrMatch[1].match(/<w:sz\s+w:val="(\d+)"/);
+      if (pSzMatch) para.fontSize = parseInt(pSzMatch[1]) / 2; // half-points to points
+    }
+    
+    // Extract runs <w:r>...</w:r>
+    const rRegex = /<w:r[\s>][\s\S]*?<\/w:r>/g;
+    let rMatch;
+    
+    while ((rMatch = rRegex.exec(pXml)) !== null) {
+      const rXml = rMatch[0];
+      const run = { text: '', bold: para.isBold, fontSize: para.fontSize, underline: false };
+      
+      // Check run-level bold
+      if (/<w:b\s*\/>|<w:b\s+w:val="true"/.test(rXml)) run.bold = true;
+      if (/<w:b\s+w:val="false"/.test(rXml)) run.bold = false;
+      
+      // Check run-level font size
+      const szMatch = rXml.match(/<w:sz\s+w:val="(\d+)"/);
+      if (szMatch) run.fontSize = parseInt(szMatch[1]) / 2;
+      
+      // Check underline
+      if (/<w:u\s/.test(rXml)) run.underline = true;
+      
+      // Extract text from <w:t> tags
+      const tRegex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
+      let tMatch;
+      while ((tMatch = tRegex.exec(rXml)) !== null) {
+        run.text += tMatch[1];
+      }
+      
+      if (run.text) para.runs.push(run);
+    }
+    
+    // Also check for tab characters <w:tab/>
+    if (/<w:tab\s*\/>/.test(pXml) && para.runs.length > 0) {
+      // Insert tab spaces between runs
+      for (let i = para.runs.length - 1; i > 0; i--) {
+        if (para.runs[i].text && !para.runs[i].text.startsWith('\t')) {
+          para.runs[i].text = '\t' + para.runs[i].text;
+        }
+      }
+    }
+    
+    paragraphs.push(para);
+  }
+  
+  return paragraphs;
+}
+
+// Helper: Generate PDF from parsed docx paragraphs using PDFKit
+function generateDocxPDF(res, paragraphs, template, job) {
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  doc.pipe(res);
+
+  const pageWidth = doc.page.width - 80; // margins
+
+  for (const para of paragraphs) {
+    const fullText = para.runs.map(r => r.text).join('');
+    
+    // Skip empty paragraphs (add spacing)
+    if (!fullText.trim()) {
+      doc.moveDown(0.4);
+      continue;
+    }
+    
+    // Determine default font size for paragraph
+    const defaultSize = para.fontSize || (para.runs[0]?.fontSize) || 10;
+    const alignment = para.alignment === 'center' ? 'center' 
+                    : para.alignment === 'right' ? 'right' 
+                    : 'left';
+    
+    // If all runs share the same style, render as single text
+    const allSameStyle = para.runs.every(r => 
+      r.bold === para.runs[0].bold && 
+      (r.fontSize || defaultSize) === (para.runs[0].fontSize || defaultSize)
+    );
+    
+    if (allSameStyle && para.runs.length > 0) {
+      const isBold = para.runs[0].bold;
+      const fontSize = para.runs[0].fontSize || defaultSize;
+      const font = isBold ? 'Helvetica-Bold' : 'Helvetica';
+      
+      doc.fontSize(Math.min(fontSize, 24))
+         .font(font)
+         .fillColor('#000')
+         .text(fullText, { align: alignment, width: pageWidth });
+    } else {
+      // Mixed styles: render run by run using continued
+      para.runs.forEach((run, idx) => {
+        const isLast = idx === para.runs.length - 1;
+        const fontSize = run.fontSize || defaultSize;
+        const font = run.bold ? 'Helvetica-Bold' : 'Helvetica';
+        
+        doc.fontSize(Math.min(fontSize, 24))
+           .font(font)
+           .fillColor('#000')
+           .text(run.text, { 
+             continued: !isLast, 
+             align: alignment,
+             width: isLast ? pageWidth : undefined 
+           });
+      });
+    }
+    
+    doc.moveDown(0.15);
+    
+    // Page break if needed
+    if (doc.y > doc.page.height - 60) {
+      doc.addPage();
+    }
+  }
 
   // Footer
   doc.fontSize(8).fillColor('#999').text(
