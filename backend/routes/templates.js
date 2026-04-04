@@ -20,18 +20,39 @@ const upload = multer({
 // Get all templates (admin only)
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
+    console.log('[Templates GET] Fetching all templates');
+    
     const result = await db.query(
       `SELECT 
         id, name, template_content, is_active, is_pdf_based, 
-        created_by, created_at, 
+        created_by, created_at, updated_at,
         CASE WHEN pdf_template_base64 IS NOT NULL THEN true ELSE false END as has_pdf
        FROM machine_job_card_templates
        ORDER BY created_at DESC`
     );
+    
+    console.log('[Templates GET] Found', result.rows.length, 'templates');
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching templates:', error);
-    res.status(500).json({ error: 'Failed to fetch templates' });
+    console.error('[Templates GET] Database error:', error.message);
+    console.error('[Templates GET] Full error:', error);
+    
+    // Try alternate query without the base64 column check
+    try {
+      console.log('[Templates GET] Trying fallback query...');
+      const fallbackResult = await db.query(
+        `SELECT 
+          id, name, template_content, is_active, is_pdf_based, 
+          created_by, created_at
+         FROM machine_job_card_templates
+         ORDER BY created_at DESC`
+      );
+      console.log('[Templates GET] Fallback succeeded, found', fallbackResult.rows.length, 'templates');
+      res.json(fallbackResult.rows);
+    } catch (fallbackError) {
+      console.error('[Templates GET] Fallback also failed:', fallbackError.message);
+      res.status(500).json({ error: 'Failed to fetch templates: ' + error.message });
+    }
   }
 });
 

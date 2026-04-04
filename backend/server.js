@@ -556,15 +556,40 @@ const initDB = async () => {
         )
       `);
 
-      // Migrate: Add pdf_template_base64 column if it doesn't exist
+      // Comprehensive migration: handle old schema
       try {
+        // Check if old columns exist and remove them
         await db.query(
           `ALTER TABLE machine_job_card_templates 
-           ADD COLUMN IF NOT EXISTS pdf_template_base64 BYTEA`
+           DROP COLUMN IF EXISTS pdf_template_file_path,
+           DROP COLUMN IF EXISTS template_file_path CASCADE`
         );
-        console.log('✅ Database schema migrated: added pdf_template_base64 column');
+        console.log('✅ Removed old file path columns from machine_job_card_templates');
       } catch (e) {
-        // Column might already exist, that's OK
+        console.log('ℹ️ Old columns already removed or table structure OK');
+      }
+
+      // Add new pdf_template_base64 column if missing
+      try {
+        const columnCheck = await db.query(`
+          SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'machine_job_card_templates' 
+            AND column_name = 'pdf_template_base64'
+          )
+        `);
+        
+        if (!columnCheck.rows[0].exists) {
+          await db.query(
+            `ALTER TABLE machine_job_card_templates 
+             ADD COLUMN pdf_template_base64 BYTEA`
+          );
+          console.log('✅ Added pdf_template_base64 column to machine_job_card_templates');
+        } else {
+          console.log('✅ pdf_template_base64 column already exists');
+        }
+      } catch (e) {
+        console.log('⚠️ Migration notice:', e.message.substring(0, 80));
       }
 
       // Insert default template if none exists
