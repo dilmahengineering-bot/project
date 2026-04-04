@@ -3,25 +3,10 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 
-// File upload config for PDF templates
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '..', 'uploads', 'templates');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = crypto.randomUUID() + path.extname(file.originalname);
-    cb(null, uniqueName);
-  }
-});
-
-const pdfUpload = multer({
-  storage,
+// Use memory storage to avoid file system issues on Render
+const upload = multer({
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
@@ -36,10 +21,12 @@ const pdfUpload = multer({
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT t.*, u.name as created_by_name 
-       FROM machine_job_card_templates t
-       LEFT JOIN users u ON t.created_by = u.id
-       ORDER BY t.created_at DESC`
+      `SELECT 
+        id, name, template_content, is_active, is_pdf_based, 
+        created_by, created_at, 
+        CASE WHEN pdf_template_base64 IS NOT NULL THEN true ELSE false END as has_pdf
+       FROM machine_job_card_templates
+       ORDER BY created_at DESC`
     );
     res.json(result.rows);
   } catch (error) {
@@ -143,7 +130,7 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
 // Delete template (admin only)
 router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    // Prevent deleting the default template if it's the last one
+    // Prevent deleting if it's the last one
     const countResult = await db.query(
       'SELECT COUNT(*) as count FROM machine_job_card_templates'
     );
@@ -152,26 +139,13 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
     }
 
     const result = await db.query(
-      'SELECT * FROM machine_job_card_templates WHERE id = $1',
+      'DELETE FROM machine_job_card_templates WHERE id = $1 RETURNING id',
       [req.params.id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Template not found' });
     }
-
-    // Delete associated PDF file if exists
-    if (result.rows[0].pdf_template_file_path) {
-      const filePath = path.join(__dirname, '..', 'uploads', 'templates', result.rows[0].pdf_template_file_path);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-
-    await db.query(
-      'DELETE FROM machine_job_card_templates WHERE id = $1',
-      [req.params.id]
-    );
 
     res.json({ message: 'Template deleted successfully' });
   } catch (error) {
@@ -180,65 +154,37 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Upload PDF template (admin only)
-router.post('/:id/upload-pdf', authenticate, requireAdmin, pdfUpload.single('pdf_template'), async (req, res) => {
+// Upload PDF template as base64 (admin only)
+router.post('/:id/upload-pdf', authenticate, requireAdmin, upload.single('pdf_template'), async (req, res) => {
   try {
     const { id } = req.params;
 
     console.log('[PDF Upload] Template ID:', id);
-    console.log('[PDF Upload] File received:', req.file ? { filename: req.file.filename, size: req.file.size } : 'No file');
-
-    // Verify template exists
-    const templateResult = await db.query(
-      'SELECT * FROM machine_job_card_templates WHERE id = $1',
-      [id]
-    );
-
-    if (templateResult.rows.length === 0) {
-      console.log('[PDF Upload] Template not found:', id);
-      if (req.file) {
-        try {
-          fs.unlinkSync(req.file.path);
-        } catch (e) {
-          console.warn('[PDF Upload] Failed to clean up uploaded file:', e.message);
-        }
-      }
-      return res.status(404).json({ error: 'Template not found' });
-    }
+    console.log('[PDF Upload] File received:', req.file ? { size: req.file.size, mimetype: req.file.mimetype } : 'No file');
 
     if (!req.file) {
-      console.log('[PDF Upload] No file uploaded');
       return res.status(400).json({ error: 'No PDF file uploaded' });
     }
 
-    const template = templateResult.rows[0];
+    // Convert buffer to base64
+    const pdfBase64 = req.file.buffer.toString('base64');
+    console.log('[PDF Upload] Base64 encoded, size:', pdfBase64.length);
 
-    // Delete old PDF if exists
-    if (template.pdf_template_file_path) {
-      try {
-        const oldPath = path.join(__dirname, '..', 'uploads', 'templates', template.pdf_template_file_path);
-        console.log('[PDF Upload] Checking old file:', oldPath);
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-          console.log('[PDF Upload] Deleted old PDF');
-        }
-      } catch (e) {
-        console.warn('[PDF Upload] Warning: Failed to delete old PDF:', e.message);
-        // Don't fail if cleanup fails - just log it
-      }
-    }
-
-    console.log('[PDF Upload] Updating database with new PDF:', req.file.filename);
-
-    // Update template with new PDF - store just filename, not full path
+    // Update template with PDF base64 - store in database
     const result = await db.query(
       `UPDATE machine_job_card_templates 
-       SET pdf_template_file_path = $1, 
+       SET pdf_template_base64 = $1, 
            is_pdf_based = true,
            updated_at = NOW()
-       WHERE id = $2 RETURNING *`,
-      [req.file.filename, id]
+       WHERE id = $2 RETURNING 
+        id, name, is_active, is_pdf_based, created_at,
+        CASE WHEN pdf_template_base64 IS NOT NULL THEN true ELSE false END as has_pdf`,
+      [pdfBase64, id]
     );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
 
     console.log('[PDF Upload] Database updated successfully');
 
@@ -248,13 +194,6 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, pdfUpload.single('pdf
     });
   } catch (error) {
     console.error('[PDF Upload] Error:', error.message, error.stack);
-    if (req.file) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (e) {
-        console.warn('[PDF Upload] Failed to clean up on error:', e.message);
-      }
-    }
     res.status(500).json({ error: 'Failed to upload PDF template: ' + error.message });
   }
 });
@@ -263,7 +202,7 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, pdfUpload.single('pdf
 router.get('/:id/download-pdf', authenticate, requireAdmin, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT * FROM machine_job_card_templates WHERE id = $1',
+      'SELECT id, name, pdf_template_base64 FROM machine_job_card_templates WHERE id = $1',
       [req.params.id]
     );
 
@@ -273,19 +212,17 @@ router.get('/:id/download-pdf', authenticate, requireAdmin, async (req, res) => 
 
     const template = result.rows[0];
 
-    if (!template.pdf_template_file_path) {
+    if (!template.pdf_template_base64) {
       return res.status(404).json({ error: 'No PDF template uploaded for this template' });
     }
 
-    const filePath = path.join(__dirname, '..', 'uploads', 'templates', template.pdf_template_file_path);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'PDF file not found' });
-    }
+    // Convert base64 back to buffer
+    const pdfBuffer = Buffer.from(template.pdf_template_base64, 'base64');
 
     res.setHeader('Content-Disposition', `attachment; filename="Template-${template.name}.pdf"`);
     res.setHeader('Content-Type', 'application/pdf');
-    fs.createReadStream(filePath).pipe(res);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   } catch (error) {
     console.error('Error downloading template:', error);
     res.status(500).json({ error: 'Failed to download template' });

@@ -546,8 +546,7 @@ const initDB = async () => {
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
           name VARCHAR(100) NOT NULL DEFAULT 'Default',
           template_content TEXT NOT NULL,
-          template_file_path VARCHAR(255),
-          pdf_template_file_path VARCHAR(255),
+          pdf_template_base64 BYTEA,
           variables TEXT NOT NULL DEFAULT '[]',
           is_active BOOLEAN DEFAULT true,
           is_pdf_based BOOLEAN DEFAULT false,
@@ -556,6 +555,17 @@ const initDB = async () => {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
+
+      // Migrate: Add pdf_template_base64 column if it doesn't exist
+      try {
+        await db.query(
+          `ALTER TABLE machine_job_card_templates 
+           ADD COLUMN IF NOT EXISTS pdf_template_base64 BYTEA`
+        );
+        console.log('✅ Database schema migrated: added pdf_template_base64 column');
+      } catch (e) {
+        // Column might already exist, that's OK
+      }
 
       // Insert default template if none exists
       const templateCheck = await db.query('SELECT id FROM machine_job_card_templates WHERE name = $1', ['Default']);
