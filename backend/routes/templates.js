@@ -185,6 +185,9 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, pdfUpload.single('pdf
   try {
     const { id } = req.params;
 
+    console.log('[PDF Upload] Template ID:', id);
+    console.log('[PDF Upload] File received:', req.file ? { filename: req.file.filename, size: req.file.size } : 'No file');
+
     // Verify template exists
     const templateResult = await db.query(
       'SELECT * FROM machine_job_card_templates WHERE id = $1',
@@ -192,11 +195,19 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, pdfUpload.single('pdf
     );
 
     if (templateResult.rows.length === 0) {
-      if (req.file) fs.unlinkSync(req.file.path);
+      console.log('[PDF Upload] Template not found:', id);
+      if (req.file) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (e) {
+          console.warn('[PDF Upload] Failed to clean up uploaded file:', e.message);
+        }
+      }
       return res.status(404).json({ error: 'Template not found' });
     }
 
     if (!req.file) {
+      console.log('[PDF Upload] No file uploaded');
       return res.status(400).json({ error: 'No PDF file uploaded' });
     }
 
@@ -204,13 +215,22 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, pdfUpload.single('pdf
 
     // Delete old PDF if exists
     if (template.pdf_template_file_path) {
-      const oldPath = path.join(__dirname, '..', 'uploads', 'templates', template.pdf_template_file_path);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
+      try {
+        const oldPath = path.join(__dirname, '..', 'uploads', 'templates', template.pdf_template_file_path);
+        console.log('[PDF Upload] Checking old file:', oldPath);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+          console.log('[PDF Upload] Deleted old PDF');
+        }
+      } catch (e) {
+        console.warn('[PDF Upload] Warning: Failed to delete old PDF:', e.message);
+        // Don't fail if cleanup fails - just log it
       }
     }
 
-    // Update template with new PDF
+    console.log('[PDF Upload] Updating database with new PDF:', req.file.filename);
+
+    // Update template with new PDF - store just filename, not full path
     const result = await db.query(
       `UPDATE machine_job_card_templates 
        SET pdf_template_file_path = $1, 
@@ -220,14 +240,22 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, pdfUpload.single('pdf
       [req.file.filename, id]
     );
 
+    console.log('[PDF Upload] Database updated successfully');
+
     res.json({
       message: 'PDF template uploaded successfully',
       template: result.rows[0]
     });
   } catch (error) {
-    console.error('Error uploading PDF template:', error);
-    if (req.file) fs.unlinkSync(req.file.path);
-    res.status(500).json({ error: 'Failed to upload PDF template' });
+    console.error('[PDF Upload] Error:', error.message, error.stack);
+    if (req.file) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (e) {
+        console.warn('[PDF Upload] Failed to clean up on error:', e.message);
+      }
+    }
+    res.status(500).json({ error: 'Failed to upload PDF template: ' + error.message });
   }
 });
 
@@ -262,6 +290,21 @@ router.get('/:id/download-pdf', authenticate, requireAdmin, async (req, res) => 
     console.error('Error downloading template:', error);
     res.status(500).json({ error: 'Failed to download template' });
   }
+});
+
+// Multer error handling middleware
+router.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    console.error('[Multer Error]', error.code, error.message);
+    if (error.code === 'FILE_TOO_LARGE') {
+      return res.status(413).json({ error: 'File too large. Maximum 10MB allowed.' });
+    }
+    return res.status(400).json({ error: 'File upload error: ' + error.message });
+  } else if (error) {
+    console.error('[Upload Error]', error.message);
+    return res.status(500).json({ error: 'Upload failed: ' + error.message });
+  }
+  next();
 });
 
 module.exports = router;
