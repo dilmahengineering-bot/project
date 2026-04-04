@@ -234,25 +234,25 @@ export default function AdminTemplateManagementPage() {
               <label>Template Content *</label>
               <p className="help-text">Use {'{variable_name}'} for dynamic fields. Available variables:</p>
               <div className="variables-grid">
-                <span>{{job_card_number}}</span>
-                <span>{{job_name}}</span>
-                <span>{{part_number}}</span>
-                <span>{{item_code}}</span>
-                <span>{{material}}</span>
-                <span>{{dimension}}</span>
-                <span>{{tolerance}}</span>
-                <span>{{surface_finish}}</span>
-                <span>{{pr_number}}</span>
-                <span>{{po_number}}</span>
-                <span>{{quantity}}</span>
-                <span>{{manufacturing_orders}}</span>
-                <span>{{priority}}</span>
-                <span>{{machine_name}}</span>
-                <span>{{client_name}}</span>
-                <span>{{job_date}}</span>
-                <span>{{drawing_number}}</span>
-                <span>{{estimated_delivery_date}}</span>
-                <span>{{generated_date}}</span>
+                <span>{'{{job_card_number}}'}</span>
+                <span>{'{{job_name}}'}</span>
+                <span>{'{{part_number}}'}</span>
+                <span>{'{{item_code}}'}</span>
+                <span>{'{{material}}'}</span>
+                <span>{'{{dimension}}'}</span>
+                <span>{'{{tolerance}}'}</span>
+                <span>{'{{surface_finish}}'}</span>
+                <span>{'{{pr_number}}'}</span>
+                <span>{'{{po_number}}'}</span>
+                <span>{'{{quantity}}'}</span>
+                <span>{'{{manufacturing_orders}}'}</span>
+                <span>{'{{priority}}'}</span>
+                <span>{'{{machine_name}}'}</span>
+                <span>{'{{client_name}}'}</span>
+                <span>{'{{job_date}}'}</span>
+                <span>{'{{drawing_number}}'}</span>
+                <span>{'{{estimated_delivery_date}}'}</span>
+                <span>{'{{generated_date}}'}</span>
               </div>
 
               <textarea
