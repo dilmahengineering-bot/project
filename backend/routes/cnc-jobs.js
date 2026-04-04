@@ -2004,48 +2004,69 @@ function generateTextPDF(res, template, variables, job) {
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
   doc.pipe(res);
 
+  const pageWidth = doc.page.width - 80;
+  const labelWidth = 160;
+
   // Title header
   doc.rect(0, 0, doc.page.width, 60).fill('#003d82');
   doc.fontSize(18).font('Helvetica-Bold').fillColor('#fff')
     .text('MACHINE JOB CARD', 40, 20, { align: 'center' });
 
-  doc.moveDown(2);
   doc.y = 80;
 
+  // Known section headers from the template
+  const sectionHeaders = [
+    'JOB CARD DETAILS', 'IDENTIFICATION', 'SCHEDULING', 
+    'MATERIAL & SPECIFICATIONS', 'PROCUREMENT', 'MANUFACTURING SEQUENCE'
+  ];
+
   const lines = filledContent.split('\n');
-  doc.fontSize(10).font('Helvetica').fillColor('#000');
   
   lines.forEach(line => {
     const trimmed = line.trim();
     
-    // Section headers (all caps with colon)
-    if (trimmed === trimmed.toUpperCase() && trimmed.length > 0 && trimmed.includes(':')) {
-      doc.moveDown(0.5);
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#003d82').text(trimmed);
+    // Check if it's a known section header (e.g. "JOB CARD DETAILS:")
+    const headerBase = trimmed.replace(/:$/, '').trim();
+    const isSectionHeader = sectionHeaders.includes(headerBase);
+    
+    // Title lines (first 2 lines: company name + document title, all caps, no colon)
+    if (!isSectionHeader && trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.includes(':')) {
+      doc.fontSize(12).font('Helvetica-Bold').fillColor('#003d82').text(trimmed, { align: 'center', width: pageWidth });
       doc.moveDown(0.3);
-    } 
-    // Title lines (all caps, no colon) 
-    else if (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.includes(':')) {
-      doc.fontSize(12).font('Helvetica-Bold').fillColor('#003d82').text(trimmed, { align: 'center' });
+    }
+    // Section headers
+    else if (isSectionHeader) {
+      doc.moveDown(0.6);
+      doc.fontSize(11).font('Helvetica-Bold').fillColor('#003d82').text(trimmed, { width: pageWidth });
+      // Draw underline
+      const y = doc.y;
+      doc.moveTo(40, y).lineTo(40 + pageWidth, y).strokeColor('#003d82').lineWidth(0.5).stroke();
       doc.moveDown(0.3);
     }
     // Empty lines
     else if (trimmed === '') {
-      doc.moveDown(0.4);
+      doc.moveDown(0.3);
     } 
-    // Key-value lines
+    // Key-value lines (label: value)
     else if (trimmed.includes(':')) {
-      const [label, ...rest] = trimmed.split(':');
-      const value = rest.join(':').trim();
-      doc.fontSize(10).font('Helvetica-Bold').fillColor('#333').text(label + ': ', {
-        continued: true
-      });
-      doc.font('Helvetica').fillColor('#000').text(value);
-      doc.moveDown(0.15);
+      const colonIndex = trimmed.indexOf(':');
+      const label = trimmed.substring(0, colonIndex).trim();
+      const value = trimmed.substring(colonIndex + 1).trim();
+      
+      const y = doc.y;
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#333')
+        .text(label + ':', 40, y, { width: labelWidth });
+      doc.fontSize(10).font('Helvetica').fillColor('#000')
+        .text(value || '—', 40 + labelWidth, y, { width: pageWidth - labelWidth });
+      
+      // Advance Y past whichever column was taller
+      const newY = Math.max(doc.y, y + 14);
+      doc.y = newY;
+      doc.moveDown(0.1);
     }
     // Normal text
     else {
-      doc.fontSize(10).font('Helvetica').fillColor('#000').text(trimmed);
+      doc.fontSize(10).font('Helvetica').fillColor('#000').text(trimmed, { width: pageWidth });
       doc.moveDown(0.15);
     }
 
