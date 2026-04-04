@@ -103,8 +103,8 @@ export default function AdminTemplateManagementPage() {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.type !== 'application/pdf') {
-      toast.error('Only PDF files allowed');
+    if (file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      toast.error('Only Word (.docx) files allowed');
       return;
     }
 
@@ -123,10 +123,10 @@ export default function AdminTemplateManagementPage() {
       });
 
       setSelectedPdf(file.name);
-      toast.success('PDF template uploaded successfully');
+      toast.success('Word template uploaded successfully');
       await loadTemplates();
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to upload PDF');
+      toast.error(error.response?.data?.error || 'Failed to upload template');
       console.error('Error:', error);
     } finally {
       setLoading(false);
@@ -140,13 +140,13 @@ export default function AdminTemplateManagementPage() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `template.pdf`);
+      link.setAttribute('download', `template.docx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      toast.error('Failed to download PDF');
+      toast.error('Failed to download template');
     }
   };
 
@@ -266,14 +266,14 @@ export default function AdminTemplateManagementPage() {
 
             {editingTemplate && (
               <div className="pdf-upload-section">
-                <h3>📄 PDF Template (Optional)</h3>
-                <p className="help-text">Upload a PDF template to use as the base for this job card template</p>
+                <h3>📄 Word Template (.docx)</h3>
+                <p className="help-text">Upload a Word (.docx) template with {'{{variable_name}}'} placeholders. Variables will be filled automatically when generating job cards.</p>
                 
                 <div className="pdf-upload-box">
                   <input
                     ref={pdfInputRef}
                     type="file"
-                    accept=".pdf"
+                    accept=".docx"
                     onChange={handleUploadPdf}
                     disabled={loading}
                     hidden
@@ -284,20 +284,20 @@ export default function AdminTemplateManagementPage() {
                     onClick={() => pdfInputRef.current?.click()}
                     disabled={loading}
                   >
-                    📤 Upload PDF Template
+                    📤 Upload Word Template (.docx)
                   </button>
                   
                   {selectedPdf && <p className="selected-file">Selected: {selectedPdf}</p>}
                   
                   {templates.find(t => t.id === editingTemplate)?.is_pdf_based && (
                     <div className="pdf-template-info">
-                      <p>✓ PDF template uploaded</p>
+                      <p>✓ Word template uploaded</p>
                       <button
                         type="button"
                         className="btn btn-sm btn-outline"
                         onClick={() => handleDownloadPdf(editingTemplate)}
                       >
-                        📥 Download Current PDF
+                        📥 Download Current Template
                       </button>
                     </div>
                   )}

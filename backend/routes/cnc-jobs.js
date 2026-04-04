@@ -8,6 +8,8 @@ const path = require('path');
 const fs = require('fs');
 const PDFDocument = require('pdfkit');
 const { PDFDocument: PDFLibDocument, StandardFonts, rgb } = require('pdf-lib');
+const Docxtemplater = require('docxtemplater');
+const PizZip = require('pizzip');
 const crypto = require('crypto');
 
 // Manufacturing Orders - POST (placed at top to ensure route matching)
@@ -1923,93 +1925,52 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
       '{{stage_name}}': job.stage_name || '',
     };
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
-
-    // If template has an uploaded PDF, use pdf-lib to fill variables in the PDF
+    // If template has an uploaded .docx, use docxtemplater to fill variables
     if (template.is_pdf_based && template.pdf_template_base64) {
-      console.log('[JobCard] Generating from PDF template:', template.name);
+      console.log('[JobCard] Generating from Word (.docx) template:', template.name);
       
       try {
-        // Load the uploaded PDF template
-        const pdfBytes = Buffer.from(template.pdf_template_base64, 'base64');
-        const pdfDoc = await PDFLibDocument.load(pdfBytes, { ignoreEncryption: true });
-        
-        // Get all pages
-        const pages = pdfDoc.getPages();
-        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-        
-        // For each page, extract text operators and replace variables
-        for (const page of pages) {
-          // Get the content stream
-          const { width, height } = page.getSize();
-          
-          // Access the raw content stream to find and replace text
-          const contents = page.node.Contents();
-          if (!contents) continue;
-          
-          // Get the raw PDF content streams
-          let contentRefs = [];
-          if (contents.constructor.name === 'PDFArray') {
-            for (let i = 0; i < contents.size(); i++) {
-              contentRefs.push(contents.get(i));
-            }
-          } else {
-            contentRefs.push(contents);
-          }
-          
-          for (const ref of contentRefs) {
-            const stream = pdfDoc.context.lookup(ref);
-            if (!stream || !stream.getContents) continue;
-            
-            let streamContent = Buffer.from(stream.getContents()).toString('latin1');
-            let modified = false;
-            
-            // Replace {{variable}} patterns in the PDF content stream
-            for (const [varKey, varValue] of Object.entries(variables)) {
-              // PDF text can appear in different encodings
-              // Try direct replacement in text showing operators
-              const varPattern = varKey.replace(/[{}]/g, match => {
-                // Escape for PDF content streams
-                return match;
-              });
-              
-              if (streamContent.includes(varPattern)) {
-                // Clean the value for PDF content stream (escape special PDF chars)
-                const safeValue = varValue
-                  .replace(/\\/g, '\\\\')
-                  .replace(/\(/g, '\\(')
-                  .replace(/\)/g, '\\)')
-                  .replace(/\n/g, ' ');
-                  
-                streamContent = streamContent.split(varPattern).join(safeValue);
-                modified = true;
-              }
-            }
-            
-            if (modified) {
-              // Write back modified content
-              const newContents = Buffer.from(streamContent, 'latin1');
-              stream.setContents(newContents);
-            }
-          }
+        const docxBuffer = Buffer.from(template.pdf_template_base64, 'base64');
+        const zip = new PizZip(docxBuffer);
+        const doc = new Docxtemplater(zip, {
+          paragraphLoop: true,
+          linebreaks: true,
+          delimiters: { start: '{{', end: '}}' },
+        });
+
+        // Build data object for docxtemplater (strip {{ }} from keys)
+        const data = {};
+        for (const [key, value] of Object.entries(variables)) {
+          const cleanKey = key.replace(/^\{\{/, '').replace(/\}\}$/, '');
+          data[cleanKey] = value;
         }
+
+        doc.render(data);
+
+        const filledDocx = doc.getZip().generate({
+          type: 'nodebuffer',
+          compression: 'DEFLATE',
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.docx"`);
+        res.send(filledDocx);
         
-        // Save the modified PDF
-        const modifiedPdfBytes = await pdfDoc.save();
-        res.send(Buffer.from(modifiedPdfBytes));
-        
-      } catch (pdfError) {
-        console.error('[JobCard] PDF-lib error:', pdfError.message);
+      } catch (docxError) {
+        console.error('[JobCard] Docxtemplater error:', docxError.message);
         console.log('[JobCard] Falling back to text-based PDF generation');
         
         // Fallback: generate a new PDF with filled content
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
         generateTextPDF(res, template, variables, job);
       }
       
     } else {
       // Text-based template: generate PDF from scratch using PDFKit
       console.log('[JobCard] Generating from text template:', template.name);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
       generateTextPDF(res, template, variables, job);
     }
 

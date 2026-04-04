@@ -9,10 +9,14 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
+    const allowed = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/pdf' // .pdf (legacy support)
+    ];
+    if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF files allowed'));
+      cb(new Error('Only .docx (Word) files are allowed'));
     }
   }
 });
@@ -171,54 +175,53 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-// Upload PDF template as base64 (admin only)
+// Upload DOCX template as base64 (admin only)
 router.post('/:id/upload-pdf', authenticate, requireAdmin, upload.single('pdf_template'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log('[PDF Upload] Template ID:', id);
-    console.log('[PDF Upload] File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'None');
+    console.log('[DOCX Upload] Template ID:', id);
+    console.log('[DOCX Upload] File:', req.file ? `${req.file.originalname} (${req.file.size} bytes, ${req.file.mimetype})` : 'None');
 
     if (!req.file) {
-      return res.status(400).json({ error: 'No PDF file uploaded' });
+      return res.status(400).json({ error: 'No file uploaded' });
     }
 
     // Convert buffer to base64
-    const pdfBase64 = req.file.buffer.toString('base64');
-    console.log('[PDF Upload] Converted to base64, length:', pdfBase64.length);
+    const fileBase64 = req.file.buffer.toString('base64');
+    const isDocx = req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    
+    console.log('[DOCX Upload] Type:', isDocx ? 'DOCX' : 'PDF', 'Base64 length:', fileBase64.length);
 
-    // Update template with PDF base64
-    console.log('[PDF Upload] Updating database...');
+    // Update template with file base64
     const result = await db.query(
       `UPDATE machine_job_card_templates 
        SET pdf_template_base64 = $1, 
            is_pdf_based = true,
            updated_at = NOW()
        WHERE id = $2 RETURNING id, name, is_active, is_pdf_based`,
-      [pdfBase64, id]
+      [fileBase64, id]
     );
 
     if (result.rows.length === 0) {
-      console.log('[PDF Upload] Template not found:', id);
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    console.log('[PDF Upload] Success!');
+    console.log('[DOCX Upload] Success!');
     res.json({
-      message: 'PDF template uploaded successfully',
+      message: 'Template file uploaded successfully',
       template: result.rows[0]
     });
   } catch (error) {
-    console.error('[PDF Upload] Error:', error.message);
-    console.error('[PDF Upload] Stack:', error.stack);
+    console.error('[DOCX Upload] Error:', error.message);
     res.status(500).json({ 
-      error: 'Failed to upload PDF template',
+      error: 'Failed to upload template file',
       details: error.message 
     });
   }
 });
 
-// Download PDF template (admin only)
+// Download template file (admin only)
 router.get('/:id/download-pdf', authenticate, requireAdmin, async (req, res) => {
   try {
     const result = await db.query(
@@ -233,16 +236,24 @@ router.get('/:id/download-pdf', authenticate, requireAdmin, async (req, res) => 
     const template = result.rows[0];
 
     if (!template.pdf_template_base64 || !template.is_pdf_based) {
-      return res.status(404).json({ error: 'No PDF template uploaded for this template' });
+      return res.status(404).json({ error: 'No template file uploaded' });
     }
 
-    // pdf_template_base64 is stored as TEXT (base64 string)
-    const pdfBuffer = Buffer.from(template.pdf_template_base64, 'base64');
+    const fileBuffer = Buffer.from(template.pdf_template_base64, 'base64');
 
-    res.setHeader('Content-Disposition', `attachment; filename="Template-${template.name}.pdf"`);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Length', pdfBuffer.length);
-    res.send(pdfBuffer);
+    // Detect if it's a DOCX by checking file signature (PK zip header)
+    const isDocx = fileBuffer[0] === 0x50 && fileBuffer[1] === 0x4B;
+    
+    if (isDocx) {
+      res.setHeader('Content-Disposition', `attachment; filename="Template-${template.name}.docx"`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    } else {
+      res.setHeader('Content-Disposition', `attachment; filename="Template-${template.name}.pdf"`);
+      res.setHeader('Content-Type', 'application/pdf');
+    }
+    
+    res.setHeader('Content-Length', fileBuffer.length);
+    res.send(fileBuffer);
   } catch (error) {
     console.error('Error downloading template:', error);
     res.status(500).json({ error: 'Failed to download template' });
