@@ -232,7 +232,7 @@ export default function AdminTemplateManagementPage() {
 
             <div className="form-group">
               <label>Template Content *</label>
-              <p className="help-text">Use {{variable_name}} for dynamic fields. Available variables:</p>
+              <p className="help-text">Use {'{variable_name}'} for dynamic fields. Available variables:</p>
               <div className="variables-grid">
                 <span>{{job_card_number}}</span>
                 <span>{{job_name}}</span>
