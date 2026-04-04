@@ -13,8 +13,8 @@ export default function AdminTemplateManagementPage() {
     name: '',
     template_content: ''
   });
-  const [selectedPdf, setSelectedPdf] = useState(null);
-  const pdfInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -40,13 +40,13 @@ export default function AdminTemplateManagementPage() {
       name: template.name,
       template_content: template.template_content
     });
-    setSelectedPdf(null);
+    setSelectedFile(null);
   };
 
   const handleClear = () => {
     setEditingTemplate(null);
     setFormData({ name: '', template_content: '' });
-    setSelectedPdf(null);
+    setSelectedFile(null);
   };
 
   const handleSaveTemplate = async (e) => {
@@ -99,12 +99,17 @@ export default function AdminTemplateManagementPage() {
     }
   };
 
-  const handleUploadPdf = async (e) => {
+  const handleUploadDocx = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (file.type !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      toast.error('Only Word (.docx) files allowed');
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/pdf'
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      toast.error('Only .docx files are allowed');
       return;
     }
 
@@ -115,26 +120,26 @@ export default function AdminTemplateManagementPage() {
 
     try {
       setLoading(true);
-      const formDataPdf = new FormData();
-      formDataPdf.append('pdf_template', file);
+      const uploadData = new FormData();
+      uploadData.append('pdf_template', file);
 
-      const response = await api.post(`/templates/${editingTemplate}/upload-pdf`, formDataPdf, {
+      await api.post(`/templates/${editingTemplate}/upload-pdf`, uploadData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      setSelectedPdf(file.name);
-      toast.success('Word template uploaded successfully');
+      setSelectedFile(file.name);
+      toast.success('Word template uploaded successfully!');
       await loadTemplates();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to upload template');
-      console.error('Error:', error);
+      console.error('Upload error:', error);
     } finally {
       setLoading(false);
-      if (pdfInputRef.current) pdfInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleDownloadPdf = async (templateId) => {
+  const handleDownloadTemplate = async (templateId) => {
     try {
       const response = await api.get(`/templates/${templateId}/download-pdf`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -158,53 +163,43 @@ export default function AdminTemplateManagementPage() {
     return <div className="admin-page"><p>Loading...</p></div>;
   }
 
+  const currentTemplate = templates.find(t => t.id === editingTemplate);
+
   return (
     <div className="admin-page template-management-page">
       <div className="page-header">
-        <h1>🏷️ Machine Job Card Template Management</h1>
-        <p>Customize the Machine Job Card format and upload PDF templates for report generation</p>
+        <h1>Machine Job Card Template Management</h1>
+        <p>Upload a Word (.docx) template with variable placeholders. When generating a job card, all variables will be filled with real job data and downloaded as a Word document with your exact layout.</p>
       </div>
 
       <div className="template-management-container">
         {/* Template List */}
         <div className="template-list-section">
-          <h2>Available Templates</h2>
+          <h2>Templates</h2>
           {templates.length === 0 ? (
-            <p className="no-templates">No templates found</p>
+            <p className="no-templates">No templates found. Create one below.</p>
           ) : (
             <div className="template-list">
-              {templates.map((template) => (
+              {templates.map((tmpl) => (
                 <div
-                  key={template.id}
-                  className={`template-item ${editingTemplate === template.id ? 'active' : ''} ${template.is_active ? 'is-active' : ''}`}
-                  onClick={() => handleTemplateSelect(template)}
+                  key={tmpl.id}
+                  className={`template-item ${editingTemplate === tmpl.id ? 'active' : ''} ${tmpl.is_active ? 'is-active' : ''}`}
+                  onClick={() => handleTemplateSelect(tmpl)}
                 >
                   <div className="template-info">
-                    <h3>{template.name}</h3>
-                    {template.is_active && <span className="badge badge-active">Active</span>}
-                    {template.is_pdf_based && <span className="badge badge-pdf">PDF</span>}
+                    <h3>{tmpl.name}</h3>
+                    <div className="template-badges">
+                      {tmpl.is_active && <span className="badge badge-active">Active</span>}
+                      {tmpl.is_pdf_based && <span className="badge badge-docx">DOCX Uploaded</span>}
+                    </div>
                   </div>
                   <div className="template-actions">
-                    {!template.is_active && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleActivateTemplate(template.id);
-                        }}
-                      >
+                    {!tmpl.is_active && (
+                      <button type="button" className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); handleActivateTemplate(tmpl.id); }}>
                         Activate
                       </button>
                     )}
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteTemplate(template.id);
-                      }}
-                    >
+                    <button type="button" className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(tmpl.id); }}>
                       Delete
                     </button>
                   </div>
@@ -225,102 +220,108 @@ export default function AdminTemplateManagementPage() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., DCTC Standard, Custom Layout"
+                placeholder="e.g., DCTC Standard Job Card"
                 required
               />
             </div>
 
             <div className="form-group">
-              <label>Template Content *</label>
-              <p className="help-text">Use {'{variable_name}'} for dynamic fields. Available variables:</p>
-              <div className="variables-grid">
-                <span>{'{{job_card_number}}'}</span>
-                <span>{'{{job_name}}'}</span>
-                <span>{'{{part_number}}'}</span>
-                <span>{'{{item_code}}'}</span>
-                <span>{'{{material}}'}</span>
-                <span>{'{{dimension}}'}</span>
-                <span>{'{{tolerance}}'}</span>
-                <span>{'{{surface_finish}}'}</span>
-                <span>{'{{pr_number}}'}</span>
-                <span>{'{{po_number}}'}</span>
-                <span>{'{{quantity}}'}</span>
-                <span>{'{{manufacturing_orders}}'}</span>
-                <span>{'{{priority}}'}</span>
-                <span>{'{{machine_name}}'}</span>
-                <span>{'{{client_name}}'}</span>
-                <span>{'{{job_date}}'}</span>
-                <span>{'{{drawing_number}}'}</span>
-                <span>{'{{estimated_delivery_date}}'}</span>
-                <span>{'{{generated_date}}'}</span>
-              </div>
-
+              <label>Text Template Content *</label>
+              <p className="help-text">This is used as fallback when no Word template is uploaded. Use {'{{variable_name}}'} for dynamic fields.</p>
               <textarea
                 value={formData.template_content}
                 onChange={(e) => setFormData({ ...formData, template_content: e.target.value })}
                 placeholder="Enter template content with {{variable}} placeholders"
-                rows="15"
+                rows="12"
                 required
               />
             </div>
-
-            {editingTemplate && (
-              <div className="pdf-upload-section">
-                <h3>📄 Word Template (.docx)</h3>
-                <p className="help-text">Upload a Word (.docx) template with {'{{variable_name}}'} placeholders. Variables will be filled automatically when generating job cards.</p>
-                
-                <div className="pdf-upload-box">
-                  <input
-                    ref={pdfInputRef}
-                    type="file"
-                    accept=".docx"
-                    onChange={handleUploadPdf}
-                    disabled={loading}
-                    hidden
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => pdfInputRef.current?.click()}
-                    disabled={loading}
-                  >
-                    📤 Upload Word Template (.docx)
-                  </button>
-                  
-                  {selectedPdf && <p className="selected-file">Selected: {selectedPdf}</p>}
-                  
-                  {templates.find(t => t.id === editingTemplate)?.is_pdf_based && (
-                    <div className="pdf-template-info">
-                      <p>✓ Word template uploaded</p>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline"
-                        onClick={() => handleDownloadPdf(editingTemplate)}
-                      >
-                        📥 Download Current Template
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             <div className="form-actions">
               <button type="submit" className="btn btn-primary" disabled={loading}>
                 {loading ? 'Saving...' : editingTemplate ? 'Update Template' : 'Create Template'}
               </button>
               {editingTemplate && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={handleClear}
-                  disabled={loading}
-                >
-                  Clear
+                <button type="button" className="btn btn-secondary" onClick={handleClear} disabled={loading}>
+                  Cancel
                 </button>
               )}
             </div>
           </form>
+
+          {/* Word Template Upload - only when editing */}
+          {editingTemplate && (
+            <div className="docx-upload-section">
+              <h3>Word Template (.docx)</h3>
+              <p className="help-text">
+                Upload your Word document with {'{{variable_name}}'} placeholders. 
+                The generated job card will preserve your exact Word layout — tables, fonts, borders, images — with all variables filled.
+              </p>
+
+              <div className="variables-grid">
+                <span>{'{{job_card_number}}'}</span>
+                <span>{'{{job_name}}'}</span>
+                <span>{'{{job_date}}'}</span>
+                <span>{'{{part_number}}'}</span>
+                <span>{'{{item_code}}'}</span>
+                <span>{'{{drawing_number}}'}</span>
+                <span>{'{{machine_name}}'}</span>
+                <span>{'{{client_name}}'}</span>
+                <span>{'{{priority}}'}</span>
+                <span>{'{{manufacturing_type}}'}</span>
+                <span>{'{{estimated_delivery_date}}'}</span>
+                <span>{'{{quantity}}'}</span>
+                <span>{'{{material}}'}</span>
+                <span>{'{{dimension}}'}</span>
+                <span>{'{{tolerance}}'}</span>
+                <span>{'{{surface_finish}}'}</span>
+                <span>{'{{pr_number}}'}</span>
+                <span>{'{{po_number}}'}</span>
+                <span>{'{{manufacturing_orders}}'}</span>
+                <span>{'{{subjob_card_number}}'}</span>
+                <span>{'{{status}}'}</span>
+                <span>{'{{notes}}'}</span>
+                <span>{'{{assigned_to}}'}</span>
+                <span>{'{{workflow_name}}'}</span>
+                <span>{'{{stage_name}}'}</span>
+                <span>{'{{generated_date}}'}</span>
+              </div>
+              
+              <div className="docx-upload-box">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".docx"
+                  onChange={handleUploadDocx}
+                  disabled={loading}
+                  hidden
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                >
+                  Upload Word Template (.docx)
+                </button>
+                
+                {selectedFile && <p className="selected-file">Uploaded: {selectedFile}</p>}
+                
+                {currentTemplate?.is_pdf_based && (
+                  <div className="docx-template-status">
+                    <span className="status-ok">Word template is active</span>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline"
+                      onClick={() => handleDownloadTemplate(editingTemplate)}
+                    >
+                      Download Current Template
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

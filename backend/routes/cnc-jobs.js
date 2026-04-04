@@ -1925,13 +1925,9 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
       '{{stage_name}}': job.stage_name || '',
     };
 
-    // Always output PDF
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
-
-    // If template has an uploaded .docx, fill variables with docxtemplater then convert to PDF via LibreOffice
+    // If template has an uploaded .docx, fill variables and return filled .docx
     if (template.is_pdf_based && template.pdf_template_base64) {
-      console.log('[JobCard] Generating PDF from Word (.docx) template:', template.name);
+      console.log('[JobCard] Generating from Word (.docx) template:', template.name);
       
       try {
         const docxBuffer = Buffer.from(template.pdf_template_base64, 'base64');
@@ -1956,21 +1952,16 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
           compression: 'DEFLATE',
         });
 
-        // Convert filled .docx to PDF using LibreOffice
-        const libre = require('libreoffice-convert');
-        const util = require('util');
-        const convertAsync = util.promisify(libre.convert);
-        
-        console.log('[JobCard] Converting filled .docx to PDF via LibreOffice...');
-        const pdfBuffer = await convertAsync(filledDocx, '.pdf', undefined);
-        console.log('[JobCard] PDF conversion complete, size:', pdfBuffer.length);
-        
-        res.send(pdfBuffer);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.docx"`);
+        res.send(filledDocx);
         
       } catch (docxError) {
-        console.error('[JobCard] DocxToPDF error:', docxError.message);
+        console.error('[JobCard] Docxtemplater error:', docxError.message);
         console.log('[JobCard] Falling back to text-based PDF generation');
         if (!res.headersSent) {
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
           generateTextPDF(res, template, variables, job);
         }
       }
@@ -1978,6 +1969,8 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
     } else {
       // Text-based template: generate PDF from scratch using PDFKit
       console.log('[JobCard] Generating from text template:', template.name);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number || 'unknown'}.pdf"`);
       generateTextPDF(res, template, variables, job);
     }
 

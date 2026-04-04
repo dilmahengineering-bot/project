@@ -111,6 +111,17 @@
   color: #0c4a6e;
 }
 
+.badge-docx {
+  background: #dbeafe;
+  color: #0c4a6e;
+}
+
+.template-badges {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
 .template-actions {
   display: flex;
   gap: 4px;
@@ -221,7 +232,66 @@
   text-overflow: ellipsis;
 }
 
-/* PDF Upload Section */
+/* DOCX Upload Section */
+.docx-upload-section {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f0f9ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.docx-upload-section h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #0369a1;
+}
+
+.docx-upload-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.docx-upload-box button {
+  padding: 10px 16px;
+  background: #0369a1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.docx-upload-box button:hover:not(:disabled) {
+  background: #0284c7;
+}
+
+.docx-upload-box button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.docx-template-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #d1fae5;
+  border-left: 3px solid #059669;
+  border-radius: 4px;
+}
+
+.status-ok {
+  color: #065f46;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* PDF Upload Section (legacy) */
 .pdf-upload-section {
   padding: 16px;
   background: #f0f9ff;
