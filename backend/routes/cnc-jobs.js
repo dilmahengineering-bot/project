@@ -1829,10 +1829,21 @@ router.delete(
 
 // ==================== MACHINE JOB CARD GENERATION ====================
 
-// Generate complete Machine Job Card PDF for a job card
+// Generate complete Machine Job Card PDF for a job card using template
 router.get('/:id/machine-job-card', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Fetch active template
+    const templateResult = await db.query(
+      'SELECT * FROM machine_job_card_templates WHERE is_active = true LIMIT 1'
+    );
+
+    if (templateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'No active template found' });
+    }
+
+    const template = templateResult.rows[0];
 
     // Fetch complete job card with all details
     const jobResult = await db.query(
@@ -1869,203 +1880,83 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
 
     const mfgOrders = mfgResult.rows;
 
-    // Generate PDF Document
-    const doc = new PDFDocument({ size: 'A4', margin: 20 });
+    // Helper function to format dates
+    const formatDate = (date) => {
+      if (!date) return '—';
+      return new Date(date).toLocaleDateString();
+    };
+
+    // Build manufacturing orders table
+    let mfgTableContent = mfgOrders.length > 0 ? 'MANUFACTURING SEQUENCE:\n' : '';
+    mfgOrders.forEach((order, idx) => {
+      mfgTableContent += `${idx + 1}. ${order.machine_name || '—'} - ${order.estimated_duration_minutes ? order.estimated_duration_minutes + ' min' : '—'}\n`;
+    });
+
+    // Replace template variables
+    let filledContent = template.template_content;
+    
+    const variables = {
+      '{{job_card_number}}': job.job_card_number || '—',
+      '{{job_name}}': job.job_name || '—',
+      '{{job_date}}': formatDate(job.job_date),
+      '{{part_number}}': job.part_number || '—',
+      '{{item_code}}': job.item_code || '—',
+      '{{drawing_number}}': job.drawing_number || '—',
+      '{{machine_name}}': job.machine_name || '—',
+      '{{client_name}}': job.client_name || '—',
+      '{{priority}}': (job.priority || 'medium').toUpperCase(),
+      '{{manufacturing_type}}': job.manufacturing_type === 'internal' ? 'Internal' : 'External',
+      '{{estimated_delivery_date}}': formatDate(job.estimated_delivery_date),
+      '{{quantity}}': (job.quantity || '—').toString(),
+      '{{material}}': job.material || '—',
+      '{{dimension}}': job.dimension || '—',
+      '{{tolerance}}': job.tolerance || '—',
+      '{{surface_finish}}': job.surface_finish || '—',
+      '{{pr_number}}': job.pr_number || '—',
+      '{{po_number}}': job.po_number || '—',
+      '{{manufacturing_orders}}': mfgTableContent,
+      '{{generated_date}}': new Date().toLocaleString()
+    };
+
+    // Replace all variables in template
+    for (const [key, value] of Object.entries(variables)) {
+      filledContent = filledContent.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+    }
+
+    // Generate PDF from filled template
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="MachineJobCard-${job.job_card_number}.pdf"`);
     doc.pipe(res);
 
-    // ========== PAGE 1: MACHINE JOB CARD ==========
+    // Render template content as PDF
+    const lines = filledContent.split('\n');
     
-    // Header
-    doc.fontSize(14).font('Helvetica-Bold').text('DCTC — CNC WORKSHOP', { align: 'center' });
-    doc.fontSize(10).font('Helvetica').text('MACHINE JOB CARD', { align: 'center' });
-    doc.fontSize(8).text('DCTC/CNC/002 | Rev 04 | Retain 3 Years', { align: 'center' });
-    doc.moveDown(0.3);
+    doc.fontSize(11).font('Helvetica');
+    
+    lines.forEach(line => {
+      if (line.toUpperCase() === line && line.length > 0 && line.includes(':')) {
+        // Section headers or bold lines
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#003d82').text(line);
+        doc.moveDown(0.3);
+      } else if (line.trim() === '') {
+        doc.moveDown(0.5);
+      } else {
+        doc.fontSize(10).font('Helvetica').fillColor('#000').text(line);
+        doc.moveDown(0.2);
+      }
 
-    // Job Header Table
-    const startY = doc.y;
-    const col1 = 40;
-    const col2 = 200;
-    const col3 = 350;
-    const rowHeight = 25;
+      // Add page break if needed
+      if (doc.y > doc.page.height - 40) {
+        doc.addPage();
+        doc.fontSize(10).font('Helvetica').fillColor('#000');
+      }
+    });
 
-    doc.fontSize(9).font('Helvetica-Bold').text('JOB CARD NUMBER', col1, startY);
-    doc.font('Helvetica').text(job.job_card_number || 'N/A', col1, startY + 12);
-    doc.moveTo(col1, startY).lineTo(col1 + 150, startY).lineTo(col1 + 150, startY + 24).lineTo(col1, startY + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').text('SUB JOB CARD', col2, startY);
-    doc.font('Helvetica').text(job.subjob_card_number || '—', col2, startY + 12);
-    doc.moveTo(col2, startY).lineTo(col2 + 120, startY).lineTo(col2 + 120, startY + 24).lineTo(col2, startY + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').text('JOB DATE', col3, startY);
-    doc.font('Helvetica').text(job.job_date ? new Date(job.job_date).toLocaleDateString() : '—', col3, startY + 12);
-    doc.moveTo(col3, startY).lineTo(col3 + 120, startY).lineTo(col3 + 120, startY + 24).lineTo(col3, startY + 24).closePath().stroke();
-
-    doc.moveDown(1.8);
-
-    // Second Row
-    const row2Y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).text('JOB NAME', col1, row2Y);
-    doc.font('Helvetica').fontSize(8).text((job.job_name || '—').substring(0, 30), col1, row2Y + 12);
-    doc.moveTo(col1, row2Y).lineTo(col1 + 150, row2Y).lineTo(col1 + 150, row2Y + 24).lineTo(col1, row2Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('PART NUMBER', col2, row2Y);
-    doc.font('Helvetica').fontSize(8).text(job.part_number || '—', col2, row2Y + 12);
-    doc.moveTo(col2, row2Y).lineTo(col2 + 120, row2Y).lineTo(col2 + 120, row2Y + 24).lineTo(col2, row2Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('ITEM CODE', col3, row2Y);
-    doc.font('Helvetica').fontSize(8).text(job.item_code || '—', col3, row2Y + 12);
-    doc.moveTo(col3, row2Y).lineTo(col3 + 120, row2Y).lineTo(col3 + 120, row2Y + 24).lineTo(col3, row2Y + 24).closePath().stroke();
-
-    doc.moveDown(1.8);
-
-    // Third Row
-    const row3Y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).text('DRAWING NUMBER', col1, row3Y);
-    doc.font('Helvetica').fontSize(8).text(job.drawing_number || '—', col1, row3Y + 12);
-    doc.moveTo(col1, row3Y).lineTo(col1 + 150, row3Y).lineTo(col1 + 150, row3Y + 24).lineTo(col1, row3Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('MACHINE NAME', col2, row3Y);
-    doc.font('Helvetica').fontSize(8).text(job.machine_name || '—', col2, row3Y + 12);
-    doc.moveTo(col2, row3Y).lineTo(col2 + 120, row3Y).lineTo(col2 + 120, row3Y + 24).lineTo(col2, row3Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('CLIENT / CUSTOMER', col3, row3Y);
-    doc.font('Helvetica').fontSize(8).text(job.client_name || '—', col3, row3Y + 12);
-    doc.moveTo(col3, row3Y).lineTo(col3 + 120, row3Y).lineTo(col3 + 120, row3Y + 24).lineTo(col3, row3Y + 24).closePath().stroke();
-
-    doc.moveDown(1.8);
-
-    // Dates Row
-    const row4Y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).text('START DATE', col1, row4Y);
-    doc.font('Helvetica').fontSize(8).text('—', col1, row4Y + 12);
-    doc.moveTo(col1, row4Y).lineTo(col1 + 110, row4Y).lineTo(col1 + 110, row4Y + 24).lineTo(col1, row4Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('EST. END DATE', col2 - 80, row4Y);
-    doc.font('Helvetica').fontSize(8).text(job.estimate_end_date ? new Date(job.estimate_end_date).toLocaleDateString() : '—', col2 - 80, row4Y + 12);
-    doc.moveTo(col2 - 80, row4Y).lineTo(col2 + 40, row4Y).lineTo(col2 + 40, row4Y + 24).lineTo(col2 - 80, row4Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('EST. DELIVERY DATE', col3 - 20, row4Y);
-    doc.font('Helvetica').fontSize(8).text(job.estimated_delivery_date ? new Date(job.estimated_delivery_date).toLocaleDateString() : '—', col3 - 20, row4Y + 12);
-    doc.moveTo(col3 - 20, row4Y).lineTo(col3 + 120, row4Y).lineTo(col3 + 120, row4Y + 24).lineTo(col3 - 20, row4Y + 24).closePath().stroke();
-
-    doc.moveDown(1.8);
-
-    // Priority Row
-    const row5Y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).text('PRIORITY', col1, row5Y);
-    doc.font('Helvetica').fontSize(8).text((job.priority || 'medium').toUpperCase(), col1, row5Y + 12);
-    doc.moveTo(col1, row5Y).lineTo(col1 + 110, row5Y).lineTo(col1 + 110, row5Y + 24).lineTo(col1, row5Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('MAINTENANCE TYPE', col2 - 80, row5Y);
-    doc.font('Helvetica').fontSize(8).text('—', col2 - 80, row5Y + 12);
-    doc.moveTo(col2 - 80, row5Y).lineTo(col2 + 40, row5Y).lineTo(col2 + 40, row5Y + 24).lineTo(col2 - 80, row5Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('MANUFACTURING TYPE', col3 - 20, row5Y);
-    doc.font('Helvetica').fontSize(8).text(job.manufacturing_type === 'internal' ? 'Internal' : 'External', col3 - 20, row5Y + 12);
-    doc.moveTo(col3 - 20, row5Y).lineTo(col3 + 120, row5Y).lineTo(col3 + 120, row5Y + 24).lineTo(col3 - 20, row5Y + 24).closePath().stroke();
-
-    doc.moveDown(1.8);
-
-    // MATERIAL & SPECIFICATIONS Section
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('white').rect(40, doc.y, 510, 20).fill('#003d82').text('MATERIAL & SPECIFICATIONS', 50, doc.y + 4);
-    doc.moveDown(0.4);
-
-    const row6Y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('black').text('MATERIAL', col1, row6Y);
-    doc.font('Helvetica').fontSize(8).text(job.material || '—', col1, row6Y + 12);
-    doc.moveTo(col1, row6Y).lineTo(col1 + 150, row6Y).lineTo(col1 + 150, row6Y + 24).lineTo(col1, row6Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('DIMENSIONS', col2, row6Y);
-    doc.font('Helvetica').fontSize(8).text(job.dimension || '—', col2, row6Y + 12);
-    doc.moveTo(col2, row6Y).lineTo(col2 + 120, row6Y).lineTo(col2 + 120, row6Y + 24).lineTo(col2, row6Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('TOLERANCE', col3, row6Y);
-    doc.font('Helvetica').fontSize(8).text(job.tolerance || '—', col3, row6Y + 12);
-    doc.moveTo(col3, row6Y).lineTo(col3 + 120, row6Y).lineTo(col3 + 120, row6Y + 24).lineTo(col3, row6Y + 24).closePath().stroke();
-
-    doc.moveDown(1.8);
-
-    // Surface Finish and Hardness
-    const row7Y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).text('SURFACE FINISH', col1, row7Y);
-    doc.font('Helvetica').fontSize(8).text(job.surface_finish || '—', col1, row7Y + 12);
-    doc.moveTo(col1, row7Y).lineTo(col1 + 220, row7Y).lineTo(col1 + 220, row7Y + 24).lineTo(col1, row7Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('SAMPLE HARDNESS', col3, row7Y);
-    doc.font('Helvetica').fontSize(8).text('—', col3, row7Y + 12);
-    doc.moveTo(col3, row7Y).lineTo(col3 + 120, row7Y).lineTo(col3 + 120, row7Y + 24).lineTo(col3, row7Y + 24).closePath().stroke();
-
-    doc.moveDown(1.8);
-
-    // PROCUREMENT Section
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('white').rect(40, doc.y, 510, 20).fill('#003d82').text('PROCUREMENT', 50, doc.y + 4);
-    doc.moveDown(0.4);
-
-    const row8Y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('black').text('PR NUMBER', col1, row8Y);
-    doc.font('Helvetica').fontSize(8).text(job.pr_number || '—', col1, row8Y + 12);
-    doc.moveTo(col1, row8Y).lineTo(col1 + 150, row8Y).lineTo(col1 + 150, row8Y + 24).lineTo(col1, row8Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('PO NUMBER', col2, row8Y);
-    doc.font('Helvetica').fontSize(8).text(job.po_number || '—', col2, row8Y + 12);
-    doc.moveTo(col2, row8Y).lineTo(col2 + 120, row8Y).lineTo(col2 + 120, row8Y + 24).lineTo(col2, row8Y + 24).closePath().stroke();
-
-    doc.font('Helvetica-Bold').fontSize(9).text('QUANTITY', col3, row8Y);
-    doc.font('Helvetica').fontSize(8).text((job.quantity || '—').toString(), col3, row8Y + 12);
-    doc.moveTo(col3, row8Y).lineTo(col3 + 120, row8Y).lineTo(col3 + 120, row8Y + 24).lineTo(col3, row8Y + 24).closePath().stroke();
-
-    doc.moveDown(1.8);
-
-    // Raw Material Availability
-    const row9Y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).text('RAW MATERIAL AVAILABILITY / PR NUMBER', col1, row9Y);
-    doc.moveTo(col1, row9Y).lineTo(col1 + 510, row9Y).lineTo(col1 + 510, row9Y + 40).lineTo(col1, row9Y + 40).closePath().stroke();
-
-    doc.moveDown(2.5);
-
-    // If we need a new page due to length
-    if (doc.y > 700) {
-      doc.addPage();
-    }
-
-    // MANUFACTURING SEQUENCE for PAGE 2 or continuation
-    if (mfgOrders.length > 0) {
-      doc.fontSize(10).font('Helvetica-Bold').fillColor('white').rect(40, doc.y, 510, 20).fill('#003d82').text('MANUFACTURING SEQUENCE', 50, doc.y + 4);
-      doc.moveDown(0.4);
-      doc.fillColor('black');
-
-      // Table header
-      const tableStartY = doc.y;
-      const colW = 85;
-      doc.fontSize(9).font('Helvetica-Bold');
-      doc.text('#', 50, tableStartY);
-      doc.text('PROCESS / OPERATION', 80, tableStartY);
-      doc.text('MACHINE', 200, tableStartY);
-      doc.text('EST. DURATION', 320, tableStartY);
-      doc.text('NOTES', 430, tableStartY);
-
-      doc.moveTo(50, tableStartY + 15).lineTo(550, tableStartY + 15).stroke();
-      doc.moveDown(1);
-
-      // Table rows
-      doc.fontSize(8).font('Helvetica');
-      mfgOrders.forEach((order, idx) => {
-        const rowStartY = doc.y;
-        doc.text((idx + 1).toString(), 50, rowStartY);
-        doc.text('—', 80, rowStartY);
-        doc.text(order.machine_name || '—', 200, rowStartY);
-        doc.text(order.estimated_duration_minutes ? `${order.estimated_duration_minutes} min` : '—', 320, rowStartY);
-        doc.text(order.notes || '—', 430, rowStartY);
-        doc.moveDown(0.6);
-      });
-    }
-
-    // Footer with timestamp
+    // Footer
     doc.fontSize(8).fillColor('#999').text(
-      `Generated by TaskFlow CNC System | ${new Date().toLocaleString()}`,
+      `Generated by TaskFlow CNC System | Template: ${template.name}`,
       40,
       doc.page.height - 30,
       { align: 'center' }
