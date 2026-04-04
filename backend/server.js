@@ -543,6 +543,24 @@ const initDB = async () => {
     try {
       console.log('🔧 Initializing machine_job_card_templates table...');
       
+      // Drop old table if it has wrong schema (UNSAFE but useful for fixing)
+      try {
+        // Check if table exists with old structure
+        const oldCheck = await db.query(`
+          SELECT column_name FROM information_schema.columns 
+          WHERE table_name = 'machine_job_card_templates' 
+          AND column_name = 'pdf_template_file_path'
+        `);
+        if (oldCheck.rows.length > 0) {
+          console.log('⚠️  Found old schema with pdf_template_file_path, recreating table...');
+          await db.query('DROP TABLE IF EXISTS machine_job_card_templates CASCADE');
+          console.log('✅ Dropped old table');
+        }
+      } catch (e) {
+        // Table doesn't exist yet, that's fine
+      }
+      
+      // Create fresh table
       await db.query(`
         CREATE TABLE IF NOT EXISTS machine_job_card_templates (
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -557,19 +575,7 @@ const initDB = async () => {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ machine_job_card_templates table OK');
-
-      // Safe migration: remove old columns if they exist
-      try {
-        await db.query(`
-          ALTER TABLE machine_job_card_templates 
-          DROP COLUMN IF EXISTS pdf_template_file_path CASCADE,
-          DROP COLUMN IF EXISTS template_file_path CASCADE
-        `);
-        console.log('✅ Cleaned up old file path columns');
-      } catch (e) {
-        // Silently continue - columns might not exist
-      }
+      console.log('✅ machine_job_card_templates table created');
 
       // Check if default template exists
       const templateCheck = await db.query(
