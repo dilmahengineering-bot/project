@@ -20,39 +20,28 @@ const upload = multer({
 // Get all templates (admin only)
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
-    console.log('[Templates GET] Fetching all templates');
+    console.log('[Templates GET] Fetching all templates for user:', req.user?.id);
     
+    // Simple query - just get the basic columns
     const result = await db.query(
       `SELECT 
         id, name, template_content, is_active, is_pdf_based, 
-        created_by, created_at, updated_at,
-        CASE WHEN pdf_template_base64 IS NOT NULL THEN true ELSE false END as has_pdf
+        created_by, created_at, updated_at
        FROM machine_job_card_templates
        ORDER BY created_at DESC`
     );
     
-    console.log('[Templates GET] Found', result.rows.length, 'templates');
+    console.log('[Templates GET] Success! Found', result.rows.length, 'templates');
     res.json(result.rows);
   } catch (error) {
-    console.error('[Templates GET] Database error:', error.message);
-    console.error('[Templates GET] Full error:', error);
+    console.error('[Templates GET] ERROR:', error.message);
+    console.error('[Templates GET] Stack:', error.stack);
     
-    // Try alternate query without the base64 column check
-    try {
-      console.log('[Templates GET] Trying fallback query...');
-      const fallbackResult = await db.query(
-        `SELECT 
-          id, name, template_content, is_active, is_pdf_based, 
-          created_by, created_at
-         FROM machine_job_card_templates
-         ORDER BY created_at DESC`
-      );
-      console.log('[Templates GET] Fallback succeeded, found', fallbackResult.rows.length, 'templates');
-      res.json(fallbackResult.rows);
-    } catch (fallbackError) {
-      console.error('[Templates GET] Fallback also failed:', fallbackError.message);
-      res.status(500).json({ error: 'Failed to fetch templates: ' + error.message });
-    }
+    // Return meaningful error
+    res.status(500).json({ 
+      error: 'Failed to fetch templates',
+      details: error.message 
+    });
   }
 });
 
@@ -181,7 +170,7 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, upload.single('pdf_te
     const { id } = req.params;
 
     console.log('[PDF Upload] Template ID:', id);
-    console.log('[PDF Upload] File received:', req.file ? { size: req.file.size, mimetype: req.file.mimetype } : 'No file');
+    console.log('[PDF Upload] File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'None');
 
     if (!req.file) {
       return res.status(400).json({ error: 'No PDF file uploaded' });
@@ -189,33 +178,36 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, upload.single('pdf_te
 
     // Convert buffer to base64
     const pdfBase64 = req.file.buffer.toString('base64');
-    console.log('[PDF Upload] Base64 encoded, size:', pdfBase64.length);
+    console.log('[PDF Upload] Converted to base64, length:', pdfBase64.length);
 
-    // Update template with PDF base64 - store in database
+    // Update template with PDF base64
+    console.log('[PDF Upload] Updating database...');
     const result = await db.query(
       `UPDATE machine_job_card_templates 
        SET pdf_template_base64 = $1, 
            is_pdf_based = true,
            updated_at = NOW()
-       WHERE id = $2 RETURNING 
-        id, name, is_active, is_pdf_based, created_at,
-        CASE WHEN pdf_template_base64 IS NOT NULL THEN true ELSE false END as has_pdf`,
+       WHERE id = $2 RETURNING id, name, is_active, is_pdf_based`,
       [pdfBase64, id]
     );
 
     if (result.rows.length === 0) {
+      console.log('[PDF Upload] Template not found:', id);
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    console.log('[PDF Upload] Database updated successfully');
-
+    console.log('[PDF Upload] Success!');
     res.json({
       message: 'PDF template uploaded successfully',
       template: result.rows[0]
     });
   } catch (error) {
-    console.error('[PDF Upload] Error:', error.message, error.stack);
-    res.status(500).json({ error: 'Failed to upload PDF template: ' + error.message });
+    console.error('[PDF Upload] Error:', error.message);
+    console.error('[PDF Upload] Stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to upload PDF template',
+      details: error.message 
+    });
   }
 });
 

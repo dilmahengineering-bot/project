@@ -541,6 +541,8 @@ const initDB = async () => {
 
     // Create Machine Job Card Template table
     try {
+      console.log('🔧 Initializing machine_job_card_templates table...');
+      
       await db.query(`
         CREATE TABLE IF NOT EXISTS machine_job_card_templates (
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -555,46 +557,28 @@ const initDB = async () => {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      console.log('✅ machine_job_card_templates table OK');
 
-      // Comprehensive migration: handle old schema
+      // Safe migration: remove old columns if they exist
       try {
-        // Check if old columns exist and remove them
-        await db.query(
-          `ALTER TABLE machine_job_card_templates 
-           DROP COLUMN IF EXISTS pdf_template_file_path,
-           DROP COLUMN IF EXISTS template_file_path CASCADE`
-        );
-        console.log('✅ Removed old file path columns from machine_job_card_templates');
-      } catch (e) {
-        console.log('ℹ️ Old columns already removed or table structure OK');
-      }
-
-      // Add new pdf_template_base64 column if missing
-      try {
-        const columnCheck = await db.query(`
-          SELECT EXISTS (
-            SELECT 1 FROM information_schema.columns 
-            WHERE table_name = 'machine_job_card_templates' 
-            AND column_name = 'pdf_template_base64'
-          )
+        await db.query(`
+          ALTER TABLE machine_job_card_templates 
+          DROP COLUMN IF EXISTS pdf_template_file_path CASCADE,
+          DROP COLUMN IF EXISTS template_file_path CASCADE
         `);
-        
-        if (!columnCheck.rows[0].exists) {
-          await db.query(
-            `ALTER TABLE machine_job_card_templates 
-             ADD COLUMN pdf_template_base64 BYTEA`
-          );
-          console.log('✅ Added pdf_template_base64 column to machine_job_card_templates');
-        } else {
-          console.log('✅ pdf_template_base64 column already exists');
-        }
+        console.log('✅ Cleaned up old file path columns');
       } catch (e) {
-        console.log('⚠️ Migration notice:', e.message.substring(0, 80));
+        // Silently continue - columns might not exist
       }
 
-      // Insert default template if none exists
-      const templateCheck = await db.query('SELECT id FROM machine_job_card_templates WHERE name = $1', ['Default']);
+      // Check if default template exists
+      const templateCheck = await db.query(
+        'SELECT id FROM machine_job_card_templates WHERE name = $1', 
+        ['Default']
+      );
+      
       if (templateCheck.rows.length === 0) {
+        console.log('📝 Creating default template...');
         const defaultTemplate = `DCTC — CNC WORKSHOP
 MACHINE JOB CARD
 DCTC/CNC/002 | Rev 04 | Retain 3 Years
@@ -646,9 +630,12 @@ Generated Date: {{generated_date}}`;
           ['Default', defaultTemplate, variables]
         );
         console.log('✅ Default Machine Job Card template created');
+      } else {
+        console.log('✅ Default template already exists');
       }
     } catch (err) {
-      console.log('⚠️ Template table initialization notice:', err.message.substring(0, 50));
+      console.error('❌ Template table initialization ERROR:', err.message);
+      console.error('Stack:', err.stack);
     }
   } catch (err) {
     console.error('DB init error:', err.message);
