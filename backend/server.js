@@ -543,30 +543,35 @@ const initDB = async () => {
     try {
       console.log('🔧 Initializing machine_job_card_templates table...');
       
-      // Drop old table if it has wrong schema (UNSAFE but useful for fixing)
-      try {
-        // Check if table exists with old structure
-        const oldCheck = await db.query(`
-          SELECT column_name FROM information_schema.columns 
-          WHERE table_name = 'machine_job_card_templates' 
-          AND column_name = 'pdf_template_file_path'
-        `);
-        if (oldCheck.rows.length > 0) {
-          console.log('⚠️  Found old schema with pdf_template_file_path, recreating table...');
-          await db.query('DROP TABLE IF EXISTS machine_job_card_templates CASCADE');
-          console.log('✅ Dropped old table');
-        }
-      } catch (e) {
-        // Table doesn't exist yet, that's fine
+      // Check if table exists and verify it has correct schema
+      const tableCheck = await db.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'machine_job_card_templates'
+      `);
+      
+      const existingColumns = tableCheck.rows.map(r => r.column_name);
+      console.log('📋 Existing columns:', existingColumns.join(', ') || 'TABLE DOES NOT EXIST');
+      
+      // If table exists but is missing required columns, drop and recreate
+      const requiredColumns = ['id', 'name', 'template_content', 'is_active', 'is_pdf_based', 'created_at', 'updated_at'];
+      const hasBadSchema = existingColumns.length > 0 && (
+        !requiredColumns.every(col => existingColumns.includes(col)) ||
+        existingColumns.includes('pdf_template_file_path') ||
+        existingColumns.includes('template_file_path')
+      );
+      
+      if (hasBadSchema) {
+        console.log('⚠️ Table has incorrect schema, dropping and recreating...');
+        await db.query('DROP TABLE IF EXISTS machine_job_card_templates CASCADE');
       }
       
-      // Create fresh table
+      // Create table with correct schema
       await db.query(`
         CREATE TABLE IF NOT EXISTS machine_job_card_templates (
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
           name VARCHAR(100) NOT NULL DEFAULT 'Default',
           template_content TEXT NOT NULL,
-          pdf_template_base64 BYTEA,
+          pdf_template_base64 TEXT,
           variables TEXT NOT NULL DEFAULT '[]',
           is_active BOOLEAN DEFAULT true,
           is_pdf_based BOOLEAN DEFAULT false,
@@ -575,7 +580,7 @@ const initDB = async () => {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ machine_job_card_templates table created');
+      console.log('✅ machine_job_card_templates table ready');
 
       // Check if default template exists
       const templateCheck = await db.query(

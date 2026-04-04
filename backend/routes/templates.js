@@ -20,24 +20,31 @@ const upload = multer({
 // Get all templates (admin only)
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
-    console.log('[Templates GET] Fetching all templates for user:', req.user?.id);
+    console.log('[Templates GET] User:', req.user?.id, 'Role:', req.user?.role);
     
-    // Simple query - just get the basic columns
+    // First verify the table exists
+    const tableCheck = await db.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'machine_job_card_templates'
+      )
+    `);
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log('[Templates GET] Table does not exist yet');
+      return res.json([]);
+    }
+    
     const result = await db.query(
-      `SELECT 
-        id, name, template_content, is_active, is_pdf_based, 
-        created_by, created_at, updated_at
+      `SELECT id, name, template_content, is_active, is_pdf_based, created_by, created_at
        FROM machine_job_card_templates
        ORDER BY created_at DESC`
     );
     
-    console.log('[Templates GET] Success! Found', result.rows.length, 'templates');
+    console.log('[Templates GET] Found', result.rows.length, 'templates');
     res.json(result.rows);
   } catch (error) {
     console.error('[Templates GET] ERROR:', error.message);
-    console.error('[Templates GET] Stack:', error.stack);
-    
-    // Return meaningful error
     res.status(500).json({ 
       error: 'Failed to fetch templates',
       details: error.message 
@@ -49,14 +56,14 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
 router.get('/active', authenticate, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT * FROM machine_job_card_templates WHERE is_active = true LIMIT 1'
+      'SELECT id, name, template_content, is_active, is_pdf_based, pdf_template_base64, variables FROM machine_job_card_templates WHERE is_active = true LIMIT 1'
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'No active template found' });
     }
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error fetching active template:', error);
+    console.error('Error fetching active template:', error.message);
     res.status(500).json({ error: 'Failed to fetch template' });
   }
 });
@@ -215,7 +222,7 @@ router.post('/:id/upload-pdf', authenticate, requireAdmin, upload.single('pdf_te
 router.get('/:id/download-pdf', authenticate, requireAdmin, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, name, pdf_template_base64 FROM machine_job_card_templates WHERE id = $1',
+      'SELECT id, name, pdf_template_base64, is_pdf_based FROM machine_job_card_templates WHERE id = $1',
       [req.params.id]
     );
 
@@ -225,11 +232,11 @@ router.get('/:id/download-pdf', authenticate, requireAdmin, async (req, res) => 
 
     const template = result.rows[0];
 
-    if (!template.pdf_template_base64) {
+    if (!template.pdf_template_base64 || !template.is_pdf_based) {
       return res.status(404).json({ error: 'No PDF template uploaded for this template' });
     }
 
-    // Convert base64 back to buffer
+    // pdf_template_base64 is stored as TEXT (base64 string)
     const pdfBuffer = Buffer.from(template.pdf_template_base64, 'base64');
 
     res.setHeader('Content-Disposition', `attachment; filename="Template-${template.name}.pdf"`);
