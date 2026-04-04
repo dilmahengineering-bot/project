@@ -546,8 +546,11 @@ const initDB = async () => {
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
           name VARCHAR(100) NOT NULL DEFAULT 'Default',
           template_content TEXT NOT NULL,
+          template_file_path VARCHAR(255),
+          pdf_template_file_path VARCHAR(255),
           variables TEXT NOT NULL DEFAULT '[]',
           is_active BOOLEAN DEFAULT true,
+          is_pdf_based BOOLEAN DEFAULT false,
           created_by UUID REFERENCES users(id) ON DELETE SET NULL,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()

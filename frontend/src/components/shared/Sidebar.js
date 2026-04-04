@@ -53,6 +53,7 @@ export default function Sidebar({ pendingExtensions = 0, isOpen, onClose }) {
               <NavItem to="/admin/csv-import" icon="📊" label="CSV Import" />
               <NavItem to="/admin/extensions" icon="🕐" label="Extensions" badge={pendingExtensions} />
               <NavItem to="/admin/machines" icon="🖥️" label="Machine Master" />
+              <NavItem to="/admin/template-management" icon="🏷️" label="Job Card Templates" />
               <NavItem to="/admin/users" icon="👥" label="Users" />
               <NavItem to="/admin/phone-management" icon="📱" label="Phone Numbers" />
               <NavItem to="/admin/reports" icon="📄" label="Reports" />

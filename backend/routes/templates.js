@@ -2,6 +2,35 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+
+// File upload config for PDF templates
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, '..', 'uploads', 'templates');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = crypto.randomUUID() + path.extname(file.originalname);
+    cb(null, uniqueName);
+  }
+});
+
+const pdfUpload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files allowed'));
+    }
+  }
+});
 
 // Get all templates (admin only)
 router.get('/', authenticate, requireAdmin, async (req, res) => {
@@ -123,7 +152,7 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
     }
 
     const result = await db.query(
-      'DELETE FROM machine_job_card_templates WHERE id = $1 RETURNING *',
+      'SELECT * FROM machine_job_card_templates WHERE id = $1',
       [req.params.id]
     );
 
@@ -131,10 +160,107 @@ router.delete('/:id', authenticate, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Template not found' });
     }
 
+    // Delete associated PDF file if exists
+    if (result.rows[0].pdf_template_file_path) {
+      const filePath = path.join(__dirname, '..', 'uploads', 'templates', result.rows[0].pdf_template_file_path);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    await db.query(
+      'DELETE FROM machine_job_card_templates WHERE id = $1',
+      [req.params.id]
+    );
+
     res.json({ message: 'Template deleted successfully' });
   } catch (error) {
     console.error('Error deleting template:', error);
     res.status(500).json({ error: 'Failed to delete template' });
+  }
+});
+
+// Upload PDF template (admin only)
+router.post('/:id/upload-pdf', authenticate, requireAdmin, pdfUpload.single('pdf_template'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify template exists
+    const templateResult = await db.query(
+      'SELECT * FROM machine_job_card_templates WHERE id = $1',
+      [id]
+    );
+
+    if (templateResult.rows.length === 0) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No PDF file uploaded' });
+    }
+
+    const template = templateResult.rows[0];
+
+    // Delete old PDF if exists
+    if (template.pdf_template_file_path) {
+      const oldPath = path.join(__dirname, '..', 'uploads', 'templates', template.pdf_template_file_path);
+      if (fs.existsSync(oldPath)) {
+        fs.unlinkSync(oldPath);
+      }
+    }
+
+    // Update template with new PDF
+    const result = await db.query(
+      `UPDATE machine_job_card_templates 
+       SET pdf_template_file_path = $1, 
+           is_pdf_based = true,
+           updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [req.file.filename, id]
+    );
+
+    res.json({
+      message: 'PDF template uploaded successfully',
+      template: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error uploading PDF template:', error);
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: 'Failed to upload PDF template' });
+  }
+});
+
+// Download PDF template (admin only)
+router.get('/:id/download-pdf', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM machine_job_card_templates WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    const template = result.rows[0];
+
+    if (!template.pdf_template_file_path) {
+      return res.status(404).json({ error: 'No PDF template uploaded for this template' });
+    }
+
+    const filePath = path.join(__dirname, '..', 'uploads', 'templates', template.pdf_template_file_path);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'PDF file not found' });
+    }
+
+    res.setHeader('Content-Disposition', `attachment; filename="Template-${template.name}.pdf"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    fs.createReadStream(filePath).pipe(res);
+  } catch (error) {
+    console.error('Error downloading template:', error);
+    res.status(500).json({ error: 'Failed to download template' });
   }
 });
 

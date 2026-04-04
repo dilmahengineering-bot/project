@@ -1,0 +1,380 @@
+.template-management-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.page-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 32px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.page-header h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.page-header p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 14px;
+}
+
+.template-management-container {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 24px;
+}
+
+/* Template List Section */
+.template-list-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.template-list-section h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  color: #1f2937;
+}
+
+.no-templates {
+  text-align: center;
+  color: #9ca3af;
+  padding: 32px 16px;
+  font-style: italic;
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.template-item:hover {
+  border-color: #3b82f6;
+  background: #f0f9ff;
+}
+
+.template-item.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.template-item.is-active {
+  border-left: 4px solid #10b981;
+}
+
+.template-info {
+  flex: 1;
+}
+
+.template-info h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.badge-active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-pdf {
+  background: #dbeafe;
+  color: #0c4a6e;
+}
+
+.template-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+/* Template Editor Section */
+.template-editor-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.template-editor-section h2 {
+  margin: 0 0 24px;
+  font-size: 18px;
+  color: #1f2937;
+}
+
+.template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.help-text {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.variables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+}
+
+.variables-grid span {
+  padding: 6px 10px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: #059669;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* PDF Upload Section */
+.pdf-upload-section {
+  padding: 16px;
+  background: #f0f9ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.pdf-upload-section h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #0369a1;
+}
+
+.pdf-upload-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pdf-upload-box button {
+  padding: 10px 16px;
+  background: #0369a1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pdf-upload-box button:hover:not(:disabled) {
+  background: #0284c7;
+}
+
+.pdf-upload-box button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.selected-file {
+  font-size: 12px;
+  color: #059669;
+  padding: 8px;
+  background: #d1fae5;
+  border-radius: 4px;
+  margin: 0;
+}
+
+.pdf-template-info {
+  padding: 12px;
+  background: #d1fae5;
+  border-left: 3px solid #059669;
+  border-radius: 4px;
+}
+
+.pdf-template-info p {
+  margin: 0 0 8px;
+  color: #065f46;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.btn-outline {
+  background: white;
+  color: #0369a1;
+  border: 1px solid #0369a1;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.btn.btn-primary {
+  background: #3b82f6;
+  color: white;
+  flex: 1;
+}
+
+.btn.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn.btn-secondary {
+  background: #e5e7eb;
+  color: #374151;
+  flex: 1;
+}
+
+.btn.btn-secondary:hover:not(:disabled) {
+  background: #d1d5db;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .template-management-container {
+    grid-template-columns: 1fr;
+  }
+
+  .template-list-section {
+    order: 2;
+  }
+
+  .template-editor-section {
+    order: 1;
+  }
+
+  .variables-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .template-management-page {
+    gap: 16px;
+  }
+
+  .page-header {
+    padding: 20px;
+  }
+
+  .page-header h1 {
+    font-size: 20px;
+  }
+
+  .template-list-section,
+  .template-editor-section {
+    padding: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}

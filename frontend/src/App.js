@@ -8,6 +8,7 @@ import TasksPage from './pages/TasksPage';
 import KanbanPage from './pages/KanbanPage';
 import CNCKanbanPage from './pages/CNCKanbanPage';
 import ProcurementSummaryPage from './pages/ProcurementSummaryPage';
+import AdminTemplateManagementPage from './pages/AdminTemplateManagementPage';
 import CompletedRecordsPage from './pages/CompletedRecordsPage';
 import CSVJobImportPage from './pages/CSVJobImportPage';
 import UsersPage from './pages/UsersPage';
@@ -66,6 +67,7 @@ function AppRoutes() {
       <Route path="/admin/settings" element={<PrivateRoute adminOnly><AdminSettingsPage /></PrivateRoute>} />
       <Route path="/admin/phone-management" element={<PrivateRoute adminOnly><AdminPhoneManagementPage /></PrivateRoute>} />
       <Route path="/admin/system-summary" element={<PrivateRoute adminOnly><AdminSystemSummaryPage /></PrivateRoute>} />
+      <Route path="/admin/template-management" element={<PrivateRoute adminOnly><AdminTemplateManagementPage /></PrivateRoute>} />
       <Route path="*" element={<Navigate to={user?.role === 'guest' ? '/cnc-kanban' : '/dashboard'} replace />} />
     </Routes>
   );
