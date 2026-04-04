@@ -10,6 +10,7 @@ const PDFDocument = require('pdfkit');
 const { PDFDocument: PDFLibDocument, StandardFonts, rgb } = require('pdf-lib');
 const Docxtemplater = require('docxtemplater');
 const PizZip = require('pizzip');
+const ImageModule = require('docxtemplater-image-module-free');
 const crypto = require('crypto');
 
 // Manufacturing Orders - POST (placed at top to ensure route matching)
@@ -1925,6 +1926,24 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
       '{{stage_name}}': job.stage_name || '',
     };
 
+    // Fetch reference image if exists
+    let referenceImageBuffer = null;
+    try {
+      const imgResult = await db.query(
+        'SELECT stored_filename, file_type FROM cnc_job_reference_images WHERE job_card_id = $1',
+        [id]
+      );
+      if (imgResult.rows.length > 0) {
+        const imgPath = path.join(__dirname, '..', 'uploads', imgResult.rows[0].stored_filename);
+        if (fs.existsSync(imgPath)) {
+          referenceImageBuffer = fs.readFileSync(imgPath);
+          console.log('[JobCard] Reference image found, size:', referenceImageBuffer.length);
+        }
+      }
+    } catch (imgErr) {
+      console.log('[JobCard] No reference image or error:', imgErr.message);
+    }
+
     // If template has an uploaded .docx, fill variables and return filled .docx
     if (template.is_pdf_based && template.pdf_template_base64) {
       console.log('[JobCard] Generating from Word (.docx) template:', template.name);
@@ -1932,11 +1951,6 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
       try {
         const docxBuffer = Buffer.from(template.pdf_template_base64, 'base64');
         const zip = new PizZip(docxBuffer);
-        const doc = new Docxtemplater(zip, {
-          paragraphLoop: true,
-          linebreaks: true,
-          delimiters: { start: '{{', end: '}}' },
-        });
 
         // Build data object for docxtemplater (strip {{ }} from keys)
         const data = {};
@@ -1944,6 +1958,36 @@ router.get('/:id/machine-job-card', authenticate, async (req, res) => {
           const cleanKey = key.replace(/^\{\{/, '').replace(/\}\}$/, '');
           data[cleanKey] = value;
         }
+
+        // Add reference image to data if available
+        if (referenceImageBuffer) {
+          data.reference_image = referenceImageBuffer.toString('base64');
+        } else {
+          data.reference_image = '';
+        }
+
+        // Configure image module
+        const imageOpts = {
+          centered: false,
+          getImage: (tagValue) => {
+            if (!tagValue) return Buffer.alloc(1); // 1x1 transparent pixel fallback
+            return Buffer.from(tagValue, 'base64');
+          },
+          getSize: (imgBuffer) => {
+            // Default image size: 300x200 pixels (can be overridden in Word template)
+            if (!imgBuffer || imgBuffer.length <= 1) return [0, 0];
+            return [300, 200];
+          },
+        };
+
+        const imageModule = new ImageModule(imageOpts);
+
+        const doc = new Docxtemplater(zip, {
+          paragraphLoop: true,
+          linebreaks: true,
+          delimiters: { start: '{{', end: '}}' },
+          modules: [imageModule],
+        });
 
         doc.render(data);
 

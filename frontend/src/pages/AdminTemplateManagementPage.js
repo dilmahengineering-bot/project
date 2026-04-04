@@ -286,6 +286,13 @@ export default function AdminTemplateManagementPage() {
                 <span>{'{{stage_name}}'}</span>
                 <span>{'{{generated_date}}'}</span>
               </div>
+
+              <div className="image-variable-info">
+                <h4>Reference Image</h4>
+                <p>To include the job's reference image in your Word template, add this tag where you want the image:</p>
+                <code>{'{{%reference_image}}'}</code>
+                <p className="help-text">The % prefix tells the system this is an image, not text. Image appears at 300x200px. If no image is uploaded for a job, the tag will be removed.</p>
+              </div>
               
               <div className="docx-upload-box">
                 <input

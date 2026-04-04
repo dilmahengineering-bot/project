@@ -291,6 +291,39 @@
   font-weight: 600;
 }
 
+/* Image Variable Info */
+.image-variable-info {
+  margin-top: 16px;
+  padding: 14px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+}
+
+.image-variable-info h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.image-variable-info p {
+  margin: 4px 0;
+  font-size: 12px;
+  color: #78350f;
+}
+
+.image-variable-info code {
+  display: inline-block;
+  margin: 6px 0;
+  padding: 4px 10px;
+  background: white;
+  border: 1px solid #fbbf24;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  color: #b45309;
+}
+
 /* PDF Upload Section (legacy) */
 .pdf-upload-section {
   padding: 16px;
